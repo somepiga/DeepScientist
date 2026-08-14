@@ -173,9 +173,17 @@ def test_system_prompt_strengthens_bash_exec_only_terminal_contract() -> None:
     assert "All terminal or shell-like command execution must use `bash_exec`." in text
     assert "including `curl`, `python`, `python3`, `bash`, `sh`, `node`, `npm`, `uv`, `git`, `ls`, `cat`, `sed`" in text
     assert "Do not use any direct terminal, subprocess, or implicit shell path outside `bash_exec`." in text
+    assert "default to the smallest relevant check" in text
+    assert "During the code-patch stage, keep verification at that smallest relevant scope by default" in text
+    assert "Do not jump to bare `pytest`, repo-wide suites, or other full validation by default" in text
+    assert "Escalate from focused checks to broader suites only when the focused check passes and there is a concrete reason" in text
+    assert "During experiment-entry confirmation, prefer the cheapest smoke that proves the entry path is viable" in text
+    assert "Do not turn entry confirmation into a hidden mini-benchmark." in text
+    assert "Only consider broader validation near durable-result handoff" in text
     assert "Common `bash_exec` usage patterns:" in text
     assert "Terminal-command mapping examples:" in text
     assert "bash_exec(command='python -m pytest tests/test_x.py', mode='await', timeout_seconds=120, comment=...)" in text
+    assert "bash_exec(command='python -m pytest tests/test_x.py::test_specific_case', mode='await', timeout_seconds=120, comment=...)" in text
     assert "bash_exec(mode='history')" in text
     assert "bash_exec(mode='kill', id=..., wait=true, timeout_seconds=...)" in text
 

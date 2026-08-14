@@ -14,6 +14,14 @@ from ..benchstore import BenchStoreService
 from ..bridges import register_builtin_connector_bridges
 from ..channels import get_channel_factory, register_builtin_channels
 from ..config import ConfigManager
+from ..contracts import (
+    inferred_evidence_type,
+    is_algorithmic_sota,
+    normalize_novelty_audit,
+    validate_algorithmic_proposal,
+    validate_evidence_payload,
+    validate_novelty_audit,
+)
 from ..connector_runtime import conversation_identity_key, infer_connector_transport, normalize_conversation_id
 from ..gitops import (
     branch_exists,
@@ -53,7 +61,7 @@ from ..quest import QuestService
 from ..memory.frontmatter import dump_markdown_document, load_markdown_document
 from .arxiv import fetch_arxiv_metadata, read_arxiv_content
 from .charts import render_main_experiment_metric_timeline_chart
-from .guidance import build_guidance_for_record, guidance_summary
+from .guidance import build_guidance_for_record, guidance_summary, is_execution_confounder_record
 from .metrics import (
     baseline_metric_lines,
     build_metrics_timeline,
@@ -1129,6 +1137,7 @@ class ArtifactService:
         foundation_ref: dict[str, Any] | None = None,
         foundation_reason: str = "",
         lineage_intent: str | None = None,
+        novelty_audit: dict[str, Any] | None = None,
         created_at: str | None = None,
     ) -> str:
         normalized_foundation = dict(foundation_ref or {})
@@ -1138,6 +1147,7 @@ class ArtifactService:
         normalized_mechanism_family = str(mechanism_family or "").strip() or None
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
+        normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
         tags = [f"branch:{branch}", f"next:{next_target}"]
         if normalized_lineage_intent:
             tags.append(f"lineage:{normalized_lineage_intent}")
@@ -1154,10 +1164,14 @@ class ArtifactService:
             "worktree_root": str(worktree_root),
             "next_target": next_target,
             "method_brief": normalized_method_brief or None,
+            "hypothesis": hypothesis.strip() or None,
             "selection_scores": normalized_selection_scores or None,
             "mechanism_family": normalized_mechanism_family,
             "change_layer": normalized_change_layer,
             "source_lens": normalized_source_lens,
+            "novelty_audit": normalized_novelty_audit,
+            "evidence_paths": evidence_paths,
+            "risks": risks,
             "foundation_ref": normalized_foundation or None,
             "foundation_reason": foundation_reason.strip() or None,
             "lineage_intent": normalized_lineage_intent,
@@ -1201,6 +1215,10 @@ class ArtifactService:
             "## Decision Reason",
             "",
             decision_reason.strip() or "TBD",
+            "",
+            "## Novelty Audit",
+            "",
+            *self._novelty_audit_lines(normalized_novelty_audit),
             "",
             "## Foundation",
             "",
@@ -1269,6 +1287,7 @@ class ArtifactService:
         foundation_ref: dict[str, Any] | None = None,
         foundation_reason: str = "",
         lineage_intent: str | None = None,
+        novelty_audit: dict[str, Any] | None = None,
         created_at: str | None = None,
         draft_markdown: str = "",
     ) -> str:
@@ -1279,6 +1298,7 @@ class ArtifactService:
         normalized_mechanism_family = str(mechanism_family or "").strip() or None
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
+        normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
         metadata = {
             "id": f"{idea_id}-draft",
             "type": "ideas",
@@ -1291,10 +1311,14 @@ class ArtifactService:
             "worktree_root": str(worktree_root),
             "next_target": next_target,
             "method_brief": normalized_method_brief or None,
+            "hypothesis": hypothesis.strip() or None,
             "selection_scores": normalized_selection_scores or None,
             "mechanism_family": normalized_mechanism_family,
             "change_layer": normalized_change_layer,
             "source_lens": normalized_source_lens,
+            "novelty_audit": normalized_novelty_audit,
+            "evidence_paths": evidence_paths,
+            "risks": risks,
             "foundation_ref": normalized_foundation or None,
             "foundation_reason": foundation_reason.strip() or None,
             "lineage_intent": normalized_lineage_intent,
@@ -1415,6 +1439,7 @@ class ArtifactService:
         foundation_ref: dict[str, Any] | None = None,
         foundation_reason: str = "",
         lineage_intent: str | None = None,
+        novelty_audit: dict[str, Any] | None = None,
     ) -> str:
         normalized_foundation = dict(foundation_ref or {})
         normalized_lineage_intent = str(lineage_intent or "").strip().lower() or None
@@ -1423,6 +1448,7 @@ class ArtifactService:
         normalized_mechanism_family = str(mechanism_family or "").strip() or None
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
+        normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
         metadata = {
             "id": idea_id,
             "type": "ideas",
@@ -1434,10 +1460,14 @@ class ArtifactService:
             "candidate_root": str(candidate_root),
             "next_target": next_target,
             "method_brief": normalized_method_brief or None,
+            "hypothesis": hypothesis.strip() or None,
             "selection_scores": normalized_selection_scores or None,
             "mechanism_family": normalized_mechanism_family,
             "change_layer": normalized_change_layer,
             "source_lens": normalized_source_lens,
+            "novelty_audit": normalized_novelty_audit,
+            "evidence_paths": evidence_paths,
+            "risks": risks,
             "foundation_ref": normalized_foundation or None,
             "foundation_reason": foundation_reason.strip() or None,
             "lineage_intent": normalized_lineage_intent,
@@ -1485,6 +1515,10 @@ class ArtifactService:
             f"- Mechanism family: {normalized_mechanism_family or 'Not recorded'}",
             f"- Change layer: {normalized_change_layer or 'Not recorded'}",
             f"- Source lens: {normalized_source_lens or 'Not recorded'}",
+            "",
+            "## Novelty Audit",
+            "",
+            *self._novelty_audit_lines(normalized_novelty_audit),
             "",
             "## Risks",
             "",
@@ -1545,6 +1579,7 @@ class ArtifactService:
         foundation_ref: dict[str, Any] | None = None,
         foundation_reason: str = "",
         lineage_intent: str | None = None,
+        novelty_audit: dict[str, Any] | None = None,
         draft_markdown: str = "",
     ) -> str:
         normalized_foundation = dict(foundation_ref or {})
@@ -1554,6 +1589,7 @@ class ArtifactService:
         normalized_mechanism_family = str(mechanism_family or "").strip() or None
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
+        normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
         metadata = {
             "id": f"{idea_id}-candidate-draft",
             "type": "ideas",
@@ -1566,10 +1602,14 @@ class ArtifactService:
             "candidate_root": str(candidate_root),
             "next_target": next_target,
             "method_brief": normalized_method_brief or None,
+            "hypothesis": hypothesis.strip() or None,
             "selection_scores": normalized_selection_scores or None,
             "mechanism_family": normalized_mechanism_family,
             "change_layer": normalized_change_layer,
             "source_lens": normalized_source_lens,
+            "novelty_audit": normalized_novelty_audit,
+            "evidence_paths": evidence_paths,
+            "risks": risks,
             "foundation_ref": normalized_foundation or None,
             "foundation_reason": foundation_reason.strip() or None,
             "lineage_intent": normalized_lineage_intent,
@@ -1693,6 +1733,155 @@ class ArtifactService:
                 rendered = str(value)
             lines.append(f"- {key}: {rendered}")
         return lines
+
+    @staticmethod
+    def _novelty_audit_lines(novelty_audit: dict[str, Any] | None) -> list[str]:
+        audit = normalize_novelty_audit(novelty_audit)
+        if audit is None:
+            return ["- Not recorded"]
+        signature = audit["claim_signature"]
+        coverage = audit["search_coverage"]
+        lines = [
+            f"- Collision verdict: `{audit['collision_verdict'] or 'not recorded'}`",
+            f"- Target: {signature['target'] or 'Not recorded'}",
+            f"- Mechanism: {signature['mechanism'] or 'Not recorded'}",
+            f"- Intervention: {signature['intervention'] or 'Not recorded'}",
+            f"- Claim boundary: {signature['claim_boundary'] or 'Not recorded'}",
+            f"- Direct search coverage: {', '.join(coverage['direct']) or 'Not recorded'}",
+            f"- Adjacent search coverage: {', '.join(coverage['adjacent']) or 'Not recorded'}",
+            f"- Temporal search coverage: {', '.join(coverage['temporal']) or 'Not recorded'}",
+            f"- Rationale: {audit['collision_rationale'] or 'Not recorded'}",
+            f"- Outside-family alternative: {audit['outside_family_alternative'] or 'Not recorded'}",
+            f"- Falsification plan: {audit['falsification_plan'] or 'Not recorded'}",
+        ]
+        for comparison in audit["prior_work_comparisons"]:
+            strongest = " (strongest overlap)" if comparison["is_strongest_overlap"] else ""
+            lines.append(
+                "- Prior work"
+                f"{strongest}: {comparison['reference'] or 'Not recorded'}; "
+                f"mechanism overlap: {comparison['mechanism_overlap'] or 'Not recorded'}; "
+                f"claim overlap: {comparison['claim_overlap'] or 'Not recorded'}; "
+                f"delta: {comparison['delta'] or 'Not recorded'}"
+            )
+        for path in audit["evidence_paths"]:
+            lines.append(f"- Audit evidence: `{path}`")
+        return lines
+
+    @staticmethod
+    def _normalize_readiness_list(value: object) -> list[str]:
+        if isinstance(value, list):
+            items = value
+        elif value is None:
+            items = []
+        else:
+            items = [value]
+        normalized: list[str] = []
+        placeholders = {
+            "none",
+            "none recorded",
+            "none recorded yet",
+            "not recorded",
+            "n/a",
+            "na",
+            "null",
+            "unknown",
+            "tbd",
+        }
+        for raw in items:
+            text = str(raw or "").strip()
+            if not text:
+                continue
+            lowered = text.rstrip(".:").strip().lower()
+            if lowered in placeholders:
+                continue
+            normalized.append(text)
+        return normalized
+
+    def _idea_experiment_readiness_issues(
+        self,
+        quest_root: Path,
+        *,
+        idea_md_path: Path | None,
+        idea_draft_path: Path | None = None,
+        workspace_root: Path | None = None,
+    ) -> list[str]:
+        metadata: dict[str, Any] = {}
+        draft_metadata: dict[str, Any] = {}
+        if idea_md_path and idea_md_path.exists():
+            metadata, _body = load_markdown_document(idea_md_path)
+        if idea_draft_path and idea_draft_path.exists():
+            draft_metadata, _draft_body = load_markdown_document(idea_draft_path)
+
+        issues: list[str] = []
+        evidence_paths = self._normalize_readiness_list(metadata.get("evidence_paths"))
+        if not evidence_paths:
+            issues.append("idea is missing non-empty `evidence_paths`")
+
+        risks = self._normalize_readiness_list(metadata.get("risks"))
+        if not risks:
+            issues.append("idea is missing recorded `risks`")
+
+        selection_scores = self._normalize_selection_scores(metadata.get("selection_scores"))
+        if not selection_scores:
+            issues.append("idea is missing non-empty `selection_scores`")
+
+        mechanism_family = str(metadata.get("mechanism_family") or "").strip()
+        change_layer = str(metadata.get("change_layer") or "").strip()
+        source_lens = str(metadata.get("source_lens") or "").strip()
+        if not mechanism_family or not change_layer or not source_lens:
+            issues.append(
+                "idea is missing mechanism justification metadata (`mechanism_family`, `change_layer`, `source_lens`)"
+            )
+
+        method_brief = str(metadata.get("method_brief") or "").strip()
+        hypothesis = str(metadata.get("hypothesis") or "").strip()
+        if not method_brief and not hypothesis:
+            issues.append("idea is missing a concrete `method_brief` or `hypothesis`")
+
+        if is_algorithmic_sota(self._startup_contract(quest_root)):
+            for error in validate_novelty_audit(metadata.get("novelty_audit"), require_clear=True):
+                issues.append(f"idea novelty audit: {error}")
+
+        draft_steps = self._normalize_readiness_list(
+            draft_metadata.get("planned_steps") or draft_metadata.get("fast_fail_steps")
+        )
+        if not draft_steps and is_algorithmic_sota(self._startup_contract(quest_root)):
+            audit = normalize_novelty_audit(metadata.get("novelty_audit"))
+            if audit and audit["falsification_plan"]:
+                draft_steps = [audit["falsification_plan"]]
+        if not draft_steps:
+            issues.append("draft is missing explicit planned steps / fast-fail steps")
+
+        resolved_workspace_root = workspace_root or self._workspace_root_for(quest_root)
+        attachment = self._active_baseline_attachment(quest_root, workspace_root=resolved_workspace_root)
+        baseline_kind = str((attachment or {}).get("baseline_kind") or (attachment or {}).get("kind") or "").strip().lower()
+        metric_contract_rel_path = str(((attachment or {}).get("confirmation") or {}).get("metric_contract_json_rel_path") or "").strip().lower()
+        if baseline_kind == "imported" or baseline_kind == "imported_baseline" or "/baselines/imported/" in metric_contract_rel_path:
+            issues.append("active baseline is still imported-only; attach a local dense rerun baseline before experiment escalation")
+
+        return issues
+
+    def _enforce_experiment_readiness(
+        self,
+        quest_root: Path,
+        *,
+        idea_md_path: Path | None,
+        idea_draft_path: Path | None = None,
+        workspace_root: Path | None = None,
+        action: str,
+    ) -> None:
+        issues = self._idea_experiment_readiness_issues(
+            quest_root,
+            idea_md_path=idea_md_path,
+            idea_draft_path=idea_draft_path,
+            workspace_root=workspace_root,
+        )
+        if not issues:
+            return
+        bullet_list = "\n".join(f"- {item}" for item in issues)
+        raise ValueError(
+            f"{action} blocked by experiment readiness gates. Resolve the following before advancing to experiment:\n{bullet_list}"
+        )
 
     def _analysis_manifest_path(self, quest_root: Path, campaign_id: str) -> Path:
         return ensure_dir(quest_root / ".ds" / "analysis_campaigns") / f"{campaign_id}.json"
@@ -4627,6 +4816,31 @@ class ArtifactService:
         )
         return records
 
+    def _report_artifacts(self, quest_root: Path) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        for item in self.quest_service._collect_artifacts(quest_root):
+            payload = dict(item.get("payload") or {}) if isinstance(item.get("payload"), dict) else {}
+            if not payload:
+                continue
+            if str(payload.get("kind") or "").strip() != "report":
+                continue
+            enriched = dict(payload)
+            artifact_path = str(item.get("path") or "").strip()
+            enriched["_artifact_path"] = artifact_path
+            try:
+                enriched["_artifact_mtime_ns"] = Path(artifact_path).stat().st_mtime_ns if artifact_path else 0
+            except OSError:
+                enriched["_artifact_mtime_ns"] = 0
+            records.append(enriched)
+        records.sort(
+            key=lambda item: (
+                str(item.get("updated_at") or item.get("created_at") or ""),
+                int(item.get("_artifact_mtime_ns") or 0),
+                str(item.get("_artifact_path") or ""),
+            )
+        )
+        return records
+
     @staticmethod
     def _semantic_stage_fingerprint(snapshot: dict[str, Any]) -> str:
         paper_health = (
@@ -5367,6 +5581,93 @@ class ArtifactService:
             if str(item.get("parent_branch") or "").strip() == normalized_branch
         ]
         return candidates[-1] if candidates else None
+
+    def _execution_confounder_run_for_branch(self, quest_root: Path, branch_name: str) -> dict[str, Any] | None:
+        latest_run = self._latest_main_run_for_branch(quest_root, branch_name)
+        if not isinstance(latest_run, dict):
+            latest_run = self._latest_child_main_run_for_branch(quest_root, branch_name)
+        if not isinstance(latest_run, dict):
+            return None
+        return latest_run if is_execution_confounder_record(latest_run) else None
+
+    def _execution_confounder_report_for_branch(
+        self,
+        quest_root: Path,
+        *,
+        branch_name: str,
+        active_idea_id: str | None,
+    ) -> dict[str, Any] | None:
+        child_run = self._latest_child_main_run_for_branch(quest_root, branch_name)
+        child_run_id = str((child_run or {}).get("run_id") or "").strip()
+        child_run_branch = str((child_run or {}).get("branch") or "").strip()
+        normalized_idea_id = str(active_idea_id or "").strip()
+        candidates: list[dict[str, Any]] = []
+        for report in self._report_artifacts(quest_root):
+            if not is_execution_confounder_record(report):
+                continue
+            report_branch = str(report.get("branch") or "").strip()
+            report_parent_branch = str(report.get("parent_branch") or "").strip()
+            report_idea_id = str(report.get("idea_id") or "").strip()
+            report_run_id = str(report.get("run_id") or report.get("linked_run_id") or "").strip()
+            if report_branch == branch_name or report_parent_branch == branch_name:
+                candidates.append(report)
+                continue
+            if normalized_idea_id and report_idea_id == normalized_idea_id:
+                candidates.append(report)
+                continue
+            if child_run_id and report_run_id == child_run_id:
+                candidates.append(report)
+                continue
+            if child_run_branch and report_branch == child_run_branch:
+                candidates.append(report)
+                continue
+        return candidates[-1] if candidates else None
+
+    def _execution_confounder_shortcut_payload(
+        self,
+        quest_root: Path,
+        *,
+        branch_name: str,
+        active_idea_id: str | None,
+    ) -> dict[str, Any] | None:
+        latest_run = self._execution_confounder_run_for_branch(quest_root, branch_name)
+        if isinstance(latest_run, dict):
+            return {
+                "record": latest_run,
+                "record_kind": "run",
+                "idea_id": str(active_idea_id or latest_run.get("idea_id") or "").strip() or None,
+                "branch": str(branch_name or latest_run.get("parent_branch") or latest_run.get("branch") or "").strip() or None,
+                "run_id": str(latest_run.get("run_id") or "").strip() or None,
+                "summary": str(latest_run.get("summary") or latest_run.get("reason") or "").strip() or None,
+            }
+        latest_report = self._execution_confounder_report_for_branch(
+            quest_root,
+            branch_name=branch_name,
+            active_idea_id=active_idea_id,
+        )
+        if not isinstance(latest_report, dict):
+            return None
+        return {
+            "record": latest_report,
+            "record_kind": "report",
+            "idea_id": str(active_idea_id or latest_report.get("idea_id") or "").strip() or None,
+            "branch": str(branch_name or latest_report.get("parent_branch") or latest_report.get("branch") or "").strip() or None,
+            "run_id": str(latest_report.get("run_id") or latest_report.get("linked_run_id") or "").strip() or None,
+            "summary": str(latest_report.get("summary") or latest_report.get("reason") or "").strip() or None,
+        }
+
+    def _merge_execution_confounder_reason(self, reason: str, shortcut: dict[str, Any] | None) -> str:
+        if not isinstance(shortcut, dict):
+            return reason
+        run_id = str(shortcut.get("run_id") or "").strip()
+        summary = str(shortcut.get("summary") or "").strip()
+        prefix = "Execution confounder shortcut: revise the current line and run bounded repair-smoke before creating a new idea/worktree"
+        if run_id:
+            prefix = f"{prefix} (triggered by `{run_id}`)"
+        if summary:
+            prefix = f"{prefix}. Latest evidence: {summary}"
+        normalized_reason = str(reason or "").strip()
+        return f"{prefix}. {normalized_reason}" if normalized_reason else prefix
 
     def _latest_idea_for_branch(self, quest_root: Path, branch_name: str) -> dict[str, Any] | None:
         normalized_branch = str(branch_name or "").strip()
@@ -7362,7 +7663,9 @@ class ArtifactService:
         commit_message: str | None = None,
         push: bool | None = None,
     ) -> dict:
-        errors = validate_artifact_payload(payload)
+        payload = dict(payload)
+        payload["evidence_type"] = inferred_evidence_type(payload)
+        errors = [*validate_artifact_payload(payload), *validate_evidence_payload(payload)]
         if errors:
             return {
                 "ok": False,
@@ -7474,6 +7777,7 @@ class ArtifactService:
                 "quest_id": record["quest_id"],
                 "artifact_id": artifact_id,
                 "kind": record["kind"],
+                "evidence_type": record.get("evidence_type"),
                 "recorded_at": record["updated_at"],
                 "status": record.get("status"),
                 "summary": record.get("summary") or record.get("message"),
@@ -8490,6 +8794,7 @@ class ArtifactService:
         source_lens: str = "",
         expected_gain: str = "",
         evidence_paths: list[str] | None = None,
+        novelty_audit: dict[str, Any] | None = None,
         risks: list[str] | None = None,
         decision_reason: str = "",
         foundation_ref: dict[str, Any] | str | None = None,
@@ -8513,13 +8818,28 @@ class ArtifactService:
         normalized_mechanism_family = str(mechanism_family or "").strip() or None
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
+        normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
         evidence_paths = [str(item).strip() for item in (evidence_paths or []) if str(item).strip()]
         risks = [str(item).strip() for item in (risks or []) if str(item).strip()]
         next_target = str(next_target or "experiment").strip().lower() or "experiment"
         normalized_lineage_intent = self._normalize_lineage_intent(lineage_intent)
+        if is_algorithmic_sota(self._startup_contract(quest_root)) and normalized_submission_mode == "line" and normalized_mode == "create":
+            proposal_errors = validate_algorithmic_proposal(
+                {
+                    "method_brief": normalized_method_brief,
+                    "mechanism": mechanism,
+                    "source_lens": normalized_source_lens,
+                    "expected_gain": expected_gain,
+                    "evidence_paths": evidence_paths,
+                    "novelty_audit": normalized_novelty_audit,
+                },
+                require_novelty_audit=True,
+            )
+            if proposal_errors:
+                raise ValueError(" ".join(proposal_errors))
         from ..prompts.builder import current_standard_skills
 
-        next_anchor = next_target if next_target in current_standard_skills(repo_root()) else "experiment"
+        next_anchor = next_target if next_target in current_standard_skills(repo_root(), research_mode=state.get("research_mode")) else "experiment"
 
         if normalized_mode == "create":
             resolved_idea_id = str(idea_id or generate_id("idea")).strip()
@@ -8550,6 +8870,48 @@ class ArtifactService:
                     )
             if not parent_branch:
                 raise ValueError("Unable to resolve a starting branch for the new idea.")
+            execution_confounder_shortcut = None
+            if normalized_submission_mode == "line":
+                execution_confounder_shortcut = self._execution_confounder_shortcut_payload(
+                    quest_root,
+                    branch_name=parent_branch,
+                    active_idea_id=str(state.get("active_idea_id") or "").strip() or None,
+                )
+                if isinstance(execution_confounder_shortcut, dict):
+                    merged_reason = self._merge_execution_confounder_reason(
+                        decision_reason,
+                        execution_confounder_shortcut,
+                    )
+                    shortcut_idea_id = str(execution_confounder_shortcut.get("idea_id") or "").strip()
+                    if shortcut_idea_id:
+                        return self.submit_idea(
+                            quest_root,
+                            mode="revise",
+                            submission_mode="line",
+                            idea_id=shortcut_idea_id,
+                            title=title,
+                            problem=problem,
+                            hypothesis=hypothesis,
+                            mechanism=mechanism,
+                            method_brief=normalized_method_brief,
+                            selection_scores=normalized_selection_scores,
+                            mechanism_family=normalized_mechanism_family or "",
+                            change_layer=normalized_change_layer or "",
+                            source_lens=normalized_source_lens or "",
+                            expected_gain=expected_gain,
+                            evidence_paths=evidence_paths,
+                            novelty_audit=normalized_novelty_audit,
+                            risks=risks,
+                            decision_reason=merged_reason,
+                            foundation_reason=foundation_reason,
+                            next_target="experiment",
+                            draft_markdown=draft_markdown,
+                            source_candidate_id=source_candidate_id,
+                        )
+                    normalized_submission_mode = "candidate"
+                    next_target = "experiment"
+                    next_anchor = "experiment"
+                    decision_reason = merged_reason
             if normalized_submission_mode == "candidate":
                 candidate_root = self._idea_candidate_root(quest_root, resolved_idea_id)
                 idea_md_path = candidate_root / "idea.md"
@@ -8575,6 +8937,7 @@ class ArtifactService:
                     foundation_ref=foundation,
                     foundation_reason=foundation_reason,
                     lineage_intent=normalized_lineage_intent,
+                    novelty_audit=normalized_novelty_audit,
                 )
                 draft = self._build_candidate_idea_draft_markdown(
                     idea_id=resolved_idea_id,
@@ -8597,6 +8960,7 @@ class ArtifactService:
                     foundation_ref=foundation,
                     foundation_reason=foundation_reason,
                     lineage_intent=normalized_lineage_intent,
+                    novelty_audit=normalized_novelty_audit,
                     draft_markdown=draft_markdown,
                 )
                 write_text(idea_md_path, markdown)
@@ -8631,6 +8995,7 @@ class ArtifactService:
                             "mechanism_family": normalized_mechanism_family,
                             "change_layer": normalized_change_layer,
                             "source_lens": normalized_source_lens,
+                            "novelty_audit": normalized_novelty_audit,
                             "expected_gain": expected_gain,
                             "next_target": next_target,
                             "lineage_intent": normalized_lineage_intent,
@@ -8749,6 +9114,7 @@ class ArtifactService:
                 foundation_ref=foundation,
                 foundation_reason=foundation_reason,
                 lineage_intent=normalized_lineage_intent,
+                novelty_audit=normalized_novelty_audit,
             )
             draft = self._build_idea_draft_markdown(
                 idea_id=resolved_idea_id,
@@ -8772,6 +9138,7 @@ class ArtifactService:
                 foundation_ref=foundation,
                 foundation_reason=foundation_reason,
                 lineage_intent=normalized_lineage_intent,
+                novelty_audit=normalized_novelty_audit,
                 draft_markdown=draft_markdown,
             )
             write_text(idea_md_path, markdown)
@@ -8809,6 +9176,7 @@ class ArtifactService:
                         "mechanism_family": normalized_mechanism_family,
                         "change_layer": normalized_change_layer,
                         "source_lens": normalized_source_lens,
+                        "novelty_audit": normalized_novelty_audit,
                         "expected_gain": expected_gain,
                         "next_target": next_target,
                         "branch_no": branch_no,
@@ -8849,7 +9217,15 @@ class ArtifactService:
                 workspace_branch_mode=branch_mode,
                 last_flow_type="idea_submission",
             )
-            self.quest_service.update_settings(quest_id, active_anchor=next_anchor)
+            if next_target == "experiment":
+                self._enforce_experiment_readiness(
+                    quest_root,
+                    idea_md_path=idea_md_path,
+                    idea_draft_path=idea_draft_path,
+                    workspace_root=worktree_root,
+                    action="submit_idea(next_target=experiment)",
+                )
+            self.quest_service.update_settings(quest_root, active_anchor=next_anchor)
             checkpoint_result = self._checkpoint_with_optional_push(
                 worktree_root,
                 message=f"idea: create {resolved_idea_id}",
@@ -8965,6 +9341,7 @@ class ArtifactService:
         existing_mechanism_family = None
         existing_change_layer = None
         existing_source_lens = None
+        existing_novelty_audit = None
         if idea_md_path.exists():
             metadata, _body = load_markdown_document(idea_md_path)
             created_at = metadata.get("created_at")
@@ -8979,6 +9356,7 @@ class ArtifactService:
             existing_mechanism_family = str(metadata.get("mechanism_family") or "").strip() or None
             existing_change_layer = str(metadata.get("change_layer") or "").strip() or None
             existing_source_lens = str(metadata.get("source_lens") or "").strip() or None
+            existing_novelty_audit = normalize_novelty_audit(metadata.get("novelty_audit"))
         if idea_draft_path.exists():
             draft_metadata, _draft_body = load_markdown_document(idea_draft_path)
             draft_created_at = draft_metadata.get("created_at")
@@ -8992,11 +9370,32 @@ class ArtifactService:
                 existing_change_layer = str(draft_metadata.get("change_layer") or "").strip() or None
             if existing_source_lens is None:
                 existing_source_lens = str(draft_metadata.get("source_lens") or "").strip() or None
+            if existing_novelty_audit is None:
+                existing_novelty_audit = normalize_novelty_audit(draft_metadata.get("novelty_audit"))
         revised_method_brief = normalized_method_brief or existing_method_brief or ""
         revised_selection_scores = normalized_selection_scores or existing_selection_scores
         revised_mechanism_family = normalized_mechanism_family or existing_mechanism_family
         revised_change_layer = normalized_change_layer or existing_change_layer
         revised_source_lens = normalized_source_lens or existing_source_lens
+        revised_novelty_audit = normalized_novelty_audit or existing_novelty_audit
+        if is_algorithmic_sota(self._startup_contract(quest_root)):
+            if normalized_novelty_audit is None:
+                raise ValueError(
+                    "Algorithmic SOTA line revisions require a complete `novelty_audit` so a changed method or claim cannot bypass the collision gate."
+                )
+            proposal_errors = validate_algorithmic_proposal(
+                {
+                    "method_brief": revised_method_brief,
+                    "mechanism": mechanism,
+                    "source_lens": revised_source_lens,
+                    "expected_gain": expected_gain,
+                    "evidence_paths": evidence_paths,
+                    "novelty_audit": revised_novelty_audit,
+                },
+                require_novelty_audit=True,
+            )
+            if proposal_errors:
+                raise ValueError(" ".join(proposal_errors))
         markdown = self._build_idea_markdown(
             idea_id=resolved_idea_id,
             quest_id=quest_id,
@@ -9019,6 +9418,7 @@ class ArtifactService:
             foundation_ref=existing_foundation_ref,
             foundation_reason=foundation_reason.strip() or existing_foundation_reason or "",
             lineage_intent=None,
+            novelty_audit=revised_novelty_audit,
             created_at=str(created_at) if created_at else None,
         )
         draft = self._build_idea_draft_markdown(
@@ -9043,6 +9443,7 @@ class ArtifactService:
             foundation_ref=existing_foundation_ref,
             foundation_reason=foundation_reason.strip() or existing_foundation_reason or "",
             lineage_intent=None,
+            novelty_audit=revised_novelty_audit,
             created_at=str(draft_created_at or created_at) if (draft_created_at or created_at) else None,
             draft_markdown=draft_markdown,
         )
@@ -9080,6 +9481,7 @@ class ArtifactService:
                     "mechanism_family": revised_mechanism_family,
                     "change_layer": revised_change_layer,
                     "source_lens": revised_source_lens,
+                    "novelty_audit": revised_novelty_audit,
                     "expected_gain": expected_gain,
                     "next_target": next_target,
                     "parent_branch": parent_branch,
@@ -9111,7 +9513,16 @@ class ArtifactService:
             quest_root,
             **research_state_updates,
         )
-        self.quest_service.update_settings(quest_id, active_anchor=next_anchor)
+        if next_target == "experiment":
+            self._enforce_experiment_readiness(
+                quest_root,
+                idea_md_path=idea_md_path,
+                idea_draft_path=idea_draft_path,
+                workspace_root=worktree_root,
+                action="submit_idea(next_target=experiment)",
+            )
+        next_anchor = next_target
+        self.quest_service.update_settings(quest_root, active_anchor=next_anchor)
         checkpoint_result = self._checkpoint_with_optional_push(
             worktree_root,
             message=f"idea: revise {resolved_idea_id}",
@@ -9317,6 +9728,18 @@ class ArtifactService:
 
         active_idea_id = str(state.get("active_idea_id") or "").strip() or None
         workspace_root = self._workspace_root_for(quest_root)
+        active_idea_md_path_raw = str(state.get("active_idea_md_path") or "").strip()
+        active_idea_draft_path_raw = str(state.get("active_idea_draft_path") or "").strip()
+        active_idea_md_path = Path(active_idea_md_path_raw) if active_idea_md_path_raw else None
+        active_idea_draft_path = Path(active_idea_draft_path_raw) if active_idea_draft_path_raw else None
+        if active_idea_id or active_idea_md_path or active_idea_draft_path:
+            self._enforce_experiment_readiness(
+                quest_root,
+                idea_md_path=active_idea_md_path,
+                idea_draft_path=active_idea_draft_path,
+                workspace_root=workspace_root,
+                action="record_main_experiment",
+            )
         current_branch_name = str(
             state.get("current_workspace_branch")
             or state.get("research_head_branch")
@@ -9601,6 +10024,7 @@ class ArtifactService:
             quest_root,
             {
                 "kind": "run",
+                "evidence_type": "experiment",
                 "status": status,
                 "run_id": run_identifier,
                 "run_kind": "main_experiment",
@@ -9808,7 +10232,8 @@ class ArtifactService:
             },
             workspace_root=paper_sync_workspace_root,
         )
-        self.quest_service.update_settings(self._quest_id(quest_root), active_anchor="decision")
+        next_anchor = str(artifact.get("next_anchor") or "").strip() or "decision"
+        self.quest_service.update_settings(self._quest_id(quest_root), active_anchor=next_anchor)
         current_state = self.quest_service.read_research_state(quest_root)
         workspace_mode, branch_mode = self._resolve_workspace_modes(
             current_state,
@@ -12846,6 +13271,7 @@ class ArtifactService:
         return {
             "artifact_id": record.get("artifact_id"),
             "kind": record.get("kind"),
+            "evidence_type": record.get("evidence_type"),
             "status": record.get("status"),
             "quest_id": record.get("quest_id"),
             "path": str(artifact_path),

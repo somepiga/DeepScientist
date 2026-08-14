@@ -868,19 +868,105 @@ npm --prefix src/ui run build</pre>
             "quest_id": self.app.quest_service.preview_next_numeric_quest_id(),
         }
 
-    def quest_create(self, body: dict) -> dict:
-        goal = body.get("goal", "").strip()
-        title = body.get("title", "").strip() or None
-        quest_id = body.get("quest_id", "").strip() or None
-        source = body.get("source", "").strip() or "web"
-        preferred_connector_conversation_id = (
-            str(body.get("preferred_connector_conversation_id") or "").strip() or None
+    @staticmethod
+    def _bad_request(message: str) -> tuple[int, dict]:
+        return 400, {"ok": False, "message": message}
+
+    @classmethod
+    def _optional_string_field(cls, body: dict, field: str) -> tuple[str | None, tuple[int, dict] | None]:
+        if field not in body or body.get(field) is None:
+            return None, None
+        value = body.get(field)
+        if not isinstance(value, str):
+            return None, cls._bad_request(f"`{field}` must be a string.")
+        return value.strip() or None, None
+
+    @classmethod
+    def _optional_object_field(cls, body: dict, field: str) -> tuple[dict | None, tuple[int, dict] | None]:
+        if field not in body or body.get(field) is None:
+            return None, None
+        value = body.get(field)
+        if not isinstance(value, dict):
+            return None, cls._bad_request(f"`{field}` must be an object.")
+        return dict(value), None
+
+    @classmethod
+    def _requested_connector_bindings_field(
+        cls,
+        body: dict,
+    ) -> tuple[list[dict[str, object]], tuple[int, dict] | None]:
+        if "requested_connector_bindings" not in body or body.get("requested_connector_bindings") is None:
+            return [], None
+        value = body.get("requested_connector_bindings")
+        if not isinstance(value, list):
+            return [], cls._bad_request("`requested_connector_bindings` must be an array.")
+        items: list[dict[str, object]] = []
+        for index, raw in enumerate(value):
+            if not isinstance(raw, dict):
+                return [], cls._bad_request(f"`requested_connector_bindings[{index}]` must be an object.")
+            connector_value = raw.get("connector")
+            if connector_value is not None and not isinstance(connector_value, str):
+                return [], cls._bad_request(f"`requested_connector_bindings[{index}].connector` must be a string.")
+            conversation_value = raw.get("conversation_id")
+            if conversation_value is not None and not isinstance(conversation_value, str):
+                return [], cls._bad_request(
+                    f"`requested_connector_bindings[{index}].conversation_id` must be a string."
+                )
+            items.append(dict(raw))
+        return items, None
+
+    @classmethod
+    def _requested_baseline_ref_field(
+        cls,
+        body: dict,
+    ) -> tuple[dict[str, object] | None, tuple[int, dict] | None]:
+        payload, error = cls._optional_object_field(body, "requested_baseline_ref")
+        if error is not None or payload is None:
+            return payload, error
+        baseline_id = payload.get("baseline_id")
+        if baseline_id is not None and not isinstance(baseline_id, str):
+            return None, cls._bad_request("`requested_baseline_ref.baseline_id` must be a string.")
+        variant_id = payload.get("variant_id")
+        if variant_id is not None and not isinstance(variant_id, str):
+            return None, cls._bad_request("`requested_baseline_ref.variant_id` must be a string.")
+        return payload, None
+
+    def quest_create(self, body: dict) -> dict | tuple[int, dict]:
+        if not isinstance(body, dict):
+            return self._bad_request("Quest create payload must be a JSON object.")
+
+        goal, error = self._optional_string_field(body, "goal")
+        if error is not None:
+            return error
+        title, error = self._optional_string_field(body, "title")
+        if error is not None:
+            return error
+        quest_id, error = self._optional_string_field(body, "quest_id")
+        if error is not None:
+            return error
+        source, error = self._optional_string_field(body, "source")
+        if error is not None:
+            return error
+        preferred_connector_conversation_id, error = self._optional_string_field(
+            body, "preferred_connector_conversation_id"
         )
-        requested_connector_bindings = (
-            [dict(item) for item in body.get("requested_connector_bindings") if isinstance(item, dict)]
-            if isinstance(body.get("requested_connector_bindings"), list)
-            else []
-        )
+        if error is not None:
+            return error
+        requested_connector_bindings, error = self._requested_connector_bindings_field(body)
+        if error is not None:
+            return error
+        requested_baseline_ref, error = self._requested_baseline_ref_field(body)
+        if error is not None:
+            return error
+        startup_contract, error = self._optional_object_field(body, "startup_contract")
+        if error is not None:
+            return error
+        initial_message, error = self._optional_string_field(body, "initial_message")
+        if error is not None:
+            return error
+
+        goal = goal or ""
+        source = source or "web"
         force_connector_rebind_raw = body.get("force_connector_rebind")
         if force_connector_rebind_raw is None:
             force_connector_rebind = True
@@ -903,12 +989,9 @@ npm --prefix src/ui run build</pre>
                 "no",
                 "off",
             }
-        requested_baseline_ref = body.get("requested_baseline_ref")
-        startup_contract = body.get("startup_contract")
         auto_start = body.get("auto_start") is True
-        initial_message = str(body.get("initial_message") or "").strip()
         if not goal:
-            return {"ok": False, "message": "Quest goal is required."}
+            return self._bad_request("Quest goal is required.")
         if requested_connector_bindings and not force_connector_rebind:
             conflicts = self.app.preview_connector_binding_conflicts(requested_connector_bindings)
             if conflicts:
@@ -928,8 +1011,8 @@ npm --prefix src/ui run build</pre>
                 requested_connector_bindings=requested_connector_bindings,
                 force_connector_rebind=force_connector_rebind,
                 auto_bind_latest_connectors=auto_bind_latest_connectors,
-                requested_baseline_ref=requested_baseline_ref if isinstance(requested_baseline_ref, dict) else None,
-                startup_contract=startup_contract if isinstance(startup_contract, dict) else None,
+                requested_baseline_ref=requested_baseline_ref,
+                startup_contract=startup_contract,
             )
         except FileExistsError as exc:
             return 409, {"ok": False, "message": str(exc)}

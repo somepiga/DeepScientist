@@ -24,6 +24,7 @@ _COMPAT_BEGIN_MARKER = "# BEGIN DEEPSCIENTIST PROFILE COMPAT"
 _COMPAT_END_MARKER = "# END DEEPSCIENTIST PROFILE COMPAT"
 _MISSING_ENV_PATTERN = re.compile(r"Missing environment variable:\s*[`'\"]?([^`'\"\s]+)", re.IGNORECASE)
 _LOCAL_PROVIDER_HOST_ALIASES = {"localhost", "host.docker.internal"}
+_OFFICIAL_OPENAI_HOSTS = {"api.openai.com"}
 
 
 def parse_codex_cli_version(text: str) -> tuple[int, int, int] | None:
@@ -198,6 +199,103 @@ def adapt_profile_only_provider_config(
     )
 
 
+def _find_section_bounds(lines: list[str], section_name: str) -> tuple[int | None, int | None]:
+    header = f"[{section_name}]"
+    start: int | None = None
+    end: int | None = None
+
+    for index, line in enumerate(lines):
+        if line.strip() == header:
+            start = index
+            break
+
+    if start is None:
+        return None, None
+
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        if _ROOT_TABLE_SECTION_PATTERN.match(lines[index]):
+            end = index
+            break
+    return start, end
+
+
+def _upsert_boolean_in_section(lines: list[str], section_name: str, key: str, value: bool) -> tuple[list[str], bool]:
+    start, end = _find_section_bounds(lines, section_name)
+    rendered = f"{key} = {str(value).lower()}"
+    if start is None or end is None:
+        if lines and lines[-1].strip():
+            lines = [*lines, ""]
+        return [*lines, f"[{section_name}]", rendered], True
+
+    key_pattern = re.compile(rf"^\s*{re.escape(key)}\s*=")
+    for index in range(start + 1, end):
+        if key_pattern.match(lines[index]):
+            if lines[index].strip() == rendered:
+                return lines, False
+            updated = list(lines)
+            updated[index] = rendered
+            return updated, True
+
+    updated = list(lines)
+    updated.insert(end, rendered)
+    return updated, True
+
+
+def provider_base_url_is_official_openai(base_url: str | None) -> bool:
+    normalized = str(base_url or "").strip()
+    if not normalized:
+        return False
+    parsed = urlparse(normalized)
+    hostname = str(parsed.hostname or "").strip().lower()
+    return hostname in _OFFICIAL_OPENAI_HOSTS
+
+
+def adapt_responses_websocket_config(
+    config_text: str,
+    *,
+    profile: str | None = None,
+) -> tuple[str, str | None]:
+    metadata = active_provider_metadata(config_text, profile=profile)
+    provider_name = str(metadata.get("provider") or "").strip()
+    wire_api = str(metadata.get("wire_api") or "").strip().lower()
+    base_url = str(metadata.get("base_url") or "").strip()
+    if not provider_name or wire_api != "responses" or not base_url:
+        return config_text, None
+    if provider_base_url_is_official_openai(base_url):
+        return config_text, None
+
+    updated_lines = str(config_text or "").splitlines()
+    changed = False
+
+    updated_lines, provider_changed = _upsert_boolean_in_section(
+        updated_lines,
+        f"model_providers.{provider_name}",
+        "supports_websockets",
+        False,
+    )
+    changed = changed or provider_changed
+
+    updated_lines, feature_changed = _upsert_boolean_in_section(
+        updated_lines,
+        "features",
+        "responses_websockets_v2",
+        False,
+    )
+    changed = changed or feature_changed
+
+    if not changed:
+        return config_text, None
+
+    return (
+        "\n".join(updated_lines).rstrip() + "\n",
+        (
+            "DeepScientist disabled Codex websocket streaming for the active responses provider "
+            f"`{provider_name}` because its base_url `{base_url}` is not the official OpenAI endpoint."
+        ),
+    )
+
+
 def _remove_tree_path(path: Path) -> None:
     if not path.exists() and not path.is_symlink():
         return
@@ -301,12 +399,19 @@ def materialize_codex_runtime_home(
             source_dirs.append(overlay_dir)
         _sync_overlay_directory(target_root / dirname, *source_dirs)
 
-    warning: str | None = None
+    warnings: list[str] = []
     config_path = target_root / "config.toml"
-    if profile and config_path.exists():
-        adapted_text, warning = adapt_profile_only_provider_config(read_text(config_path), profile=profile)
-        write_text(config_path, adapted_text)
-    return warning
+    if config_path.exists():
+        config_text = read_text(config_path)
+        if profile:
+            config_text, warning = adapt_profile_only_provider_config(config_text, profile=profile)
+            if warning:
+                warnings.append(warning)
+        config_text, websocket_warning = adapt_responses_websocket_config(config_text, profile=profile or None)
+        if websocket_warning:
+            warnings.append(websocket_warning)
+        write_text(config_path, config_text)
+    return " ".join(warnings) if warnings else None
 
 
 def _empty_provider_metadata() -> dict[str, str | bool | None]:

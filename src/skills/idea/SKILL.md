@@ -52,6 +52,7 @@ Turn the current objective, board state, and bottleneck into a small differentia
    Cover direct in-domain frontier papers, foundational papers, strongest nearby competitors, and cross-domain papers whose mechanisms may translate into the current task.
    If DeepXiv is available, use it for broad paper-centric discovery and citation expansion; otherwise use search engines and citation chaining directly.
    Do not promote or even seriously shortlist a new idea until the durable survey and closest-prior-work comparison are updated enough to judge novelty and feasibility honestly.
+   For an `algorithmic_sota` line, formal promotion also requires a structured `novelty_audit`: mechanism-and-claim signature, at least three stable direct-neighbor references, one marked strongest overlap, explicit overlap and delta for every neighbor, direct/adjacent/temporal coverage, durable survey paths, an outside-family alternative, a falsification plan, and a `clear` collision verdict.
 5. Extract the limitation pattern and novelty opportunity from the survey.
    Distinguish what is already saturated, what is only a decorative tweak, and what could still support a differentiated route.
    Default against small local edits unless they are explicitly shown to be the highest-value surviving route.
@@ -301,6 +302,8 @@ Break ties primarily through careful reasoning over:
 
 - Do not claim novelty without a written related-work comparison.
 - Do not select an idea before checking whether close prior work already did it.
+- Treat the collision audit as adversarial evidence, not self-scoring: the strongest neighboring paper should be the one most likely to invalidate the proposal, and its remaining mechanism-plus-claim delta must be concrete.
+- For `algorithmic_sota`, do not promote `incremental_but_valuable` or `collision` into an experiment line. Return to search or retain it only as a candidate.
 - Do not confuse "I can implement this" with "this is a publishable or useful research direction".
 - Do not treat a weak literature search as sufficient because the idea sounds elegant.
 - Do not start serious ideation from memory or taste alone; refresh the external literature unless the existing survey already covers the needed frontier and that reuse is recorded explicitly.

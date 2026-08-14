@@ -109,6 +109,51 @@ def test_provider_base_url_looks_local_accepts_private_and_loopback_hosts() -> N
     assert codex_cli_compat.provider_base_url_looks_local("https://api.minimaxi.com/v1") is False
 
 
+def test_adapt_responses_websocket_config_disables_websockets_for_non_official_openai_base_url() -> None:
+    config = """
+model_provider = "OpenAI"
+model = "gpt-5.4"
+
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "https://api.vip1129.cc"
+wire_api = "responses"
+supports_websockets = true
+requires_openai_auth = true
+
+[features]
+responses_websockets_v2 = true
+""".strip()
+
+    adapted, warning = codex_cli_compat.adapt_responses_websocket_config(config)
+
+    assert warning is not None
+    assert 'supports_websockets = false' in adapted
+    assert 'responses_websockets_v2 = false' in adapted
+
+
+def test_adapt_responses_websocket_config_keeps_official_openai_websockets_enabled() -> None:
+    config = """
+model_provider = "OpenAI"
+model = "gpt-5.4"
+
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "https://api.openai.com/v1"
+wire_api = "responses"
+supports_websockets = true
+requires_openai_auth = true
+
+[features]
+responses_websockets_v2 = true
+""".strip()
+
+    adapted, warning = codex_cli_compat.adapt_responses_websocket_config(config)
+
+    assert adapted == config
+    assert warning is None
+
+
 def test_missing_provider_env_key_helpers_detect_missing_key_from_metadata_and_output() -> None:
     metadata = {"env_key": "sglang", "base_url": "http://192.168.3.9:30000/v1"}
 

@@ -49,6 +49,7 @@ export const configSections: SettingsSection[] = [
           { label: 'Claude', value: 'claude' },
           { label: 'Kimi', value: 'kimi' },
           { label: 'OpenCode', value: 'opencode' },
+          { label: 'Pi (experimental)', value: 'pi' },
         ],
       },
       {
@@ -546,6 +547,11 @@ export const runnerCatalog: RunnerCatalogEntry[] = [
     label: 'OpenCode',
     description: 'OpenCode runner. Uses the OpenCode CLI / JSON event path with DeepScientist MCP injection and permission allow defaults.',
   },
+  {
+    name: 'pi',
+    label: 'Pi',
+    description: 'Experimental Pi JSONL RPC runner. DeepScientist retains quest state and evidence; Pi provides the agent session and tool loop.',
+  },
 ]
 
 export const runnerFields: SettingsField[] = [
@@ -588,6 +594,15 @@ export const runnerFields: SettingsField[] = [
     placeholder: 'gpt-5.4',
     description: 'Default model used when the project or request does not override it.',
     whereToGet: 'Use the model id accepted by the selected runner.',
+  },
+  {
+    key: 'provider',
+    label: 'Pi provider',
+    kind: 'text',
+    placeholder: 'anthropic',
+    description: 'Optional Pi provider name passed through as `pi --provider <name>`.',
+    whereToGet: 'Use a provider configured in Pi. Leave empty when Pi should infer the provider from the model or its local configuration.',
+    runners: ['pi'],
   },
   {
     key: 'model_reasoning_effort',

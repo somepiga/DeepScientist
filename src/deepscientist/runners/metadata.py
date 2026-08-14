@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..contracts import normalize_runtime_capabilities
+
 
 @dataclass(frozen=True)
 class RunnerMetadata:
@@ -12,6 +14,7 @@ class RunnerMetadata:
     quest_dotdir: str
     status_note: str = ""
     supports_reasoning_effort: bool = False
+    runtime_capabilities: tuple[str, ...] = ("start", "stream", "cancel", "tool_events")
 
 
 _RUNNER_METADATA: dict[str, RunnerMetadata] = {
@@ -44,6 +47,15 @@ _RUNNER_METADATA: dict[str, RunnerMetadata] = {
         default_config_dir="~/.kimi",
         quest_dotdir=".kimi",
     ),
+    "pi": RunnerMetadata(
+        name="pi",
+        label="Pi",
+        default_binary="pi",
+        default_config_dir="~/.pi/agent",
+        quest_dotdir=".pi",
+        status_note="experimental_rpc",
+        runtime_capabilities=("start", "stream", "steer", "cancel", "tool_events"),
+    ),
 }
 
 
@@ -66,3 +78,7 @@ def runner_binary_override_env_names(name: str) -> tuple[str, str]:
         f"DEEPSCIENTIST_{normalized}_BINARY",
         f"DS_{normalized}_BINARY",
     )
+
+
+def runner_runtime_capabilities(name: str) -> tuple[str, ...]:
+    return normalize_runtime_capabilities(get_runner_metadata(name).runtime_capabilities)

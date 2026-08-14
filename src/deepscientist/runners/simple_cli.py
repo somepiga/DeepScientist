@@ -15,6 +15,7 @@ from ..prompts import PromptBuilder
 from ..runtime_logs import JsonlLogger
 from ..shared import append_jsonl, ensure_dir, ensure_utf8_subprocess_env, generate_id, read_yaml, utc_now, write_json, write_text
 from .base import RunRequest, RunResult, extract_start_setup_patch_from_text
+from .events import RunnerEventWriter
 
 
 class SimpleCliRunner:
@@ -184,19 +185,8 @@ class SimpleCliRunner:
             stdout_events = run_root / "stdout.jsonl"
             quest_events = request.quest_root / ".ds" / "events.jsonl"
 
-            append_jsonl(
-                quest_events,
-                {
-                    "event_id": generate_id("evt"),
-                    "type": "runner.turn_start",
-                    "quest_id": request.quest_id,
-                    "run_id": request.run_id,
-                    "source": self.runner_name,
-                    "skill_id": request.skill_id,
-                    "model": request.model,
-                    "created_at": utc_now(),
-                },
-            )
+            event_writer = RunnerEventWriter(request=request, source=self.runner_name)
+            event_writer.turn_started()
 
             for raw_line in process.stdout:
                 line = raw_line.rstrip("\n")
@@ -254,21 +244,10 @@ class SimpleCliRunner:
                 output_text=output_text,
                 quest_events=quest_events,
             )
-            append_jsonl(
-                quest_events,
-                {
-                    "event_id": generate_id("evt"),
-                    "type": "runner.turn_finish",
-                    "quest_id": request.quest_id,
-                    "run_id": request.run_id,
-                    "source": self.runner_name,
-                    "skill_id": request.skill_id,
-                    "model": request.model,
-                    "exit_code": exit_code,
-                    "stderr_text": stderr_text[:2000],
-                    "summary": output_text[:1000],
-                    "created_at": utc_now(),
-                },
+            event_writer.turn_finished(
+                exit_code=exit_code,
+                stderr_text=stderr_text,
+                summary=output_text,
             )
             write_text(history_root / "assistant.md", (output_text or "") + ("\n" if output_text else ""))
             write_text(run_root / "stderr.txt", stderr_text)

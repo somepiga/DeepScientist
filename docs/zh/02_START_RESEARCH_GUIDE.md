@@ -229,6 +229,19 @@ type StartResearchContractFields = {
 }
 ```
 
+## 这套 payload 同时也是正式自动化契约
+
+这份 JSON body 不是前端私有格式。
+
+DeepScientist 会直接在下面两条 HTTP 路由上接受同一套 contract：
+
+- `GET /api/quest-id/next`
+- `POST /api/quests`
+
+这意味着外部调度器、本地脚本或编排层不需要点击弹窗，也能直接复用同样的 `startup_contract`、baseline 绑定和 connector 绑定结构来创建 quest。
+
+如果你要看 HTTP 示例和错误模型，请直接看 [33 Quest 自动化创建 API 指南](./33_QUEST_AUTOMATION_API_GUIDE.md)。
+
 ## 字段说明
 
 ### 项目基本身份

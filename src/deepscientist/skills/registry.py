@@ -26,6 +26,33 @@ _DEFAULT_COMPANION_SKILLS = (
     "rebuttal",
 )
 
+_RESEARCH_MODE_STAGE_SKILLS = {
+    "exploration": (
+        "scout",
+        "baseline",
+        "idea",
+        "optimize",
+        "experiment",
+        "analysis-campaign",
+        "decision",
+    ),
+    "validation": (
+        "baseline",
+        "optimize",
+        "experiment",
+        "analysis-campaign",
+        "decision",
+    ),
+    "paper_track": (
+        "baseline",
+        "experiment",
+        "analysis-campaign",
+        "write",
+        "finalize",
+        "decision",
+    ),
+}
+
 _SKILL_ROLE_FALLBACK_ORDER = {
     **{skill_id: index for index, skill_id in enumerate(_DEFAULT_STAGE_SKILLS, start=10)},
     **{skill_id: 100 + index for index, skill_id in enumerate(_DEFAULT_COMPANION_SKILLS, start=10)},
@@ -102,13 +129,33 @@ def discover_skill_bundles(repo_root: Path) -> list[SkillBundle]:
     return bundles
 
 
+def _normalized_research_mode(research_mode: object | None) -> str | None:
+    if research_mode is None:
+        return None
+    normalized = str(research_mode or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not normalized or normalized == "default":
+        return None
+    if normalized in _RESEARCH_MODE_STAGE_SKILLS:
+        return normalized
+    return "validation"
+
+
+def _filter_stage_skill_ids(skill_ids: tuple[str, ...], research_mode: object | None = None) -> tuple[str, ...]:
+    normalized_mode = _normalized_research_mode(research_mode)
+    if normalized_mode is None:
+        return skill_ids
+    allowed = set(_RESEARCH_MODE_STAGE_SKILLS.get(normalized_mode, skill_ids))
+    filtered = tuple(skill_id for skill_id in skill_ids if skill_id in allowed)
+    return filtered or skill_ids
+
+
 def skill_ids_for_role(repo_root: Path, role: str) -> tuple[str, ...]:
     normalized = str(role or "").strip().lower()
     return tuple(bundle.skill_id for bundle in discover_skill_bundles(repo_root) if bundle.role == normalized)
 
 
-def stage_skill_ids(repo_root: Path) -> tuple[str, ...]:
-    return skill_ids_for_role(repo_root, "stage")
+def stage_skill_ids(repo_root: Path, research_mode: object | None = None) -> tuple[str, ...]:
+    return _filter_stage_skill_ids(skill_ids_for_role(repo_root, "stage"), research_mode)
 
 
 def companion_skill_ids(repo_root: Path) -> tuple[str, ...]:

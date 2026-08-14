@@ -32,6 +32,7 @@ from .base import (
     extract_start_setup_patch_from_text,
     resolve_mcp_tool_profile_for_quest,
 )
+from .events import RunnerEventWriter
 
 _TOOL_EVENT_ARGS_TEXT_LIMIT = 8_000
 _TOOL_EVENT_OUTPUT_TEXT_LIMIT = 16_000
@@ -910,19 +911,8 @@ class CodexRunner:
             quest_events = request.quest_root / ".ds" / "events.jsonl"
             known_tool_names: dict[str, str] = {}
 
-            append_jsonl(
-                quest_events,
-                {
-                    "event_id": generate_id("evt"),
-                    "type": "runner.turn_start",
-                    "quest_id": request.quest_id,
-                    "run_id": request.run_id,
-                    "source": "codex",
-                    "skill_id": request.skill_id,
-                    "model": request.model,
-                    "created_at": utc_now(),
-                },
-            )
+            event_writer = RunnerEventWriter(request=request, source="codex")
+            event_writer.turn_started()
             if prompt_sanitization:
                 append_jsonl(
                     quest_events,
@@ -1038,21 +1028,10 @@ class CodexRunner:
                 output_text=output_text,
                 quest_events=quest_events,
             )
-            append_jsonl(
-                quest_events,
-                {
-                    "event_id": generate_id("evt"),
-                    "type": "runner.turn_finish",
-                    "quest_id": request.quest_id,
-                    "run_id": request.run_id,
-                    "source": "codex",
-                    "skill_id": request.skill_id,
-                    "model": request.model,
-                    "exit_code": exit_code,
-                    "stderr_text": stderr_text[:2000],
-                    "summary": (summary_text or output_text)[:1000],
-                    "created_at": utc_now(),
-                },
+            event_writer.turn_finished(
+                exit_code=exit_code,
+                stderr_text=stderr_text,
+                summary=summary_text or output_text,
             )
             write_text(history_root / "assistant.md", (output_text or "") + ("\n" if output_text else ""))
             write_text(run_root / "stderr.txt", stderr_text)

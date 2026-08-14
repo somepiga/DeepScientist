@@ -54,6 +54,92 @@ def _need_research_paper_from_record(record: dict[str, Any]) -> bool:
     return True
 
 
+def _text_blob(*values: object) -> str:
+    parts = [str(value).strip().lower() for value in values if str(value or "").strip()]
+    return "\n".join(parts)
+
+
+def _is_execution_confounder_record(record: dict[str, Any]) -> bool:
+    evaluation_summary = record.get("evaluation_summary") if isinstance(record.get("evaluation_summary"), dict) else {}
+    details = record.get("details") if isinstance(record.get("details"), dict) else {}
+    delivery_policy = record.get("delivery_policy") if isinstance(record.get("delivery_policy"), dict) else {}
+    text = _text_blob(
+        record.get("summary"),
+        record.get("reason"),
+        record.get("title"),
+        record.get("report_type"),
+        record.get("status"),
+        evaluation_summary.get("takeaway"),
+        evaluation_summary.get("failure_mode"),
+        evaluation_summary.get("next_action"),
+        details.get("verdict"),
+        details.get("recommended_next_route"),
+        delivery_policy.get("recommended_next_route"),
+        " ".join(str(item).strip() for item in details.get("missing_symbols") or [] if str(item).strip()),
+        details.get("warning_line_count"),
+    )
+    if not text:
+        return False
+    execution_markers = (
+        "fallback",
+        "fast-path",
+        "fast path",
+        "kernel fallback",
+        "naive fallback",
+        "missing symbol",
+        "missing-fast-path",
+        "missing fast-path",
+        "missing fast path",
+        "execution confounder",
+        "environment confounder",
+        "dependency confounder",
+    )
+    repair_markers = (
+        "repair",
+        "fix",
+        "smoke",
+        "restore",
+    )
+    hard_evidence = bool(details.get("missing_symbols")) or bool(details.get("warning_line_count"))
+    return any(marker in text for marker in execution_markers) and (any(marker in text for marker in repair_markers) or hard_evidence)
+
+
+def is_execution_confounder_record(record: dict[str, Any]) -> bool:
+    return _is_execution_confounder_record(record)
+
+
+def _execution_confounder_guidance(
+    *,
+    kind: str,
+    artifact_id: str | None,
+    related_paths: list[object],
+    current_anchor: str,
+) -> dict[str, Any]:
+    return _guidance(
+        current_anchor=current_anchor,
+        recommended_skill="experiment",
+        recommended_action="continue",
+        summary="Execution confounder detected. Do the smallest repair plus bounded smoke verification before creating another decision, idea, or writing loop.",
+        why_now="The latest durable evidence already points to an execution-surface issue rather than a new scientific branch choice, so the shortest high-value path is repair-first validation.",
+        complete_when=[
+            "The suspected execution confounder is either repaired or disproved.",
+            "One bounded efficiency smoke and one bounded task-quality smoke are stored durably.",
+            "Only unresolved or contradictory smoke results are escalated into a new decision/report loop.",
+        ],
+        alternative_routes=[
+            _route("launch_analysis_campaign", "Escalate only if smoke stays ambiguous", "A tiny repair plus bounded smoke still does not explain the failure mode.", "Adds rigor, but should happen after the cheap repair path is exhausted."),
+            _route("stop", "Stop the line", "The confounder turns out to be fundamental or too costly to repair quickly.", "Avoids further waste, but ends the branch."),
+        ],
+        suggested_artifact_calls=[
+            _artifact_call("artifact.interact(kind='progress', ...)", "Record the chosen minimal repair target and bounded smoke contract."),
+            _artifact_call("artifact.record_main_experiment(...)", "Persist the repaired-path smoke result on the current branch/worktree."),
+        ],
+        source_artifact_kind=kind,
+        source_artifact_id=artifact_id,
+        related_paths=[str(path) for path in related_paths],
+    )
+
+
 def _guidance(
     *,
     current_anchor: str,
@@ -472,6 +558,13 @@ def build_guidance_for_record(record: dict[str, Any]) -> dict[str, Any]:
 
     if kind == "run":
         run_kind = _normalize_anchor(record.get("run_kind") or record.get("stage"))
+        if _is_execution_confounder_record(record):
+            return _execution_confounder_guidance(
+                kind=kind,
+                artifact_id=artifact_id,
+                related_paths=related_paths,
+                current_anchor="experiment",
+            )
         if run_kind == "analysis-campaign":
             return _guidance(
                 current_anchor="analysis-campaign",
@@ -546,7 +639,15 @@ def build_guidance_for_record(record: dict[str, Any]) -> dict[str, Any]:
         )
 
     if kind == "report":
-        stage = _normalize_anchor(record.get("stage") or record.get("source_stage"))
+        raw_stage = str(record.get("stage") or record.get("source_stage") or "").strip()
+        stage = _normalize_anchor(raw_stage) if raw_stage else ""
+        if _is_execution_confounder_record(record):
+            return _execution_confounder_guidance(
+                kind=kind,
+                artifact_id=artifact_id,
+                related_paths=related_paths,
+                current_anchor=stage or "experiment",
+            )
         if stage in {"write", "finalize"}:
             return _guidance(
                 current_anchor=stage,

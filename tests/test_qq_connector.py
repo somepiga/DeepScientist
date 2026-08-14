@@ -274,10 +274,10 @@ def test_qq_direct_message_auto_binds_to_latest_existing_quest_and_rebinds_to_ne
     assert any(item["text"].startswith("已自动检测并保存当前 QQ openid") for item in deliveries)
     assert any(older_quest["quest_id"] in item["text"] for item in deliveries)
     assert any(latest_id in item["text"] for item in deliveries)
-    assert any("我即将为您完成以下任务：qq latest quest" in item["text"] for item in deliveries)
+    assert any("这轮我先做这件事：qq latest quest" in item["text"] for item in deliveries)
     assert any(f"/use {older_quest['quest_id']}" in item["text"] for item in deliveries)
     assert not any(f"/use {latest_id}" in item["text"] for item in deliveries)
-    assert any("自动使用这个新 quest 保持连接" in item["text"] for item in deliveries)
+    assert any("后面的进展我都会直接在这里同步给您。" in item["text"] for item in deliveries)
 
 
 def test_qq_auto_bind_to_latest_quest_still_happens_when_another_connector_is_primary(
@@ -335,7 +335,7 @@ def test_qq_auto_bind_to_latest_quest_still_happens_when_another_connector_is_pr
         item["conversation_id"] == "telegram:direct:alice" and item["quest_id"] == latest["quest_id"]
         for item in app.list_connector_bindings("telegram")
     )
-    assert any("我即将为您完成以下任务：multi connector latest quest" in item["text"] for item in deliveries)
+    assert any("这轮我先做这件事：multi connector latest quest" in item["text"] for item in deliveries)
 
 
 def test_qq_direct_message_does_not_overwrite_existing_main_chat_id(temp_home: Path, monkeypatch) -> None:
@@ -475,11 +475,11 @@ def test_qq_new_command_replies_with_actual_goal(temp_home: Path, monkeypatch) -
     )
 
     assert response["accepted"] is True
-    assert "我即将为您完成以下任务：复现一个图神经网络基线" in response["reply"]["payload"]["text"]
+    assert "这轮我先做这件事：复现一个图神经网络基线" in response["reply"]["payload"]["text"]
     created_quest_id = str(response["reply"]["payload"]["quest_id"])
     assert created_quest_id
-    assert "自动使用这个新 quest 保持连接" in response["reply"]["payload"]["text"]
-    assert any("我即将为您完成以下任务：复现一个图神经网络基线" in item["text"] for item in deliveries)
+    assert "后面的进展我都会直接在这里同步给您。" in response["reply"]["payload"]["text"]
+    assert any("这轮我先做这件事：复现一个图神经网络基线" in item["text"] for item in deliveries)
     history = app.quest_service.history(created_quest_id)
     assert history
     assert history[-1]["content"] == "复现一个图神经网络基线"

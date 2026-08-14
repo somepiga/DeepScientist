@@ -93,7 +93,8 @@ def test_generic_new_command_replies_with_bound_quest_and_restore_hint(
     quest_id = str(payload["quest_id"])
     assert quest_id
     assert "prepare a baseline audit" in str(payload["text"] or "")
-    assert "自动使用这个新 quest 保持连接" in str(payload["text"] or "")
+    assert "Quest" in str(payload["text"] or "")
+    assert "后面的进展我都会直接在这里同步给您。" in str(payload["text"] or "")
     history = app.quest_service.history(quest_id)
     assert history
     assert history[-1]["content"] == "prepare a baseline audit"

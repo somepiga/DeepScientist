@@ -277,6 +277,7 @@ def _check_runner(config_manager: ConfigManager, runner_name: str) -> dict[str, 
         "claude": "Claude Code CLI",
         "kimi": "Kimi Code CLI",
         "opencode": "OpenCode CLI",
+        "pi": "Pi RPC",
     }.get(normalized_runner, normalized_runner)
 
     if not resolved_binary:

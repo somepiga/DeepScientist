@@ -107,6 +107,8 @@ DeepScientist 灵活且易于使用，支持：
 
 - [02 Start Research 参考](./02_START_RESEARCH_GUIDE.md)
   解释当前前端字段、自动推导合同字段，以及实际可照抄的例子。
+- [33 Quest 自动化创建 API 指南](./33_QUEST_AUTOMATION_API_GUIDE.md)
+  如果你想通过脚本、调度器或本地编排层自动创建 quest，而不是手动点弹窗，就看这篇。
 - [20 工作区模式指南](./20_WORKSPACE_MODES_GUIDE.md)
   如果你已经知道怎么填表，但还不确定项目应该从 Copilot 还是全自动启动，先看这篇。
 - [01 设置参考](./01_SETTINGS_REFERENCE.md)

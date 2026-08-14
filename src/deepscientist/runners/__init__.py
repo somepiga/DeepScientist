@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .base import RunRequest, RunResult
+from .base import AgentRuntime, RunRequest, RunResult
 from .metadata import get_runner_metadata, list_builtin_runner_names
 from .registry import get_runner_factory, list_runner_names, register_runner
 
@@ -9,6 +9,8 @@ __all__ = [
     "CodexRunner",
     "KimiRunner",
     "OpenCodeRunner",
+    "PiRunner",
+    "AgentRuntime",
     "RunRequest",
     "RunResult",
     "get_runner_factory",
@@ -37,6 +39,10 @@ def __getattr__(name: str):
         from .kimi import KimiRunner
 
         return KimiRunner
+    if name == "PiRunner":
+        from .pi import PiRunner
+
+        return PiRunner
     if name == "register_builtin_runners":
         from .builtins import register_builtin_runners
 

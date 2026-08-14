@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from ..shared import read_yaml
 
@@ -80,6 +80,7 @@ class RunRequest:
     attempt_index: int = 1
     max_attempts: int = 1
     retry_context: dict[str, Any] | None = None
+    runtime_capabilities: tuple[str, ...] = ("start", "cancel")
 
 
 @dataclass(frozen=True)
@@ -92,3 +93,16 @@ class RunResult:
     history_root: Path
     run_root: Path
     stderr_text: str
+
+
+@runtime_checkable
+class AgentRuntime(Protocol):
+    """Boundary between the research control plane and an agent runtime."""
+
+    binary: str
+
+    def run(self, request: RunRequest) -> RunResult:
+        ...
+
+    def interrupt(self, quest_id: str) -> bool:
+        ...

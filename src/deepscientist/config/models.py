@@ -124,6 +124,7 @@ def default_runners() -> dict:
     claude = get_runner_metadata("claude")
     kimi = get_runner_metadata("kimi")
     opencode = get_runner_metadata("opencode")
+    pi = get_runner_metadata("pi")
     return {
         "codex": {
             "enabled": True,
@@ -191,6 +192,20 @@ def default_runners() -> dict:
             "retry_max_backoff_sec": 600.0,
             "env": {},
             "status": "supported_experimental",
+        },
+        "pi": {
+            "enabled": False,
+            "binary": pi.default_binary,
+            "config_dir": pi.default_config_dir,
+            "provider": "",
+            "model": "inherit",
+            "retry_on_failure": True,
+            "retry_max_attempts": 4,
+            "retry_initial_backoff_sec": 10.0,
+            "retry_backoff_multiplier": 4.0,
+            "retry_max_backoff_sec": 600.0,
+            "env": {},
+            "status": "experimental_rpc",
         },
     }
 

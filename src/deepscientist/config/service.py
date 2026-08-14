@@ -770,6 +770,8 @@ Use **Test** when the file exposes runtime dependencies.
             result = self._probe_kimi_runner(runner_payload)
         elif normalized_runner == "opencode":
             result = self._probe_opencode_runner(runner_payload)
+        elif normalized_runner == "pi":
+            result = self._probe_pi_runner(runner_payload)
         else:
             raise KeyError(f"Unknown runner `{normalized_runner}`.")
         if persist:
@@ -1990,7 +1992,75 @@ Use **Test** when the file exposes runtime dependencies.
                 "Run `kimi login` (or just `kimi`) once to complete the first-run login flow.",
                 "If Kimi Code uses a custom home, point `runners.kimi.config_dir` at the correct `~/.kimi`-style directory that contains `config.toml` and `mcp.json`.",
             ]
+        if normalized_runner == "pi":
+            return [
+                f"Install Pi and make sure `{binary} --version` works in the current shell.",
+                "Configure a Pi provider/model before enabling `runners.pi`; DeepScientist uses Pi RPC but does not inject its MCP tools into Pi yet.",
+            ]
         return [f"Install runner `{normalized_runner}` and ensure `{binary}` is on PATH."]
+
+    def _probe_pi_runner(self, config: dict) -> dict:
+        checked_at = utc_now()
+        binary = str(config.get("binary") or "pi").strip() or "pi"
+        resolved_binary = resolve_runner_binary(binary, runner_name="pi")
+        details: dict[str, object] = {
+            "binary": binary,
+            "resolved_binary": resolved_binary,
+            "config_dir": str(config.get("config_dir") or "~/.pi/agent"),
+            "provider": str(config.get("provider") or "").strip() or None,
+            "model": str(config.get("model") or "inherit").strip() or "inherit",
+            "checked_at": checked_at,
+        }
+        if not resolved_binary:
+            return {
+                "ok": False,
+                "summary": "Pi RPC startup probe failed before execution.",
+                "warnings": [],
+                "errors": [f"Pi binary `{binary}` is not available."],
+                "details": details,
+                "guidance": self._runner_missing_binary_guidance("pi", config),
+            }
+        try:
+            result = subprocess.run(
+                [resolved_binary, "--version"],
+                cwd=str(repo_root()),
+                env=ensure_utf8_subprocess_env(os.environ.copy()),
+                capture_output=True,
+                timeout=15,
+                check=False,
+                **utf8_text_subprocess_kwargs(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            details.update({
+                "exit_code": None,
+                "stdout_excerpt": self._compact_probe_text(exc.stdout or ""),
+                "stderr_excerpt": self._compact_probe_text(exc.stderr or ""),
+            })
+            return {
+                "ok": False,
+                "summary": "Pi RPC startup probe timed out.",
+                "warnings": [],
+                "errors": ["Pi did not return its version within 15 seconds."],
+                "details": details,
+                "guidance": self._runner_missing_binary_guidance("pi", config),
+            }
+        stdout_text = (result.stdout or "").strip()
+        stderr_text = (result.stderr or "").strip()
+        ok = result.returncode == 0
+        details.update({
+            "exit_code": result.returncode,
+            "stdout_excerpt": self._compact_probe_text(stdout_text),
+            "stderr_excerpt": self._compact_probe_text(stderr_text),
+            "probe_command": [resolved_binary, "--version"],
+        })
+        return {
+            "ok": ok,
+            "summary": "Pi RPC startup probe completed." if ok else "Pi RPC startup probe failed.",
+            "warnings": ["Pi has no DeepScientist MCP/artifact injection yet."] if ok else [],
+            "errors": [] if ok else ["Pi did not complete its version probe successfully."],
+            "details": details,
+            "guidance": [] if ok else self._runner_missing_binary_guidance("pi", config),
+        }
 
     def _probe_claude_runner(self, config: dict) -> dict:
         checked_at = utc_now()

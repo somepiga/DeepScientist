@@ -33,12 +33,15 @@ from ..web_search import extract_web_search_payload
 from .layout import (
     QUEST_DIRECTORIES,
     default_active_anchor,
+    default_baseline_gate,
+    explicit_research_mode,
     gitignore,
     initial_brief,
     initial_plan,
     initial_quest_yaml,
     initial_status,
     initial_summary,
+    normalized_startup_contract,
 )
 from .node_traces import QuestNodeTraceManager
 from .stage_views import QuestStageViewBuilder
@@ -507,9 +510,9 @@ class QuestService:
         if not isinstance(payload, dict):
             payload = {}
         normalized = dict(payload)
-        startup_contract = dict(normalized.get("startup_contract") or {}) if isinstance(normalized.get("startup_contract"), dict) else None
+        startup_contract = normalized_startup_contract(normalized.get("startup_contract"))
         normalized.setdefault("startup_contract", startup_contract)
-        normalized.setdefault("baseline_gate", "pending")
+        normalized.setdefault("baseline_gate", default_baseline_gate(startup_contract))
         normalized.setdefault("confirmed_baseline_ref", None)
         normalized.setdefault("requested_baseline_ref", None)
         active_anchor = str(normalized.get("active_anchor") or "").strip()
@@ -517,6 +520,7 @@ class QuestService:
             normalized["active_anchor"] = default_active_anchor(startup_contract)
         elif (
             active_anchor == "baseline"
+            and explicit_research_mode(startup_contract) == "exploration"
             and str((startup_contract or {}).get("workspace_mode") or "").strip().lower() == "copilot"
             and not isinstance(normalized.get("confirmed_baseline_ref"), dict)
             and not isinstance(normalized.get("requested_baseline_ref"), dict)
@@ -534,12 +538,9 @@ class QuestService:
 
     def _default_research_state(self, quest_root: Path) -> dict[str, Any]:
         quest_yaml = self.read_quest_yaml(quest_root)
-        startup_contract = (
-            dict(quest_yaml.get("startup_contract") or {})
-            if isinstance(quest_yaml.get("startup_contract"), dict)
-            else {}
-        )
+        startup_contract = normalized_startup_contract(quest_yaml.get("startup_contract")) or {}
         workspace_mode = str(startup_contract.get("workspace_mode") or "").strip().lower() or "quest"
+        research_mode = explicit_research_mode(startup_contract) or "validation"
         return {
             "version": 1,
             "active_idea_id": None,
@@ -557,6 +558,7 @@ class QuestService:
             "paper_parent_run_id": None,
             "next_pending_slice_id": None,
             "workspace_mode": workspace_mode,
+            "research_mode": research_mode,
             "last_flow_type": None,
             "updated_at": utc_now(),
         }
@@ -1970,13 +1972,12 @@ class QuestService:
                 continue
             item_outline = str(item.get("selected_outline_ref") or "").strip() or None
             item_line = str(item.get("paper_line_id") or "").strip() or None
-            if normalized_line:
-                if item_line and item_line != normalized_line:
-                    continue
-                if not item_line and normalized_outline and item_outline and item_outline != normalized_outline:
-                    continue
-            elif normalized_outline and item_outline and item_outline != normalized_outline:
+            if normalized_outline and item_outline and item_outline != normalized_outline:
                 continue
+            if normalized_line and item_line and item_line != normalized_line:
+                # Keep legacy same-outline evidence rows after a paper-line id migration.
+                if not (normalized_outline and item_outline == normalized_outline):
+                    continue
             filtered.append(dict(item))
         return filtered
 
@@ -2931,6 +2932,7 @@ class QuestService:
         requested_baseline_ref: dict[str, Any] | None = None,
         startup_contract: dict[str, Any] | None = None,
     ) -> dict:
+        startup_contract = normalized_startup_contract(startup_contract, inject_default=True)
         resolved_runner = str(runner or self._configured_default_runner()).strip().lower() or "codex"
         quest_id, auto_generated = self._normalize_quest_id(quest_id)
         quest_root = self._quest_root(quest_id)
@@ -2950,11 +2952,11 @@ class QuestService:
                 resolved_runner,
                 title=title,
                 requested_baseline_ref=dict(requested_baseline_ref) if isinstance(requested_baseline_ref, dict) else None,
-                startup_contract=dict(startup_contract) if isinstance(startup_contract, dict) else None,
+                startup_contract=startup_contract,
             ),
         )
-        write_text(quest_root / "brief.md", initial_brief(goal))
-        write_text(quest_root / "plan.md", initial_plan())
+        write_text(quest_root / "brief.md", initial_brief(goal, startup_contract))
+        write_text(quest_root / "plan.md", initial_plan(startup_contract))
         write_text(quest_root / "status.md", initial_status(startup_contract))
         write_text(quest_root / "SUMMARY.md", initial_summary())
         write_text(quest_root / ".gitignore", gitignore())
@@ -3206,12 +3208,14 @@ class QuestService:
 
         bash_summary = BashExecService(self.home).summary(quest_root)
         interaction_watchdog = self.artifact_interaction_watchdog_status(quest_root)
+        startup_contract = quest_yaml.get("startup_contract") if isinstance(quest_yaml.get("startup_contract"), dict) else None
         quest_class = self._quest_class_for(
             quest_id=str(quest_yaml.get("quest_id") or quest_id).strip(),
-            startup_contract=quest_yaml.get("startup_contract") if isinstance(quest_yaml.get("startup_contract"), dict) else None,
+            startup_contract=startup_contract,
         )
         workspace_mode = str(research_state.get("workspace_mode") or "quest").strip().lower() or "quest"
-        listed_in_projects = quest_class == "research" and workspace_mode in {"copilot", "autonomous"}
+        projects_workspace_mode = str(startup_contract.get("workspace_mode") or workspace_mode).strip().lower() or workspace_mode
+        listed_in_projects = quest_class == "research" and projects_workspace_mode in {"copilot", "autonomous"}
         payload = {
             "quest_id": quest_yaml.get("quest_id", quest_id),
             "title": quest_yaml.get("title", quest_id),
@@ -3680,6 +3684,10 @@ class QuestService:
             paper_lines=paper_lines,
             active_paper_line_ref=active_paper_line_ref,
         )
+        active_anchor = str(quest_yaml.get("active_anchor", "baseline") or "baseline").strip()
+        active_idea_id = str(research_state.get("active_idea_id") or "").strip() or None
+        if active_anchor == "scout" and not active_idea_id:
+            active_idea_line_ref = None
         paths = {
             "brief": str(workspace_root / "brief.md"),
             "plan": str(workspace_root / "plan.md"),
@@ -4152,7 +4160,7 @@ class QuestService:
                 raise ValueError("`active_anchor` cannot be empty.")
             from ..prompts.builder import current_standard_skills
 
-            available_stage_skills = current_standard_skills(repo_root())
+            available_stage_skills = current_standard_skills(repo_root(), snapshot=quest_data)
             if normalized_anchor not in available_stage_skills:
                 allowed = ", ".join(available_stage_skills)
                 raise ValueError(f"Unsupported active anchor `{normalized_anchor}`. Allowed values: {allowed}.")
@@ -4246,7 +4254,7 @@ class QuestService:
                 raise ValueError("`active_anchor` cannot be empty.")
             from ..prompts.builder import current_standard_skills
 
-            available_stage_skills = current_standard_skills(repo_root())
+            available_stage_skills = current_standard_skills(repo_root(), snapshot=quest_data)
             if normalized_anchor not in available_stage_skills:
                 allowed = ", ".join(available_stage_skills)
                 raise ValueError(f"Unsupported active anchor `{normalized_anchor}`. Allowed values: {allowed}.")
@@ -4282,9 +4290,35 @@ class QuestService:
                 changed = True
 
         if startup_contract is not _UNSET:
-            normalized_contract = dict(startup_contract) if isinstance(startup_contract, dict) else None
+            previous_contract = normalized_startup_contract(quest_data.get("startup_contract"))
+            normalized_contract = normalized_startup_contract(startup_contract)
             if quest_data.get("startup_contract") != normalized_contract:
                 quest_data["startup_contract"] = normalized_contract
+
+                previous_default_anchor = default_active_anchor(previous_contract)
+                next_default_anchor = default_active_anchor(normalized_contract)
+                current_anchor = str(quest_data.get("active_anchor") or "").strip()
+                if not current_anchor or current_anchor == previous_default_anchor:
+                    quest_data["active_anchor"] = next_default_anchor
+
+                previous_default_gate = default_baseline_gate(previous_contract)
+                next_default_gate = default_baseline_gate(normalized_contract)
+                current_gate = str(quest_data.get("baseline_gate") or "").strip().lower()
+                if not current_gate or current_gate == previous_default_gate:
+                    quest_data["baseline_gate"] = next_default_gate
+
+                research_state = self.read_research_state(quest_root)
+                workspace_mode = str((normalized_contract or {}).get("workspace_mode") or "").strip().lower() or "quest"
+                research_mode = explicit_research_mode(normalized_contract) or "validation"
+                if (
+                    research_state.get("workspace_mode") != workspace_mode
+                    or research_state.get("research_mode") != research_mode
+                ):
+                    self.update_research_state(
+                        quest_root,
+                        workspace_mode=workspace_mode,
+                        research_mode=research_mode,
+                    )
                 changed = True
 
         if changed:
@@ -5913,6 +5947,7 @@ class QuestService:
     ) -> dict[str, Any]:
         with self._runtime_state_lock(quest_root):
             state = self._read_runtime_state(quest_root)
+            quest_data = read_yaml(quest_root / "quest.yaml", {})
             now = utc_now()
             status_changed = False
             run_changed = False
@@ -5951,7 +5986,7 @@ class QuestService:
                 if normalized_anchor is not None:
                     from ..prompts.builder import current_standard_skills
 
-                    available_stage_skills = current_standard_skills(repo_root())
+                    available_stage_skills = current_standard_skills(repo_root(), snapshot=quest_data)
                     if normalized_anchor not in available_stage_skills:
                         allowed = ", ".join(available_stage_skills)
                         raise ValueError(

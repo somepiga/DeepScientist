@@ -69,18 +69,22 @@ npm --prefix src/tui run build
 
 ## Test Commands
 
-Quick Python test run:
+Default to the smallest relevant verification for the files you changed. Do not jump to bare `pytest` by default. In the code-patch stage, stay at one targeted test node, one focused test file, or one cheap compile/import check. In experiment-entry confirmation, use only the cheapest smoke that proves the entry path works. Escalate only if the change affects shared plumbing or release-critical behavior.
+
+Focused checks:
 
 ```bash
-pytest
-```
-
-Useful focused checks:
-
-```bash
+pytest tests/test_daemon_api.py::test_health_endpoint
+pytest tests/test_daemon_api.py
 python3 -m compileall src/deepscientist
 node -c bin/ds.js
 npm pack --dry-run --ignore-scripts
+```
+
+Broader validation when justified:
+
+```bash
+pytest
 ```
 
 ## Release-Oriented Checks

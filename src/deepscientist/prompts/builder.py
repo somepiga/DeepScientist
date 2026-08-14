@@ -14,6 +14,7 @@ from ..quest import QuestService
 from ..registries import BaselineRegistry
 from ..shared import read_json, read_text, read_yaml
 from ..skills import SkillInstaller, companion_skill_ids, stage_skill_ids
+from ..quest.layout import normalize_research_mode
 
 # Backward-compatible snapshots for modules or tests that still import these names directly.
 # Runtime routing should call `current_standard_skills(...)` / `current_companion_skills(...)`.
@@ -63,8 +64,18 @@ STAGE_MEMORY_PLAN = {
 }
 
 
-def current_standard_skills(repo_root_path: Path | None = None) -> tuple[str, ...]:
-    return stage_skill_ids(repo_root_path or repo_root())
+def current_standard_skills(
+    repo_root_path: Path | None = None,
+    *,
+    snapshot: dict | None = None,
+    research_mode: object | None = None,
+) -> tuple[str, ...]:
+    resolved_mode = research_mode
+    if resolved_mode is None and isinstance(snapshot, dict):
+        startup_contract = snapshot.get("startup_contract")
+        if isinstance(startup_contract, dict):
+            resolved_mode = startup_contract.get("research_mode")
+    return stage_skill_ids(repo_root_path or repo_root(), resolved_mode)
 
 
 def current_companion_skills(repo_root_path: Path | None = None) -> tuple[str, ...]:
@@ -246,7 +257,7 @@ class PromptBuilder:
                 str((self.repo_root / "src" / "skills").resolve()),
                 "",
                 "Standard stage skill paths:",
-                self._skill_paths_block(),
+                self._skill_paths_block(snapshot),
                 "",
                 "Companion skill paths:",
                 self._companion_skill_paths_block(),
@@ -1208,9 +1219,9 @@ class PromptBuilder:
             "preview": preview,
         }
 
-    def _skill_paths_block(self) -> str:
+    def _skill_paths_block(self, snapshot: dict) -> str:
         lines = []
-        for skill_id in current_standard_skills(self.repo_root):
+        for skill_id in current_standard_skills(self.repo_root, snapshot=snapshot):
             primary = (self.repo_root / "src" / "skills" / skill_id / "SKILL.md").resolve()
             lines.append(f"- {skill_id}: primary={primary}")
         return "\n".join(lines)
@@ -1232,6 +1243,13 @@ class PromptBuilder:
         return True
 
     @staticmethod
+    def _research_mode(snapshot: dict) -> str:
+        startup_contract = snapshot.get("startup_contract")
+        if isinstance(startup_contract, dict):
+            return normalize_research_mode(startup_contract, default="validation")
+        return normalize_research_mode(None, default="validation")
+
+    @staticmethod
     def _workspace_mode(snapshot: dict) -> str:
         value = str(snapshot.get("workspace_mode") or "").strip().lower()
         if value in {"copilot", "autonomous"}:
@@ -1250,7 +1268,8 @@ class PromptBuilder:
             value = str(startup_contract.get("decision_policy") or "").strip().lower()
             if value in {"autonomous", "user_gated"}:
                 return value
-        return "user_gated"
+        research_mode = normalize_research_mode(startup_contract if isinstance(startup_contract, dict) else None, default="validation")
+        return "autonomous" if research_mode == "exploration" else "user_gated"
 
     @staticmethod
     def _launch_mode(snapshot: dict) -> str:
@@ -1538,7 +1557,9 @@ class PromptBuilder:
         baseline_acceptance_target = self._baseline_acceptance_target(snapshot)
         review_followup_policy = self._review_followup_policy(snapshot)
         manuscript_edit_mode = self._manuscript_edit_mode(snapshot)
+        research_mode = self._research_mode(snapshot)
         lines = [
+            f"- research_mode: {research_mode}",
             f"- need_research_paper: {need_research_paper}",
             f"- launch_mode: {launch_mode}",
             f"- standard_profile: {standard_profile if launch_mode == 'standard' else 'n/a'}",
@@ -1554,9 +1575,31 @@ class PromptBuilder:
             "- idea_stage_rule: every accepted idea submission should normally create a new branch/worktree and a new user-visible research node.",
             "- lineage_rule: normal idea routing uses exactly two lineage intents: `continue_line` creates a child of the current active branch; `branch_alternative` creates a sibling-like branch from the current branch's parent foundation.",
             "- revise_rule: `artifact.submit_idea(mode='revise', ...)` is maintenance-only compatibility for the same branch and should not be the default research-route mechanism.",
+            "- algorithmic_sota_novelty_rule: candidates may remain exploratory, but a `submission_mode='line'` promotion must carry `novelty_audit` with a mechanism-and-claim signature, at least three stable nearest-neighbor comparisons, direct/adjacent/temporal search coverage, durable literature evidence paths, an outside-family alternative, a falsification plan, and `collision_verdict='clear'`. Do not promote an incremental or colliding route as Algorithmic SOTA.",
             "- post_main_result_rule: after every `artifact.record_main_experiment(...)`, first interpret the measured result and only then choose the next route.",
             "- foundation_selection_rule: for a genuinely new idea round, default to the current research head but feel free to choose another durable foundation when it is cleaner or stronger; inspect `artifact.list_research_branches(...)` first when the best foundation is not obvious.",
         ]
+        if research_mode == "exploration":
+            lines.extend(
+                [
+                    "- research_mode_rule: exploration mode prioritizes novelty search, fast branch creation, and bounded trial-and-error over conservative baseline-first progress.",
+                    "- exploration_baseline_rule: establish only the minimum comparator confidence needed to avoid fooling yourself, then move quickly into idea generation and experiments.",
+                    "- exploration_decision_rule: prefer autonomous continuation across scout -> idea -> experiment loops unless the user explicitly requests a gate.",
+                ]
+            )
+        elif research_mode == "paper_track":
+            lines.extend(
+                [
+                    "- research_mode_rule: paper_track mode should connect experiments to claim support, analysis depth, figures, and manuscript progress rather than drifting into open-ended exploration.",
+                    "- paper_track_baseline_rule: keep comparator rigor high enough for defensible paper claims before locking narrative conclusions.",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "- research_mode_rule: validation mode prioritizes trustworthy baselines, controlled experiments, and explicit decision checkpoints before broader expansion.",
+                ]
+            )
         if execution_start_mode == "plan_then_execute":
             lines.extend(
                 [

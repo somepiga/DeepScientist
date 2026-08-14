@@ -221,6 +221,19 @@ The dialog submits:
 }
 ```
 
+## The Same Payload Is Also The Public Automation Contract
+
+This JSON body is not a frontend-only private format.
+
+DeepScientist accepts the same contract directly at:
+
+- `GET /api/quest-id/next`
+- `POST /api/quests`
+
+That means an external scheduler, local script, or orchestration layer can create a quest without clicking the dialog, while still reusing the same `startup_contract`, baseline binding, and connector binding structure.
+
+If you want the HTTP examples and error model, see [33 Quest Automation API Guide](./33_QUEST_AUTOMATION_API_GUIDE.md).
+
 ## Field reference
 
 ### Core project identity

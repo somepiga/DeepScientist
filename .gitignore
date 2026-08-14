@@ -50,6 +50,9 @@ dist.bak.*/
 /test-results/
 /src/ui/test-results/
 /runtime/
+/config/
+/logs/
+/quests/
 /tmp-*.png
 /Codex
 *.docx

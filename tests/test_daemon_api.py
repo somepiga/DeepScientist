@@ -2871,6 +2871,197 @@ def test_router_matches_quest_search_path() -> None:
     assert params["quest_id"] == "q-123456"
 
 
+def test_quest_create_handler_accepts_minimal_payload(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+
+    payload = app.handlers.quest_create({"goal": "Minimal automation quest"})
+
+    assert isinstance(payload, dict)
+    assert payload["ok"] is True
+    snapshot = payload["snapshot"]
+    assert snapshot["quest_id"] == "001"
+    assert snapshot["title"] == "Minimal automation quest"
+    assert snapshot["startup_contract"] is None
+    assert snapshot["requested_baseline_ref"] is None
+    assert "startup" not in payload
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("goal", 123, "`goal` must be a string."),
+        ("title", 123, "`title` must be a string."),
+        ("quest_id", 123, "`quest_id` must be a string."),
+        ("source", 123, "`source` must be a string."),
+        ("initial_message", 123, "`initial_message` must be a string."),
+    ],
+)
+def test_quest_create_handler_rejects_non_string_scalar_fields(
+    temp_home: Path,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    body: dict[str, object] = {"goal": "valid quest goal"}
+    body[field] = value
+
+    payload = app.handlers.quest_create(body)
+
+    assert isinstance(payload, tuple)
+    status, response = payload
+    assert status == 400
+    assert response == {"ok": False, "message": message}
+
+
+def test_quest_create_handler_requires_goal(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+
+    missing = app.handlers.quest_create({})
+    blank = app.handlers.quest_create({"goal": "   "})
+
+    assert missing == (400, {"ok": False, "message": "Quest goal is required."})
+    assert blank == (400, {"ok": False, "message": "Quest goal is required."})
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("requested_baseline_ref", "demo-baseline", "`requested_baseline_ref` must be an object."),
+        ("startup_contract", "invalid", "`startup_contract` must be an object."),
+    ],
+)
+def test_quest_create_handler_rejects_non_object_optional_fields(
+    temp_home: Path,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+
+    payload = app.handlers.quest_create({"goal": "automation quest", field: value})
+
+    assert isinstance(payload, tuple)
+    status, response = payload
+    assert status == 400
+    assert response == {"ok": False, "message": message}
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        (
+            {"goal": "automation quest", "requested_baseline_ref": {"baseline_id": 123}},
+            "`requested_baseline_ref.baseline_id` must be a string.",
+        ),
+        (
+            {"goal": "automation quest", "requested_baseline_ref": {"baseline_id": "demo", "variant_id": 123}},
+            "`requested_baseline_ref.variant_id` must be a string.",
+        ),
+    ],
+)
+def test_quest_create_handler_rejects_invalid_requested_baseline_ref_fields(
+    temp_home: Path,
+    body: dict[str, object],
+    message: str,
+) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+
+    payload = app.handlers.quest_create(body)
+
+    assert isinstance(payload, tuple)
+    status, response = payload
+    assert status == 400
+    assert response == {"ok": False, "message": message}
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        (
+            {"goal": "automation quest", "requested_connector_bindings": "qq:direct:OPENID"},
+            "`requested_connector_bindings` must be an array.",
+        ),
+        (
+            {"goal": "automation quest", "requested_connector_bindings": ["qq:direct:OPENID"]},
+            "`requested_connector_bindings[0]` must be an object.",
+        ),
+        (
+            {
+                "goal": "automation quest",
+                "requested_connector_bindings": [{"connector": 123, "conversation_id": "qq:direct:OPENID"}],
+            },
+            "`requested_connector_bindings[0].connector` must be a string.",
+        ),
+        (
+            {
+                "goal": "automation quest",
+                "requested_connector_bindings": [{"connector": "qq", "conversation_id": 123}],
+            },
+            "`requested_connector_bindings[0].conversation_id` must be a string.",
+        ),
+    ],
+)
+def test_quest_create_handler_rejects_invalid_requested_connector_bindings_payload(
+    temp_home: Path,
+    body: dict[str, object],
+    message: str,
+) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+
+    payload = app.handlers.quest_create(body)
+
+    assert isinstance(payload, tuple)
+    status, response = payload
+    assert status == 400
+    assert response == {"ok": False, "message": message}
+
+
+def test_quest_create_handler_rejects_multiple_external_connector_targets(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+    config = manager.load_named("config")
+    config["connectors"]["system_enabled"]["whatsapp"] = True
+    config["connectors"]["system_enabled"]["telegram"] = True
+    write_yaml(manager.path_for("config"), config)
+    connectors = manager.load_named("connectors")
+    connectors["whatsapp"]["enabled"] = True
+    connectors["telegram"]["enabled"] = True
+    write_yaml(manager.path_for("connectors"), connectors)
+    app = DaemonApp(temp_home)
+
+    payload = app.handlers.quest_create(
+        {
+            "goal": "automation quest with conflicting bindings",
+            "requested_connector_bindings": [
+                {"connector": "whatsapp", "conversation_id": "whatsapp:direct:+15550003333"},
+                {"connector": "telegram", "conversation_id": "telegram:direct:tg-user-1"},
+            ],
+        }
+    )
+
+    assert isinstance(payload, tuple)
+    status, response = payload
+    assert status == 400
+    assert response == {
+        "ok": False,
+        "message": "A quest may bind at most one external connector target.",
+    }
+
+
 def test_quest_create_handler_auto_binds_recent_connector_to_newest_quest(
     temp_home: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2920,7 +3111,8 @@ def test_quest_create_handler_auto_binds_recent_connector_to_newest_quest(
     assert outbox
     assert outbox[-1]["conversation_id"] == "whatsapp:direct:+15550001111"
     assert quest_id in str(outbox[-1]["text"] or "")
-    assert "自动使用这个新 quest 保持连接" in str(outbox[-1]["text"] or "")
+    assert "这轮我先做这件事：daemon api connector bind quest" in str(outbox[-1]["text"] or "")
+    assert "后面的进展我都会直接在这里同步给您。" in str(outbox[-1]["text"] or "")
     history = app.quest_service.history(quest_id)
     assert history
     assert history[-1]["content"] == "daemon api connector bind quest"

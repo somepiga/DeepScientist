@@ -6,6 +6,7 @@ from typing import Any
 
 from ..memory.frontmatter import load_markdown_document
 from ..shared import read_json, read_text, read_yaml
+from .layout import normalize_research_mode
 
 _STAGE_KEY_ALIASES = {
     "analysis-campaign": "analysis",
@@ -152,6 +153,8 @@ class QuestStageViewBuilder:
         self.stage_key = normalize_stage_key(
             self.selection.get("stage_key") or self.trace.get("stage_key") or self.snapshot.get("active_anchor") or "baseline"
         )
+        startup_contract = self.snapshot.get("startup_contract") if isinstance(self.snapshot.get("startup_contract"), dict) else None
+        self.research_mode = normalize_research_mode(startup_contract, default="validation")
         self.stage_status = str(self.selection.get("status") or self.trace.get("status") or "").strip() or None
         self.artifacts = sorted(list(self.quest_service._collect_artifacts(quest_root)), key=_artifact_sort_key)
 
@@ -181,9 +184,9 @@ class QuestStageViewBuilder:
             return "analysis"
         if normalized.startswith("run/"):
             return "experiment"
-        if normalized.startswith("idea/"):
+        if normalized.startswith("idea/") or normalized.startswith("scout/"):
             return "idea"
-        if normalized.startswith("paper/") or normalized.startswith("write/"):
+        if normalized.startswith("paper/") or normalized.startswith("write/") or normalized.startswith("finalize/"):
             return "paper"
         if normalized.startswith("baseline/"):
             return "baseline"
@@ -218,7 +221,11 @@ class QuestStageViewBuilder:
             return "paper"
         if self._baseline_stage_items():
             return "baseline"
-        return normalized
+        if self.research_mode == "paper_track":
+            return "analysis"
+        if self.research_mode == "validation":
+            return "baseline"
+        return "idea"
 
     @staticmethod
     def _artifact_detail(item: dict[str, Any] | None, payload: dict[str, Any]) -> dict[str, Any] | None:

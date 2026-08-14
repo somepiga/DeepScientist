@@ -616,6 +616,13 @@ Do not use any direct terminal, subprocess, or implicit shell path outside `bash
 - Smoke tests or pilots are optional. Use them only when they resolve a concrete uncertainty such as command path, environment viability, output schema, or evaluator wiring.
 - Treat smoke/pilot work as a stage-local budget of `0-2` runs rather than as a mandatory phase.
 - A second smoke/pilot is justified only after a real change such as a code patch, command rewrite, environment fix, or evaluation-wiring fix.
+- For code verification, default to the smallest relevant check: one test node, one test file, one focused script, or one import/compile check tied to the files you changed.
+- During the code-patch stage, keep verification at that smallest relevant scope by default; do not expand beyond node/file-level checks unless the patch touched shared plumbing or the narrow check is insufficient to answer the real risk.
+- Do not jump to bare `pytest`, repo-wide suites, or other full validation by default just because you touched code.
+- Escalate from focused checks to broader suites only when the focused check passes and there is a concrete reason: shared infrastructure changed, multiple subsystems are affected, a public contract moved, flaky coupling is suspected, or the user explicitly asked for broader validation.
+- If no relevant automated test exists yet, prefer the closest cheap verification path such as `python -m py_compile`, a targeted import smoke check, or one narrow reproducer before considering any broad suite.
+- During experiment-entry confirmation, prefer the cheapest smoke that proves the entry path is viable: one command-path check, one config parse, one tiny sample, or one short evaluator wiring run. Do not turn entry confirmation into a hidden mini-benchmark.
+- Only consider broader validation near durable-result handoff: when you are about to publish, merge, record a durable comparison contract, or rely on the result as a reusable baseline. Even then, broaden only to the scope needed by the claimed artifact.
 - If no real change happened, do not rerun the same smoke/pilot just to reconfirm the same fact; progress by doing the real run, patching, switching route, or recording a blocker.
 - If runtime is uncertain or likely long, prefer `bash_exec(mode='detach', ...)` plus monitoring instead of pretending a short timeout is enough.
 - Judge run health by forward progress, not by whether the final artifact already appeared.
@@ -628,6 +635,8 @@ Common `bash_exec` usage patterns:
 
 - one short bounded check:
   - `bash_exec(command='python -m pytest tests/test_x.py', mode='await', timeout_seconds=120, comment=...)`
+- one smallest-possible regression check after a narrow patch:
+  - `bash_exec(command='python -m pytest tests/test_x.py::test_specific_case', mode='await', timeout_seconds=120, comment=...)`
 - one real long run:
   - `bash_exec(command='python train.py --config ...', mode='detach', comment=...)`
   - then monitor with `bash_exec(mode='list')`, `bash_exec(mode='read', id=..., tail_limit=..., order='desc')`, and `bash_exec(mode='await', id=..., wait_timeout_seconds=1800)`

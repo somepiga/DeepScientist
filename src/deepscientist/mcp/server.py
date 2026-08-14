@@ -1076,6 +1076,7 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             "Normal research flow should use mode=create together with submission_mode='line' and lineage_intent=continue_line or branch_alternative, so each durable idea submission becomes a new branch/worktree and a new user-visible research node. "
             "submission_mode='candidate' records a candidate idea brief without opening a new branch yet. "
             "mode=revise is maintenance-only for refining the current active idea.md in place. "
+            "For algorithmic_sota line promotion, provide novelty_audit with a claim signature, three stable prior-work comparisons, direct/adjacent/temporal search coverage, durable evidence paths, and collision_verdict='clear'. "
             "When foundation_ref is omitted, lineage_intent infers the parent and default foundation from the active research line."
         ),
     )
@@ -1095,6 +1096,7 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         source_lens: str = "",
         expected_gain: str = "",
         evidence_paths: list[str] | None = None,
+        novelty_audit: dict[str, Any] | None = None,
         risks: list[str] | None = None,
         decision_reason: str = "",
         foundation_ref: dict[str, Any] | str | None = None,
@@ -1121,6 +1123,7 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             source_lens=source_lens,
             expected_gain=expected_gain,
             evidence_paths=evidence_paths,
+            novelty_audit=novelty_audit,
             risks=risks,
             decision_reason=decision_reason,
             foundation_ref=foundation_ref,

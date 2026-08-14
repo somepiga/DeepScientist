@@ -68,6 +68,8 @@ Built-in runners today:
 
 - [02 Start Research Guide](./02_START_RESEARCH_GUIDE.md)
   Explains the current frontend fields, derived contract fields, and practical examples.
+- [33 Quest Automation API Guide](./33_QUEST_AUTOMATION_API_GUIDE.md)
+  Use this when you want to create quests from scripts, schedulers, or a local orchestration layer instead of clicking the dialog manually.
 - [20 Workspace Modes Guide](./20_WORKSPACE_MODES_GUIDE.md)
   Use this when the main question is not “how do I fill the form?” but “should this project start as Copilot or Autonomous?”.
 - [01 Settings Reference](./01_SETTINGS_REFERENCE.md)

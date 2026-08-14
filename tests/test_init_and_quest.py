@@ -301,6 +301,32 @@ def test_summary_compact_marks_system_quests_hidden_from_projects(temp_home: Pat
     assert research_summary["listed_in_projects"] is True
 
 
+def test_summary_compact_keeps_autonomous_research_visible_even_in_idea_workspace(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    service = QuestService(temp_home)
+
+    snapshot = service.create(
+        "autonomous research quest",
+        startup_contract={"workspace_mode": "autonomous"},
+    )
+    quest_root = Path(snapshot["quest_root"])
+    write_json(
+        quest_root / ".ds" / "research_state.json",
+        {
+            "workspace_mode": "idea",
+            "research_mode": "exploration",
+            "current_workspace_root": str(quest_root),
+            "research_head_worktree_root": str(quest_root),
+        },
+    )
+
+    summary = service.summary_compact(snapshot["quest_id"])
+
+    assert summary["workspace_mode"] == "idea"
+    assert summary["quest_class"] == "research"
+    assert summary["listed_in_projects"] is True
+
+
 def test_events_slice_uses_placeholder_for_oversized_event_lines(temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
@@ -588,6 +614,78 @@ def test_auto_generated_quest_ids_initialize_from_existing_numeric_quests(temp_h
     snapshot = service.create("after existing quests")
 
     assert snapshot["quest_id"] == "011"
+
+
+def test_snapshot_keeps_same_outline_legacy_paper_evidence_after_line_id_migration(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    snapshot = service.create("paper evidence migration quest")
+    quest_root = Path(snapshot["quest_root"])
+    paper_root = ensure_dir(quest_root / "paper")
+
+    write_json(
+        paper_root / "selected_outline.json",
+        {
+            "outline_id": "outline-001",
+            "title": "Outline Title",
+            "sections": [
+                {
+                    "section_id": "results-main",
+                    "title": "Main Results",
+                    "paper_role": "main_text",
+                    "required_items": ["run-main-001"],
+                    "result_table": [
+                        {
+                            "item_id": "run-main-001",
+                            "title": "Main run",
+                            "status": "completed",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    write_json(
+        paper_root / "paper_line_state.json",
+        {
+            "paper_line_id": "paper-line-new",
+            "paper_branch": "paper/test",
+            "source_branch": "run/run-main-001",
+            "source_run_id": "run-main-001",
+            "selected_outline_ref": "outline-001",
+            "required_count": 1,
+            "ready_required_count": 1,
+            "updated_at": "2026-03-28T00:00:00Z",
+        },
+    )
+    write_json(
+        paper_root / "evidence_ledger.json",
+        {
+            "selected_outline_ref": "outline-001",
+            "items": [
+                {
+                    "item_id": "run-main-001",
+                    "title": "Main run",
+                    "kind": "main_experiment",
+                    "paper_role": "main_text",
+                    "section_id": "results-main",
+                    "paper_line_id": "paper-line-old",
+                    "selected_outline_ref": "outline-001",
+                    "status": "completed",
+                }
+            ],
+        },
+    )
+    write_text(paper_root / "evidence_ledger.md", "# Ledger\n")
+
+    refreshed = service.snapshot(snapshot["quest_id"])
+
+    assert refreshed["paper_evidence"]["item_count"] == 1
+    assert refreshed["paper_contract"]["evidence_summary"]["item_count"] == 1
+    assert refreshed["paper_contract_health"]["contract_ok"] is True
+    assert refreshed["paper_contract_health"]["ready_required_count"] == 1
+    assert refreshed["paper_contract_health"]["unresolved_required_count"] == 0
 
 
 def test_skill_installer_can_resync_existing_quests_after_version_change(temp_home: Path) -> None:

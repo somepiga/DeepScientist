@@ -239,17 +239,22 @@ Runners are registered in `src/deepscientist/runners/` and discovered via regist
 
 ## Testing
 
-```bash
-# Run all tests
-pytest
+Default to the smallest relevant verification for the files you changed. In the code-patch stage, stay at node/file-level checks by default. In experiment-entry confirmation, use only the cheapest smoke that proves the path works. Only escalate to repo-wide validation when the change crosses shared infrastructure, public contracts, release boundaries, or the user explicitly asks for it.
 
-# Run specific test file
+```bash
+# Narrowest useful regression check
+pytest tests/test_daemon_api.py::test_health_endpoint
+
+# Focused test file
 pytest tests/test_daemon_api.py
 
-# Run with verbose output
-pytest -v
+# Cheap non-pytest checks when no direct test exists yet
+python3 -m compileall src/deepscientist
+node -c bin/ds.js
 
-# Run with coverage
+# Broader validation only when justified
+pytest
+pytest -v
 pytest --cov=src/deepscientist
 ```
 

@@ -22,7 +22,7 @@ from .network import configure_runtime_proxy, urlopen_with_proxy as urlopen
 from .prompts import PromptBuilder
 from .quest import QuestService
 from .registries import BaselineRegistry
-from .runners import ClaudeRunner, CodexRunner, KimiRunner, OpenCodeRunner, RunRequest, get_runner_factory, register_builtin_runners
+from .runners import ClaudeRunner, CodexRunner, KimiRunner, OpenCodeRunner, PiRunner, RunRequest, get_runner_factory, register_builtin_runners
 from .runtime_tools import RuntimeToolService
 from .runtime_logs import JsonlLogger
 from .shared import ensure_dir, read_json, read_yaml
@@ -330,6 +330,7 @@ def run_command(
     claude_cfg = runners.get("claude", {})
     kimi_cfg = runners.get("kimi", {})
     opencode_cfg = runners.get("opencode", {})
+    pi_cfg = runners.get("pi", {})
     logger = JsonlLogger(home / "logs", level=config.get("logging", {}).get("level", "info"))
     prompt_builder = PromptBuilder(
         repo_root(),
@@ -369,11 +370,20 @@ def run_command(
         prompt_builder=prompt_builder,
         artifact_service=artifact_service,
     )
+    pi_runner = PiRunner(
+        home=home,
+        repo_root=repo_root(),
+        binary=pi_cfg.get("binary", "pi"),
+        logger=logger,
+        prompt_builder=prompt_builder,
+        artifact_service=artifact_service,
+    )
     register_builtin_runners(
         codex_runner=codex_runner,
         claude_runner=claude_runner,
         kimi_runner=kimi_runner,
         opencode_runner=opencode_runner,
+        pi_runner=pi_runner,
     )
     candidate_runners = [runner_override, config.get("default_runner", "codex"), "codex"]
     runner_name = "codex"
