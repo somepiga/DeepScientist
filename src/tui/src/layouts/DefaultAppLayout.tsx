@@ -5,7 +5,8 @@ import type { ConfigPanel } from '../components/ConfigScreen.js'
 import { MainContent } from '../components/MainContent.js'
 import { Composer } from '../components/Composer.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
-import type { ConnectorSnapshot, FeedItem, QuestSummary, SessionPayload } from '../types.js'
+import type { ConnectorSnapshot, FeedItem, QuestSummary, SessionPayload, TuiDebugSnapshot } from '../types.js'
+import type { UtilityPanel } from '../components/UtilityScreen.js'
 import { isAlternateBufferEnabled } from '../utils/terminal.js'
 
 type DefaultAppLayoutProps = {
@@ -15,6 +16,7 @@ type DefaultAppLayoutProps = {
   browseQuestId: string | null
   configMode: 'browse' | 'edit' | null
   configPanel: ConfigPanel | null
+  utilityPanel: UtilityPanel | null
   questPanelMode: 'projects' | 'pause' | 'stop' | 'resume' | null
   questPanelQuests: QuestSummary[]
   questPanelIndex: number
@@ -26,6 +28,7 @@ type DefaultAppLayoutProps = {
   input: string
   connectionState: 'connecting' | 'connected' | 'error'
   statusLine: string
+  debugSnapshot?: TuiDebugSnapshot | null
   suggestions?: Array<{ name: string; description: string }>
   onChange: (next: string) => void
   onSubmit: (override?: string) => void
@@ -51,6 +54,7 @@ export const DefaultAppLayout: React.FC<DefaultAppLayoutProps> = ({
   browseQuestId,
   configMode,
   configPanel,
+  utilityPanel,
   questPanelMode,
   questPanelQuests,
   questPanelIndex,
@@ -62,6 +66,7 @@ export const DefaultAppLayout: React.FC<DefaultAppLayoutProps> = ({
   input,
   connectionState,
   statusLine,
+  debugSnapshot = null,
   suggestions = [],
   onChange,
   onSubmit,
@@ -91,6 +96,7 @@ export const DefaultAppLayout: React.FC<DefaultAppLayoutProps> = ({
     rows,
     session?.acp_session?.session_id,
     snapshot?.status,
+    debugSnapshot?.signature,
     statusLine,
     suggestions.length,
   ])
@@ -121,6 +127,7 @@ export const DefaultAppLayout: React.FC<DefaultAppLayoutProps> = ({
           browseQuestId={browseQuestId}
           configMode={configMode}
           configPanel={configPanel}
+          utilityPanel={utilityPanel}
           questPanelMode={questPanelMode}
           questPanelQuests={questPanelQuests}
           questPanelIndex={questPanelIndex}
@@ -142,6 +149,7 @@ export const DefaultAppLayout: React.FC<DefaultAppLayoutProps> = ({
         <Composer
           input={input}
           statusLine={statusLine}
+          debugSnapshot={debugSnapshot}
           suggestions={suggestions}
           configMode={configMode}
           selectionMode={questPanelMode}
@@ -166,6 +174,8 @@ export const DefaultAppLayout: React.FC<DefaultAppLayoutProps> = ({
               ? 'Edit the config content, then press Enter to save'
               : configMode === 'browse'
                 ? 'Use arrows to choose a config item, then press Enter'
+              : utilityPanel
+                ? 'Type a slash command, or press Esc to close this panel'
               : questPanelMode
               ? 'Use arrows to choose a quest, then press Enter'
               : activeQuestId

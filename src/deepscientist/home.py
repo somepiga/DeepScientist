@@ -67,6 +67,37 @@ def ensure_home_layout(home: Path) -> dict[str, Path]:
     for kind in ("papers", "ideas", "decisions", "episodes", "knowledge", "templates"):
         ensure_dir(memory / kind)
 
+    framework_quirks = home / "framework_quirks.md"
+    if not framework_quirks.exists():
+        framework_quirks.write_text(
+            "# Framework Quirks\n\n"
+            "Append-only durable file for framework-layer pitfalls (validator path quirks, "
+            "closure-protocol gotchas, anything that cannot or will not be fixed in code "
+            "and that future quests should know about before exercising the same surfaces).\n\n"
+            "Each entry should name the surface, the symptom, and the workaround in 2-5 lines. "
+            "Stage skills (idea, decision, finalize) instruct agents to read this file before "
+            "committing to a route that would touch the relevant surface.\n\n"
+            "If a quirk should instead be fixed at the framework level, file an issue and fix the code; "
+            "do not add it here as a permanent shim.\n",
+            encoding="utf-8",
+        )
+
+    system_quirks = home / "system_quirks.md"
+    if not system_quirks.exists():
+        system_quirks.write_text(
+            "# System Quirks\n\n"
+            "Append-only durable file for confirmed DeepScientist runtime or system bugs "
+            "that may help future admin/debug issue reports.\n\n"
+            "Each entry should include: expected behavior, actual behavior, reproduction, "
+            "impact, workaround, suggested fix, evidence paths, and status. Keep entries "
+            "redacted: do not store secrets, tokens, private hostnames, raw logs, or private "
+            "paths unless they are necessary and already safe to disclose.\n\n"
+            "Prefer fixing code over recording permanent quirks. Use this file for confirmed "
+            "system behavior that is not yet fixed or for a short-lived workaround while the "
+            "fix lands.\n",
+            encoding="utf-8",
+        )
+
     quests = ensure_dir(home / "quests")
     plugins = ensure_dir(home / "plugins")
     logs = ensure_dir(home / "logs")

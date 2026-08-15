@@ -169,6 +169,22 @@ print_optional_latex_notice() {
   fi
 }
 
+print_runner_notice() {
+  printf '\n'
+  printf 'Runner selection:\n'
+  printf '  - You do not need to choose every runner during installation.\n'
+  printf '  - Start with the default Codex lane first: %s\n' "$BIN_DIR/ds"
+  printf '  - After the Web workspace opens, you can configure or switch runners from Settings.\n'
+  printf '  - One-off launch examples when the CLI already works in your shell:\n'
+  printf '      %s --runner claude\n' "$BIN_DIR/ds"
+  printf '      %s --runner kimi\n' "$BIN_DIR/ds"
+  printf '      %s --runner opencode\n' "$BIN_DIR/ds"
+  printf '  - Diagnostics examples:\n'
+  printf '      %s doctor --runner claude\n' "$BIN_DIR/ds"
+  printf '      %s doctor --runner kimi\n' "$BIN_DIR/ds"
+  printf '      %s doctor --runner opencode\n' "$BIN_DIR/ds"
+}
+
 resolve_path() {
   if command -v python3 >/dev/null 2>&1; then
     python3 - "$1" <<'PY'
@@ -209,6 +225,80 @@ safe_remove_dir() {
   rm -rf "$target"
 }
 
+invalidate_runtime_python_env() {
+  local runtime_dir="$BASE_DIR/runtime/python-env"
+  if [ ! -d "$runtime_dir/lib" ]; then
+    return
+  fi
+  local removed=0
+  while IFS= read -r -d '' target; do
+    rm -rf "$target"
+    removed=1
+  done < <(find "$runtime_dir/lib" -maxdepth 3 -type d \
+    \( -name 'deepscientist' -o -name 'deepscientist-*.dist-info' \) \
+    -print0 2>/dev/null)
+  if [ "$removed" -eq 1 ]; then
+    print_step "Invalidated runtime Python env; next 'ds' start will reinstall deepscientist"
+  fi
+}
+
+source_copy_excludes() {
+  cat <<'EOF'
+./.git
+./.claude
+./.pytest_cache
+./.mypy_cache
+./.ruff_cache
+./.venv
+./build
+./node_modules
+./ui
+./test-results
+./runtime
+./src/ui/node_modules
+./src/ui/lib/node_modules
+./src/ui/test-results
+./src/ui/vendor/novel-headless/node_modules
+./src/ui/vendor/novel-headless/.turbo
+./src/tui/node_modules
+./src/deepscientist.egg-info
+./Codex
+./*.tgz
+./*.log
+./*.pid
+./*.rootbak
+./*.rootbak/
+./dist.bak.*
+EOF
+}
+
+tar_exclude_args() {
+  while IFS= read -r pattern; do
+    [ -n "$pattern" ] || continue
+    printf '%s\0' "--exclude=$pattern"
+  done < <(source_copy_excludes)
+}
+
+rsync_exclude_args() {
+  while IFS= read -r pattern; do
+    [ -n "$pattern" ] || continue
+    pattern="${pattern#./}"
+    case "$pattern" in
+      */*|\**)
+        ;;
+      *)
+        pattern="/$pattern"
+        ;;
+    esac
+    case "$pattern" in
+      \**)
+        pattern="/$pattern"
+        ;;
+    esac
+    printf '%s\0' "--exclude=$pattern"
+  done < <(source_copy_excludes)
+}
+
 stop_existing_install() {
   if [ -x "$INSTALL_DIR/bin/ds" ]; then
     "$INSTALL_DIR/bin/ds" --stop >/dev/null 2>&1 || true
@@ -222,20 +312,21 @@ stop_existing_install() {
 copy_source_tree() {
   local target="$1"
   mkdir -p "$target"
-  if command -v tar >/dev/null 2>&1; then
-    tar -C "$SOURCE_ROOT" -cf - \
-      --exclude='./.git' \
-      --exclude='./.pytest_cache' \
-      --exclude='./build' \
-      --exclude='./node_modules' \
-      --exclude='./ui' \
-      --exclude='./src/ui/node_modules' \
-      --exclude='./src/ui/lib/node_modules' \
-      --exclude='./src/tui/node_modules' \
-      --exclude='./src/deepscientist.egg-info' \
-      . | tar -C "$target" -xf -
+  if command -v rsync >/dev/null 2>&1; then
+    local -a excludes=()
+    while IFS= read -r -d '' item; do
+      excludes+=("$item")
+    done < <(rsync_exclude_args)
+    rsync -a --delete "${excludes[@]}" "$SOURCE_ROOT"/ "$target"/
+  elif command -v tar >/dev/null 2>&1; then
+    local -a excludes=()
+    while IFS= read -r -d '' item; do
+      excludes+=("$item")
+    done < <(tar_exclude_args)
+    tar -C "$SOURCE_ROOT" -cf - "${excludes[@]}" . | tar -C "$target" -xf -
   else
     cp -R "$SOURCE_ROOT"/. "$target"/
+    prune_tree "$target"
   fi
 }
 
@@ -243,14 +334,26 @@ prune_tree() {
   local target="$1"
   rm -rf \
     "$target/.git" \
+    "$target/.claude" \
     "$target/.pytest_cache" \
+    "$target/.mypy_cache" \
+    "$target/.ruff_cache" \
+    "$target/.venv" \
     "$target/build" \
     "$target/node_modules" \
     "$target/ui" \
+    "$target/test-results" \
+    "$target/runtime" \
     "$target/src/ui/node_modules" \
     "$target/src/ui/lib/node_modules" \
+    "$target/src/ui/test-results" \
+    "$target/src/ui/vendor/novel-headless/node_modules" \
+    "$target/src/ui/vendor/novel-headless/.turbo" \
     "$target/src/tui/node_modules" \
-    "$target/src/deepscientist.egg-info"
+    "$target/src/deepscientist.egg-info" \
+    "$target/Codex"
+  find "$target" -maxdepth 1 -type f \( -name '*.tgz' -o -name '*.log' -o -name '*.pid' -o -name '*.rootbak' \) -delete
+  find "$target" -maxdepth 1 -type d \( -name '*.rootbak' -o -name 'dist.bak.*' \) -prune -exec rm -rf {} +
   find "$target" -type d -name '__pycache__' -prune -exec rm -rf {} +
   find "$target" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 }
@@ -261,14 +364,14 @@ build_ui() {
     return
   fi
   print_step "Building web UI in install tree"
-  npm --prefix "$1/src/ui" install --include=dev --no-audit --no-fund
+  npm --prefix "$1/src/ui" ci --include=dev --no-audit --no-fund
   npm --prefix "$1/src/ui" run build
   rm -rf "$1/src/ui/node_modules" "$1/src/ui/lib/node_modules"
 }
 
 install_root_runtime() {
   print_step "Installing root runtime dependencies in install tree"
-  npm --prefix "$1" install --omit=dev --no-audit --no-fund
+  npm --prefix "$1" ci --omit=dev --no-audit --no-fund
 }
 
 build_tui() {
@@ -285,7 +388,7 @@ build_tui() {
     return
   fi
   print_step "Building TUI in install tree"
-  npm --prefix "$1/src/tui" install --include=dev --no-audit --no-fund
+  npm --prefix "$1/src/tui" ci --include=dev --no-audit --no-fund
   npm --prefix "$1/src/tui" run build
   npm --prefix "$1/src/tui" prune --omit=dev --no-audit --no-fund
 }
@@ -497,6 +600,8 @@ safe_remove_dir "$INSTALL_DIR"
 mv "$STAGING_DIR" "$INSTALL_DIR"
 trap - EXIT
 
+invalidate_runtime_python_env
+
 print_step "Writing launcher wrappers"
 mkdir -p "$BIN_DIR"
 write_global_wrapper "$BIN_DIR/ds" "ds"
@@ -513,6 +618,7 @@ printf 'Start web workspace: %s\n' "$BIN_DIR/ds --web"
 printf 'Default start: %s\n' "$BIN_DIR/ds"
 printf 'When `ds` starts, it prints the local Web URL and opens it automatically when supported.\n'
 printf 'If `uv` is missing, the first `ds` start will bootstrap a local copy automatically under the DeepScientist home.\n'
+print_runner_notice
 if [ "$DIR_SET" -eq 1 ] && [ "$BIN_DIR_SET" -eq 0 ] && [ -z "$ENV_BIN_DIR" ]; then
   printf 'Custom install dir detected; launcher wrappers were still refreshed in the default global bin dir: %s\n' "$BIN_DIR"
   printf 'If you prefer install-local wrappers instead, rerun with: --bin-dir %s/bin\n' "$BASE_DIR"

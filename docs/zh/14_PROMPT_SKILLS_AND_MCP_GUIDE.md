@@ -345,6 +345,10 @@ DeepScientist 当前有两层 skill：
 | `intake-audit` | quest 里已经有不少历史状态 | 给旧资产做 trust-rank，并决定下一个 anchor |
 | `review` | 已经有比较完整的 draft | 在宣布完成前做一次 skeptical audit |
 | `rebuttal` | 已经有 reviewer comments 或 revision request | 把 reviewer pressure 映射成实验、文字修改和 response artifact |
+| `nature-polishing` | 需要 Nature 风格论文措辞或中译英学术润色 | 在证据和 claim 边界明确后润色论文文字 |
+| `nature-data` | 需要 Data Availability、source data、数据引用、仓库、受限数据或 FAIR metadata | 基于已验证记录写 Nature-ready 数据可用性与元数据内容 |
+| `nature-figure` | 交付物是 Nature / 高水平期刊投稿级图表包 | 定义 figure contract、后端、导出方案和 QA 路径 |
+| `nature-paper2ppt` | 交付物是基于论文的 PPT/PPTX | 制作中文论文分享、组会或 journal-club deck |
 
 ### 6.3 最关键的设计点
 
@@ -376,6 +380,10 @@ DeepScientist 的 daemon 不应该变成一个巨大的硬编码科研调度器�
 | `review` | review report、revision log、experiment TODO list |
 | `rebuttal` | review matrix、response letter、text deltas、evidence-update plan |
 | `figure-polish` | 最终 polished figure 资产和已检查过的导出结果 |
+| `nature-polishing` | 润色后的论文段落，以及未解决的证据或 claim 边界说明 |
+| `nature-data` | Data Availability statement、repository plan、dataset citation checklist、未解决 metadata 字段 |
+| `nature-figure` | figure contract、选定后端、导出图表资产、QA notes |
+| `nature-paper2ppt` | PPTX deck、必要的论文图表/笔记素材、轻量 QA report |
 
 ## 8. 内建 MCP 结构
 
@@ -502,6 +510,7 @@ artifact 名字虽然多，但本质上还是一个家族。
 
 - 任何 shell-like 的执行都应该走 `bash_exec`
 - 不要把关键执行藏在一次性 shell 片段里
+- 对已经在跑的 managed session，优先使用有界等待，例如 `bash_exec.bash_exec(mode='await', id=..., wait_timeout_seconds=1800)`；如果等待窗口先结束，进程仍会继续运行，下一步通常应该先读日志，而不是直接杀掉 session
 
 ## 9. 这三个 MCP namespace 是怎么分工的
 

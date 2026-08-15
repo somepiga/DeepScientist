@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, ChevronDown, ChevronUp, Link2, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronUp, FileText, Link2, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { ConnectorTargetRadioGroup, type ConnectorTargetRadioItem } from '@/components/connectors/ConnectorTargetRadioGroup'
@@ -16,6 +16,9 @@ import { useToast } from '@/components/ui/toast'
 import { client } from '@/lib/api'
 import { conversationIdentityKey, normalizeConnectorTargets, parseConversationId } from '@/lib/connectors'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { formatLaunchFormMarkdown } from '@/lib/startResearch'
+import { useTabsStore } from '@/lib/stores/tabs'
+import { BUILTIN_PLUGINS } from '@/lib/types/plugin'
 import { cn } from '@/lib/utils'
 import type { ConnectorSnapshot, ConnectorTargetSnapshot, QuestSummary } from '@/types'
 
@@ -31,6 +34,7 @@ type RunnerEnvRow = {
 }
 
 type WorkspaceMode = 'copilot' | 'autonomous'
+type DecisionPolicy = 'autonomous' | 'user_gated'
 
 const DEFAULT_RUNNER_ENV_KEYS: Record<string, readonly string[]> = {
   codex: ['OPENAI_BASE_URL', 'OPENAI_API_KEY'],
@@ -75,6 +79,10 @@ function runnerEnvRowsToPayload(rows: RunnerEnvRow[]): Record<string, string> {
 
 function normalizeWorkspaceMode(value: unknown): WorkspaceMode {
   return String(value || '').trim().toLowerCase() === 'copilot' ? 'copilot' : 'autonomous'
+}
+
+function normalizeDecisionPolicy(value: unknown): DecisionPolicy {
+  return String(value || '').trim().toLowerCase() === 'autonomous' ? 'autonomous' : 'user_gated'
 }
 
 function connectorLabel(connector: ConnectorSnapshot, fallbackConnectorLabel: string) {
@@ -159,6 +167,14 @@ export function QuestSettingsSurface({
 }) {
   const { toast } = useToast()
   const { t, language } = useI18n('workspace')
+  const openTab = useTabsStore((state) => state.openTab)
+  const startupContract = React.useMemo(
+    () =>
+      snapshot?.startup_contract && typeof snapshot.startup_contract === 'object' && !Array.isArray(snapshot.startup_contract)
+        ? (snapshot.startup_contract as Record<string, unknown>)
+        : {},
+    [snapshot?.startup_contract]
+  )
   const currentExternalBinding = React.useMemo(() => {
     for (const raw of snapshot?.bound_conversations || []) {
       const parsed = parseConversationId(raw)
@@ -196,6 +212,13 @@ export function QuestSettingsSurface({
     normalizeWorkspaceMode(snapshot?.workspace_mode)
   )
   const [workspaceModeSaving, setWorkspaceModeSaving] = React.useState(false)
+  const [decisionPolicy, setDecisionPolicy] = React.useState<DecisionPolicy>(() =>
+    normalizeDecisionPolicy(startupContract.decision_policy)
+  )
+  const [savedDecisionPolicy, setSavedDecisionPolicy] = React.useState<DecisionPolicy>(() =>
+    normalizeDecisionPolicy(startupContract.decision_policy)
+  )
+  const [decisionPolicySaving, setDecisionPolicySaving] = React.useState(false)
   const [runnerEnvOpen, setRunnerEnvOpen] = React.useState(false)
 
   const reloadConnectors = React.useCallback(async () => {
@@ -203,6 +226,9 @@ export function QuestSettingsSurface({
     try {
       const payload = await client.connectors()
       setConnectors(payload.filter((item) => item.name !== 'local'))
+    } catch (error) {
+      console.warn('[QuestSettingsSurface] Failed to reload connectors', error)
+      setConnectors([])
     } finally {
       setLoadingConnectors(false)
     }
@@ -236,7 +262,9 @@ export function QuestSettingsSurface({
   }, [snapshot?.default_runner, snapshot?.runner])
 
   React.useEffect(() => {
-    void reloadRunnerEnv()
+    void reloadRunnerEnv().catch((error) => {
+      console.warn('[QuestSettingsSurface] Failed to reload runner env', error)
+    })
   }, [reloadRunnerEnv])
 
   React.useEffect(() => {
@@ -244,6 +272,12 @@ export function QuestSettingsSurface({
     setWorkspaceMode(nextMode)
     setSavedWorkspaceMode(nextMode)
   }, [questId, snapshot?.workspace_mode])
+
+  React.useEffect(() => {
+    const nextPolicy = normalizeDecisionPolicy(startupContract.decision_policy)
+    setDecisionPolicy(nextPolicy)
+    setSavedDecisionPolicy(nextPolicy)
+  }, [questId, startupContract.decision_policy])
 
   React.useEffect(() => {
     if (!connectors.length) {
@@ -461,6 +495,9 @@ export function QuestSettingsSurface({
     [runnerEnvRows, savedRunnerEnvRows]
   )
   const workspaceModeDirty = workspaceMode !== savedWorkspaceMode
+  const decisionPolicyLockedByCopilot = workspaceMode === 'copilot'
+  const visibleDecisionPolicy: DecisionPolicy = decisionPolicyLockedByCopilot ? 'user_gated' : decisionPolicy
+  const decisionPolicyDirty = !decisionPolicyLockedByCopilot && decisionPolicy !== savedDecisionPolicy
   const activeRunnerName = String(snapshot?.runner || snapshot?.default_runner || 'codex').trim().toLowerCase() || 'codex'
   const activeRunnerDefaultEnvKeys = DEFAULT_RUNNER_ENV_KEYS[activeRunnerName] || []
 
@@ -470,6 +507,18 @@ export function QuestSettingsSurface({
       { value: 'autonomous' as WorkspaceMode, label: t('quest_settings_mode_autonomous') },
     ],
     [t]
+  )
+
+  const decisionPolicyItems = React.useMemo(
+    () => [
+      {
+        value: 'autonomous' as DecisionPolicy,
+        label: t('quest_settings_decision_autonomous'),
+        disabled: decisionPolicyLockedByCopilot,
+      },
+      { value: 'user_gated' as DecisionPolicy, label: t('quest_settings_decision_user_gated') },
+    ],
+    [decisionPolicyLockedByCopilot, t]
   )
 
   const saveWorkspaceMode = React.useCallback(async () => {
@@ -487,6 +536,10 @@ export function QuestSettingsSurface({
         return
       }
       setSavedWorkspaceMode(workspaceMode)
+      if (workspaceMode === 'copilot') {
+        setDecisionPolicy('user_gated')
+        setSavedDecisionPolicy('user_gated')
+      }
       await onRefresh()
       toast({
         title: t('quest_settings_mode_saved_title'),
@@ -505,6 +558,68 @@ export function QuestSettingsSurface({
       setWorkspaceModeSaving(false)
     }
   }, [onRefresh, questId, t, toast, workspaceMode])
+
+  const saveDecisionPolicy = React.useCallback(async () => {
+    setDecisionPolicySaving(true)
+    try {
+      const result = await client.updateQuestSettings(questId, {
+        decision_policy: decisionPolicy,
+      })
+      if (!result.ok) {
+        toast({
+          title: 'Save failed',
+          description: 'Unable to update decision policy.',
+          variant: 'destructive',
+        })
+        return
+      }
+      setSavedDecisionPolicy(decisionPolicy)
+      await onRefresh()
+      toast({
+        title: t('quest_settings_decision_saved_title'),
+        description:
+          decisionPolicy === 'autonomous'
+            ? t('quest_settings_decision_saved_desc_autonomous')
+            : t('quest_settings_decision_saved_desc_user_gated'),
+      })
+    } catch (error) {
+      toast({
+        title: 'Save failed',
+        description: error instanceof Error ? error.message : 'Unable to update decision policy.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDecisionPolicySaving(false)
+    }
+  }, [decisionPolicy, onRefresh, questId, t, toast])
+
+  const openLaunchFormTab = React.useCallback(() => {
+    const markdown = formatLaunchFormMarkdown({
+      questId,
+      title: snapshot?.title,
+      goal: snapshot?.goal,
+      startupContract,
+      workspaceMode: snapshot?.workspace_mode,
+      locale: language === 'zh' ? 'zh' : 'en',
+    })
+    openTab({
+      pluginId: BUILTIN_PLUGINS.NOTEBOOK,
+      title: language === 'zh' ? '启动表单' : 'Launch Form',
+      icon: 'FileText',
+      context: {
+        type: 'notebook',
+        resourceId: `launch-form:${questId}`,
+        resourceName: language === 'zh' ? '启动表单.md' : 'Launch Form.md',
+        mimeType: 'text/markdown',
+        customData: {
+          projectId: questId,
+          inlineMarkdown: markdown,
+          readonly: true,
+          docKind: 'markdown',
+        },
+      },
+    })
+  }, [language, openTab, questId, snapshot?.goal, snapshot?.title, snapshot?.workspace_mode, startupContract])
 
   return (
     <div className={layout === 'document' ? 'p-4 sm:p-5' : 'feed-scrollbar h-full min-h-0 overflow-y-auto p-4 sm:p-5'}>
@@ -575,6 +690,75 @@ export function QuestSettingsSurface({
                   size="sm"
                   ariaLabel={t('quest_settings_mode_title')}
                 />
+              </div>
+            </div>
+          </EnhancedCard>
+
+          <EnhancedCard
+            enableSpotlight={false}
+            className="border border-border/60 bg-[var(--ds-panel-elevated)]/70 backdrop-blur-xl shadow-[var(--ds-shadow-md)]"
+          >
+            <div className="p-4 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium text-foreground">{t('quest_settings_decision_title')}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {t('quest_settings_decision_desc')}
+                  </div>
+                  {decisionPolicyDirty ? (
+                    <div className="mt-2 text-xs font-medium text-[var(--ds-brand)]">
+                      {t('quest_settings_decision_unsaved')}
+                    </div>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void saveDecisionPolicy()}
+                  disabled={decisionPolicySaving || decisionPolicyLockedByCopilot || !decisionPolicyDirty}
+                >
+                  {t('quest_settings_decision_save')}
+                </Button>
+              </div>
+
+              <Separator className="bg-border/50" />
+
+              <SegmentedControl
+                value={visibleDecisionPolicy}
+                onValueChange={(value) => {
+                  if (decisionPolicyLockedByCopilot) return
+                  setDecisionPolicy(value as DecisionPolicy)
+                }}
+                items={decisionPolicyItems}
+                size="sm"
+                ariaLabel={t('quest_settings_decision_title')}
+              />
+              {decisionPolicyLockedByCopilot ? (
+                <div className="text-xs text-muted-foreground">
+                  {t('quest_settings_decision_copilot_locked')}
+                </div>
+              ) : null}
+            </div>
+          </EnhancedCard>
+
+          <EnhancedCard
+            enableSpotlight={false}
+            className="border border-border/60 bg-[var(--ds-panel-elevated)]/70 backdrop-blur-xl shadow-[var(--ds-shadow-md)]"
+          >
+            <div className="p-4 space-y-3">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-sm font-medium text-foreground">
+                    {t('quest_settings_launch_form_title')}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {t('quest_settings_launch_form_desc')}
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={openLaunchFormTab}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  {t('quest_settings_launch_form_open')}
+                </Button>
               </div>
             </div>
           </EnhancedCard>

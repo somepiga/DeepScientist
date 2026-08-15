@@ -3,6 +3,45 @@ import { Sparkles } from 'lucide-react'
 
 import { QuestCopilotDockPanel } from '@/components/workspace/QuestCopilotDockPanel'
 import { useQuestWorkspace } from '@/lib/acp'
+import type { FeedItem } from '@/types'
+
+function sanitizeSetupAgentVisibleText(value: string) {
+  return String(value || '')
+    .replace(/```start_setup_patch\s*[\s\S]*?```/gi, '')
+    .replace(/```json\s*[\s\S]*?"(?:form_patch|session_patch|preview_plan|launch_readiness)"[\s\S]*?```/gi, '')
+    .replace(/^.*(?:结构化启动草案|启动草案|表单草案).*$/gim, '')
+    .replace(/我已经先帮你(?:把|整理出)[\s\S]*?(?=\n\s*(?:现在还差|还差|请|如果|$))/g, '')
+    .replace(/我已经(?:帮你|先帮你)[\s\S]*?(?=\n\s*(?:现在还差|还差|请|如果|$))/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function sanitizeSetupAgentUserText(value: string) {
+  const source = String(value || '')
+  const followup = source.match(/<user_followup>\s*([\s\S]*?)\s*<\/user_followup>/i)
+  if (followup) {
+    return followup[1].trim()
+  }
+  return source
+    .replace(/请基于下面这份“当前启动规划上下文”继续回答。[\s\S]*?(?=<current_start_setup_context>)/g, '')
+    .replace(/Continue from the current launch-planning context below\.[\s\S]*?(?=<current_start_setup_context>)/g, '')
+    .replace(/<current_start_setup_context>[\s\S]*?<\/current_start_setup_context>/gi, '')
+    .replace(/<user_followup>|<\/user_followup>/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function sanitizeSetupAgentFeed(feed: FeedItem[]): FeedItem[] {
+  return feed.map((item) => {
+    if (item.type !== 'message') return item
+    const content = item.role === 'assistant'
+      ? sanitizeSetupAgentVisibleText(item.content)
+      : item.role === 'user'
+        ? sanitizeSetupAgentUserText(item.content)
+        : item.content
+    return content === item.content ? item : { ...item, content }
+  })
+}
 
 function resolveSetupAgentBadge(args: {
   locale: 'en' | 'zh'
@@ -31,11 +70,19 @@ function resolveSetupAgentBadge(args: {
 export function SetupAgentQuestPanel({
   questId,
   locale,
+  transformSubmitMessage,
+  children,
 }: {
   questId: string
   locale: 'en' | 'zh'
+  transformSubmitMessage?: (message: string) => string
+  children?: React.ReactNode
 }) {
   const workspace = useQuestWorkspace(questId)
+  const sanitizedWorkspace = React.useMemo(
+    () => ({ ...workspace, feed: sanitizeSetupAgentFeed(workspace.feed) }),
+    [workspace]
+  )
   const suggestedForm =
     workspace.snapshot?.startup_contract &&
     typeof workspace.snapshot.startup_contract === 'object' &&
@@ -81,7 +128,13 @@ export function SetupAgentQuestPanel({
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <QuestCopilotDockPanel questId={questId} title="SetupAgent" workspace={workspace} />
+        <QuestCopilotDockPanel
+          questId={questId}
+          title="SetupAgent"
+          workspace={sanitizedWorkspace}
+          transformSubmitMessage={transformSubmitMessage}
+          beforeFeed={children}
+        />
       </div>
     </div>
   )

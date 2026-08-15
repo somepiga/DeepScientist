@@ -1,5 +1,6 @@
 import React from 'react'
 import { render } from 'ink'
+import os from 'node:os'
 
 import { AppContainer } from './app/AppContainer.js'
 import { setDaemonAuthToken } from './lib/api.js'
@@ -36,9 +37,23 @@ function parseArg(name: string): string | null {
   return null
 }
 
+function parseBool(value: string | undefined): boolean {
+  const raw = String(value || '').trim().toLowerCase()
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on'
+}
+
 const baseUrl = parseArg('--base-url') ?? 'http://0.0.0.0:20999'
 const questId = parseArg('--quest-id')
 const authToken = parseArg('--auth-token')
+const debugEnabled =
+  process.argv.includes('--debug') ||
+  parseBool(process.env.TUI_DEBUG) ||
+  parseBool(process.env.DEEPSCIENTIST_TUI_DEBUG)
+const debugLogPath =
+  parseArg('--debug-log') ||
+  process.env.TUI_DEBUG_LOG ||
+  process.env.DEEPSCIENTIST_TUI_DEBUG_LOG ||
+  `${os.tmpdir()}/deepscientist_tui_debug.jsonl`
 
 setDaemonAuthToken(authToken)
 
@@ -68,15 +83,24 @@ const closeBracketedPasteMode = () => {
 setBracketedPasteMode(true)
 process.once('exit', closeBracketedPasteMode)
 
-const instance = render(<AppContainer baseUrl={baseUrl} initialQuestId={questId} authToken={authToken} />, {
-  stdout: withLineClearing(process.stdout),
-  stderr: process.stderr,
-  stdin: process.stdin,
-  exitOnCtrlC: false,
-  patchConsole: false,
-  alternateBuffer: useAlternateBuffer,
-  incrementalRendering: useIncrementalRendering,
-})
+const instance = render(
+  <AppContainer
+    baseUrl={baseUrl}
+    initialQuestId={questId}
+    authToken={authToken}
+    debugEnabled={debugEnabled}
+    debugLogPath={debugLogPath}
+  />,
+  {
+    stdout: withLineClearing(process.stdout),
+    stderr: process.stderr,
+    stdin: process.stdin,
+    exitOnCtrlC: false,
+    patchConsole: false,
+    alternateBuffer: useAlternateBuffer,
+    incrementalRendering: useIncrementalRendering,
+  }
+)
 
 void instance.waitUntilExit().finally(() => {
   closeBracketedPasteMode()

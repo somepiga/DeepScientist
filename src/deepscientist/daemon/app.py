@@ -8,6 +8,7 @@ import faulthandler
 import hashlib
 import hmac
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -205,7 +206,7 @@ class DaemonApp:
         self.runtime_config = self.config_manager.load_runtime_config()
         self.runners_config = self.config_manager.load_runners_config()
         self.connectors_config = self.config_manager.load_named_normalized("connectors")
-        self.skill_installer = SkillInstaller(self.repo_root, home)
+        self.skill_installer = SkillInstaller(self.repo_root, home, runners_config=self.runners_config)
         self.quest_service = QuestService(home, skill_installer=self.skill_installer)
         self.latex_service = QuestLatexService(self.quest_service)
         self.memory_service = MemoryService(home)
@@ -1515,6 +1516,9 @@ class DaemonApp:
     def _start_terminal_attach_server(self, host: str, port: int) -> None:
         if self._terminal_attach_server is not None:
             return
+        terminal_ws_logger = logging.getLogger("deepscientist.terminal_attach.websocket")
+        terminal_ws_logger.setLevel(logging.CRITICAL + 1)
+        terminal_ws_logger.propagate = False
         candidates: list[int] = []
         if port > 0 and port < 65535:
             candidates.append(port + 1)
@@ -1530,6 +1534,7 @@ class DaemonApp:
                     compression=None,
                     max_size=None,
                     max_queue=None,
+                    logger=terminal_ws_logger,
                 )
                 self._terminal_attach_server = server
                 self._terminal_attach_host = host
@@ -2638,16 +2643,19 @@ class DaemonApp:
         quest_id: str,
         *,
         message_id: str | None = None,
+        client_message_id: str | None = None,
         source: str = "local",
     ) -> dict[str, Any]:
         snapshot = self.quest_service.snapshot(quest_id)
         snapshot = self._reconcile_stale_active_turn(quest_id, snapshot=snapshot)
         quest_root = self.quest_service._quest_root(quest_id)
         target_message_id = str(message_id or "").strip() or None
-        if target_message_id:
+        target_client_message_id = str(client_message_id or "").strip() or None
+        if target_message_id or target_client_message_id:
             status_payload = self.quest_service.pending_user_message_status(
                 quest_root,
                 message_id=target_message_id,
+                client_message_id=target_client_message_id,
             )
             queue_state = str(status_payload.get("queue_state") or "missing")
             current_message_state = (
@@ -2661,7 +2669,8 @@ class DaemonApp:
                     "status": "already_read",
                     "quest_id": quest_id,
                     "message": "This message was already sent to the agent.",
-                    "message_ids": [target_message_id],
+                    "message_ids": [target_message_id] if target_message_id else [],
+                    "client_message_ids": [target_client_message_id] if target_client_message_id else [],
                     "current_message_state": current_message_state,
                     "snapshot": snapshot,
                 }
@@ -2671,22 +2680,36 @@ class DaemonApp:
                     "status": "withdrawn",
                     "quest_id": quest_id,
                     "message": "This message was already withdrawn from the waiting queue.",
-                    "message_ids": [target_message_id],
+                    "message_ids": [target_message_id] if target_message_id else [],
+                    "client_message_ids": [target_client_message_id] if target_client_message_id else [],
                     "current_message_state": current_message_state,
                     "snapshot": snapshot,
                 }
             if queue_state == "missing":
+                target_label = target_message_id or f"client:{target_client_message_id}"
                 return {
                     "ok": False,
                     "status": "missing",
                     "quest_id": quest_id,
-                    "message": f"Message `{target_message_id}` is not waiting in the queue.",
-                    "message_ids": [target_message_id],
+                    "message": f"Message `{target_label}` is not waiting in the queue.",
+                    "message_ids": [target_message_id] if target_message_id else [],
+                    "client_message_ids": [target_client_message_id] if target_client_message_id else [],
                     "current_message_state": current_message_state,
                     "snapshot": snapshot,
                 }
         queue_payload = self.quest_service._read_message_queue(quest_root)
         pending = [dict(item) for item in (queue_payload.get("pending") or [])]
+        runtime_status = str(snapshot.get("runtime_status") or snapshot.get("status") or "").strip().lower()
+        self.logger.log(
+            "info",
+            "quest.user_message.read_now.requested",
+            quest_id=quest_id,
+            source=source,
+            message_id=target_message_id,
+            client_message_id=target_client_message_id,
+            pending_user_message_count=len(pending),
+            runtime_status=runtime_status or None,
+        )
         if not pending:
             return {
                 "ok": False,
@@ -2707,6 +2730,16 @@ class DaemonApp:
                     for item in pending
                     if str(item.get("message_id") or "").strip()
                 ]
+            )
+            self.logger.log(
+                "warning",
+                "quest.user_message.read_now.interrupt_failed",
+                quest_id=quest_id,
+                source=source,
+                message_id=target_message_id,
+                client_message_id=target_client_message_id,
+                pending_user_message_count=len(pending),
+                error=str(exc),
             )
             return {
                 "ok": False,
@@ -2750,6 +2783,31 @@ class DaemonApp:
         if runtime_status in {"stopped", "paused", "completed", "error"}:
             post_snapshot = self.quest_service.set_status(quest_id, "active")
         scheduling = self.schedule_turn(quest_id, reason="immediate_read")
+        message_states = [
+            dict(item)
+            for item in (mailbox_payload.get("message_states") or [])
+            if isinstance(item, dict)
+        ]
+        self.logger.log(
+            "info",
+            "quest.user_message.read_now.scheduled",
+            quest_id=quest_id,
+            source=source,
+            message_ids=[
+                str(item.get("message_id") or "").strip()
+                for item in recent_inbound_messages
+                if str(item.get("message_id") or "").strip()
+            ],
+            client_message_ids=[
+                str(item.get("client_message_id") or "").strip()
+                for item in recent_inbound_messages
+                if str(item.get("client_message_id") or "").strip()
+            ],
+            scheduled=bool(scheduling.get("scheduled")),
+            started=bool(scheduling.get("started")),
+            queued=bool(scheduling.get("queued")),
+            interrupted=bool(restart.get("interrupted")),
+        )
         return {
             "ok": True,
             "status": "scheduled",
@@ -2760,6 +2818,13 @@ class DaemonApp:
                 for item in recent_inbound_messages
                 if str(item.get("message_id") or "").strip()
             ],
+            "client_message_ids": [
+                str(item.get("client_message_id") or "").strip()
+                for item in recent_inbound_messages
+                if str(item.get("client_message_id") or "").strip()
+            ],
+            "message_states": message_states,
+            "current_message_state": message_states[0] if message_states else None,
             "delivery_batch": mailbox_payload.get("delivery_batch"),
             "recent_inbound_messages": recent_inbound_messages,
             "interrupted": bool(restart.get("interrupted")),
@@ -3341,6 +3406,19 @@ class DaemonApp:
                         )
                         return
                     exhausted_summary = f"{failure_summary} Retry budget exhausted after {attempt_index} attempt(s)."
+                    diagnosis = self._runner_failure_diagnosis(
+                        runner_name=runner_name,
+                        summary=exhausted_summary,
+                        stderr_text=str(exc),
+                        output_text="",
+                    )
+                    if diagnosis is not None and diagnosis.retriable:
+                        self.quest_service.update_runtime_state(
+                            quest_root=quest_root,
+                            continuation_policy="wait_for_user_or_resume",
+                            continuation_reason=self._retry_exhausted_continuation_reason(diagnosis),
+                            continuation_updated_at=utc_now(),
+                        )
                     self._append_retry_event(
                         quest_id,
                         event_type="runner.turn_retry_exhausted",
@@ -3353,6 +3431,7 @@ class DaemonApp:
                         max_attempts=max_attempts,
                         summary=exhausted_summary,
                         failure_summary=failure_summary,
+                        diagnosis=diagnosis,
                     )
                     self._record_turn_error(
                         quest_id=quest_id,
@@ -3362,6 +3441,8 @@ class DaemonApp:
                         model=model,
                         summary=exhausted_summary,
                         retry_state=None,
+                        diagnosis_code=diagnosis.code if diagnosis is not None else None,
+                        guidance=list(diagnosis.guidance) if diagnosis is not None else None,
                     )
                     return
 
@@ -3515,6 +3596,19 @@ class DaemonApp:
                     return
 
                 exhausted_summary = f"{failure_summary} Retry budget exhausted after {attempt_index} attempt(s)."
+                diagnosis = self._runner_failure_diagnosis(
+                    runner_name=runner_name,
+                    summary=exhausted_summary,
+                    stderr_text=result.stderr_text,
+                    output_text=result.output_text,
+                )
+                if diagnosis is not None and diagnosis.retriable:
+                    self.quest_service.update_runtime_state(
+                        quest_root=quest_root,
+                        continuation_policy="wait_for_user_or_resume",
+                        continuation_reason=self._retry_exhausted_continuation_reason(diagnosis),
+                        continuation_updated_at=utc_now(),
+                    )
                 self._append_retry_event(
                     quest_id,
                     event_type="runner.turn_retry_exhausted",
@@ -3527,6 +3621,7 @@ class DaemonApp:
                     max_attempts=max_attempts,
                     summary=exhausted_summary,
                     failure_summary=failure_summary,
+                    diagnosis=diagnosis,
                 )
                 self._record_turn_error(
                     quest_id=quest_id,
@@ -3536,6 +3631,8 @@ class DaemonApp:
                     model=model,
                     summary=exhausted_summary,
                     retry_state=None,
+                    diagnosis_code=diagnosis.code if diagnosis is not None else None,
+                    guidance=list(diagnosis.guidance) if diagnosis is not None else None,
                 )
                 return
             finally:
@@ -3649,6 +3746,49 @@ class DaemonApp:
             if value in {"copilot", "autonomous"}:
                 return value
         return "autonomous"
+
+    @staticmethod
+    def _decision_policy_for(snapshot: dict) -> str:
+        startup_contract = snapshot.get("startup_contract")
+        if isinstance(startup_contract, dict):
+            value = str(startup_contract.get("decision_policy") or "").strip().lower()
+            if value in {"autonomous", "user_gated"}:
+                return value
+        return "user_gated"
+
+    def _effective_autonomous_decision_mode(self, snapshot: dict) -> bool:
+        return self._workspace_mode_for(snapshot) == "autonomous" and self._decision_policy_for(snapshot) == "autonomous"
+
+    def _auto_resume_wait_if_allowed(self, quest_id: str, snapshot: dict) -> tuple[dict, bool]:
+        if str(snapshot.get("continuation_policy") or "").strip().lower() != "wait_for_user_or_resume":
+            return snapshot, False
+        if not self._effective_autonomous_decision_mode(snapshot):
+            return snapshot, False
+        reason = str(snapshot.get("continuation_reason") or "").strip() or "wait_for_user_or_resume"
+        if reason in AUTONOMOUS_BLOCKING_WAIT_REASONS:
+            return snapshot, False
+        quest_root = self.quest_service._quest_root(quest_id)
+        message = self.quest_service.localized_copy(
+            quest_root=quest_root,
+            zh=f"【自动继续】系统检测到当前为无需询问模式，本次“等待反馈”已自动转换为继续执行。原因：{reason}。",
+            en=f"[Auto-resumed] This quest is in autonomous decision mode, so the waiting state was converted back to automatic continuation. Reason: {reason}.",
+        )
+        notice = {
+            "status": "auto_resumed",
+            "reason": reason,
+            "message": message,
+            "decision_policy": "autonomous",
+            "label": self.quest_service.localized_copy(quest_root=quest_root, zh="自动继续", en="Auto-resumed"),
+            "created_at": utc_now(),
+        }
+        self.quest_service.update_runtime_state(
+            quest_root=quest_root,
+            continuation_policy="auto",
+            continuation_reason=f"{reason}_auto_resumed",
+            waiting_notice=notice,
+        )
+        snapshot = self.quest_service.snapshot(quest_id)
+        return snapshot, True
 
     def _resolve_continuation_policy(self, snapshot: dict, *, current_policy: str) -> tuple[str, str]:
         normalized = str(current_policy or "auto").strip().lower() or "auto"
@@ -3934,6 +4074,7 @@ class DaemonApp:
         backoff_seconds: float | None = None,
         next_attempt_index: int | None = None,
         previous_run_id: str | None = None,
+        diagnosis: FailureDiagnosis | None = None,
     ) -> dict[str, Any]:
         payload = {
             "event_id": generate_id("evt"),
@@ -3957,6 +4098,9 @@ class DaemonApp:
             payload["next_attempt_index"] = next_attempt_index
         if previous_run_id:
             payload["previous_run_id"] = previous_run_id
+        if diagnosis is not None:
+            payload["diagnosis_code"] = diagnosis.code
+            payload["diagnosis"] = self._failure_diagnosis_payload(diagnosis)
         append_jsonl(self.home / "quests" / quest_id / ".ds" / "events.jsonl", payload)
         self.logger.log(
             "warning" if "scheduled" in event_type or "exhausted" in event_type else "info",
@@ -3970,6 +4114,7 @@ class DaemonApp:
             backoff_seconds=backoff_seconds,
             next_attempt_index=next_attempt_index,
             previous_run_id=previous_run_id,
+            diagnosis_code=diagnosis.code if diagnosis is not None else None,
         )
         return payload
 
@@ -4162,6 +4307,34 @@ class DaemonApp:
         )
 
     @staticmethod
+    def _failure_diagnosis_payload(diagnosis: FailureDiagnosis) -> dict[str, Any]:
+        fix = [str(line) for line in diagnosis.guidance if str(line).strip()]
+        return {
+            "code": diagnosis.code,
+            "problem": diagnosis.problem,
+            "why": diagnosis.why,
+            "fix": fix,
+            "guidance": fix,
+            "retriable": bool(diagnosis.retriable),
+            "matched_text": diagnosis.matched_text,
+        }
+
+    @staticmethod
+    def _runner_failure_diagnosis(
+        *,
+        runner_name: str,
+        summary: str,
+        stderr_text: str,
+        output_text: str,
+    ) -> FailureDiagnosis | None:
+        return diagnose_runner_failure(
+            runner_name=runner_name,
+            summary=summary,
+            stderr_text=stderr_text,
+            output_text=output_text,
+        )
+
+    @staticmethod
     def _non_retryable_failure_diagnosis(
         *,
         runner_name: str,
@@ -4169,7 +4342,7 @@ class DaemonApp:
         stderr_text: str,
         output_text: str,
     ) -> FailureDiagnosis | None:
-        diagnosis = diagnose_runner_failure(
+        diagnosis = DaemonApp._runner_failure_diagnosis(
             runner_name=runner_name,
             summary=summary,
             stderr_text=stderr_text,
@@ -4178,6 +4351,12 @@ class DaemonApp:
         if diagnosis is None or diagnosis.retriable:
             return None
         return diagnosis
+
+    @staticmethod
+    def _retry_exhausted_continuation_reason(diagnosis: FailureDiagnosis) -> str:
+        if diagnosis.code == "codex_upstream_provider_error":
+            return "external_codex_upstream_provider_error"
+        return "runner_retry_budget_exhausted"
 
     def _record_turn_postprocess_warning(
         self,
@@ -4334,6 +4513,14 @@ class DaemonApp:
         if int(snapshot.get("pending_user_message_count") or 0) > 0:
             self.schedule_turn(quest_id, reason="queued_user_messages")
             return
+        snapshot, auto_resumed_wait = self._auto_resume_wait_if_allowed(quest_id, snapshot)
+        if auto_resumed_wait:
+            self._schedule_turn_later(
+                quest_id,
+                reason="auto_continue",
+                delay_seconds=self._auto_continue_delay_for_policy("auto"),
+            )
+            return
         continuation_policy = str(snapshot.get("continuation_policy") or "auto").strip().lower() or "auto"
         resolved_external_progress = False
         if continuation_policy == "auto":
@@ -4400,6 +4587,11 @@ class DaemonApp:
                     continuation_updated_at=utc_now(),
                 )
                 snapshot = self.quest_service.snapshot(quest_id)
+            snapshot, auto_resumed_wait = self._auto_resume_wait_if_allowed(quest_id, snapshot)
+            if auto_resumed_wait:
+                self.schedule_turn(quest_id, reason=reason)
+                return
+            continuation_policy = str(snapshot.get("continuation_policy") or "auto").strip().lower() or "auto"
             if continuation_policy in {"none", "wait_for_user_or_resume"}:
                 return
             if continuation_policy == "when_external_progress":
@@ -6867,6 +7059,16 @@ class DaemonApp:
                 zh=f"正在启动 DeepScientist，当前会先恢复 `{quest_id}` 里停滞的运行，再继续处理您的新消息。",
                 en=f"DeepScientist is starting up. I’m recovering the stalled run in `{quest_id}` first, then I’ll continue with your new message.",
             )
+        if started or auto_resumed:
+            return self._polite_copy(
+                zh=f"已经成功收到消息，DeepScientist 已经启动并开始处理 `{quest_id}` 啦。",
+                en=f"Message received successfully. DeepScientist has started and is now processing `{quest_id}`.",
+            )
+        if queued:
+            return self._polite_copy(
+                zh=f"已经成功收到消息，`{quest_id}` 当前正在运行中，这条消息也已经排进队列了。",
+                en=f"Message received successfully. `{quest_id}` is already running, and this message has been queued.",
+            )
         if not ready and has_explicit_runner_failure:
             status_line = f" 当前状态：{readiness_summary}" if readiness_summary else ""
             return self._polite_copy(
@@ -6877,16 +7079,6 @@ class DaemonApp:
                     f"DeepScientist is still offline. Please check whether the bound {runner_label} can connect normally."
                     f"{(' Current status: ' + readiness_summary) if readiness_summary else ''}"
                 ),
-            )
-        if started or auto_resumed:
-            return self._polite_copy(
-                zh=f"已经成功收到消息，DeepScientist 已经启动并开始处理 `{quest_id}` 啦。",
-                en=f"Message received successfully. DeepScientist has started and is now processing `{quest_id}`.",
-            )
-        if queued:
-            return self._polite_copy(
-                zh=f"已经成功收到消息，`{quest_id}` 当前正在运行中，这条消息也已经排进队列了。",
-                en=f"Message received successfully. `{quest_id}` is already running, and this message has been queued.",
             )
         return self._polite_copy(
             zh=f"已经成功收到消息，我会继续推进 `{quest_id}` 并同步后续进展。",
@@ -8421,6 +8613,13 @@ class DaemonApp:
         app = self
 
         class RequestHandler(BaseHTTPRequestHandler):
+            def handle(self) -> None:
+                try:
+                    super().handle()
+                except (BrokenPipeError, ConnectionResetError, TimeoutError):
+                    self.close_connection = True
+                    return
+
             def log_message(self, format: str, *args) -> None:
                 return
 

@@ -2,6 +2,7 @@ import * as React from 'react'
 
 import { MarkdownDocument } from '@/components/plugins/MarkdownDocument'
 import { SettingsGuideCard } from '@/components/settings/SettingsGuideCard'
+import { AnimatedCheckbox } from '@/components/ui/animated-checkbox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -33,14 +34,16 @@ const PAGE_COPY = {
 - recent runtime failures
 - failed admin tasks
 - cached doctor summary when available
+- detected system settings when the operator keeps them enabled
 - suggested fixes and workarounds inferred from known failures
 
 ### Operator workflow
 
 1. add or refine a short summary and notes if needed
 2. refresh the draft if you want to regenerate it from the latest local errors and logs
-3. adjust the generated title or markdown body only if you need a final edit
-4. click **Submit GitHub Issue** to open the prefilled GitHub issue page
+3. keep detected system settings enabled unless you want a privacy-reduced report
+4. adjust the generated title or markdown body only if you need a final edit
+5. click **Submit GitHub Issue** to open the prefilled GitHub issue page
 `,
     draftTitle: 'GitHub Issue Draft',
     summaryPlaceholder: 'Optional short summary line',
@@ -50,6 +53,7 @@ const PAGE_COPY = {
     issueTitlePlaceholder: 'Issue title',
     refreshDraft: 'Refresh Draft',
     submitIssue: 'Submit GitHub Issue',
+    includeSystemSettingsLabel: 'Include detected system settings',
     markdownPreview: 'Markdown Preview',
     emptyDraft: '_No issue draft yet._',
   },
@@ -70,14 +74,16 @@ const PAGE_COPY = {
 - 最近运行时失败
 - 失败的 admin 任务
 - 如果存在，则包含缓存的 Doctor 摘要
+- 当运维保持开启时，也会附带检测到的系统设置
 - 根据已知失败自动推断的推荐修复方案 / 临时绕过方案
 
 ### 使用流程
 
 1. 如有需要，补充或修改简短总结与备注
 2. 如果想按最新的本地错误和日志重新生成，就刷新草稿
-3. 只在需要最终微调时修改标题或 Markdown 正文
-4. 点击 **提交 GitHub Issue** 打开 GitHub 预填页面
+3. 如果想发起更保守的公开 issue，可以关闭系统设置附带项
+4. 只在需要最终微调时修改标题或 Markdown 正文
+5. 点击 **提交 GitHub Issue** 打开 GitHub 预填页面
 `,
     draftTitle: 'GitHub Issue 草稿',
     summaryPlaceholder: '可选的简短总结',
@@ -87,6 +93,7 @@ const PAGE_COPY = {
     issueTitlePlaceholder: 'Issue 标题',
     refreshDraft: '刷新草稿',
     submitIssue: '提交 GitHub Issue',
+    includeSystemSettingsLabel: '包含检测到的系统设置',
     markdownPreview: 'Markdown 预览',
     emptyDraft: '_当前还没有 issue 草稿。_',
   },
@@ -105,7 +112,9 @@ export function SettingsIssueReportSection() {
   const updateDraft = useAdminIssueDraftStore((state) => state.updateDraft)
   const [summary, setSummary] = React.useState('')
   const [notes, setNotes] = React.useState('')
+  const [includeSystemSettings, setIncludeSystemSettings] = React.useState(true)
   const [loading, setLoading] = React.useState(false)
+  const lastIncludeSystemSettingsRef = React.useRef(includeSystemSettings)
 
   const generateDraft = React.useCallback(async (options?: { force?: boolean }) => {
     setLoading(true)
@@ -115,6 +124,7 @@ export function SettingsIssueReportSection() {
         user_notes: notes.trim() || undefined,
         include_doctor: true,
         include_logs: true,
+        include_system_settings: includeSystemSettings,
       })
       if (!options?.force && useAdminIssueDraftStore.getState().draft) {
         return
@@ -123,12 +133,22 @@ export function SettingsIssueReportSection() {
     } finally {
       setLoading(false)
     }
-  }, [notes, setDraft, summary])
+  }, [includeSystemSettings, notes, setDraft, summary])
 
   React.useEffect(() => {
     if (draft) return
     void generateDraft({ force: false })
   }, [draft, generateDraft])
+
+  React.useEffect(() => {
+    if (!draft) {
+      lastIncludeSystemSettingsRef.current = includeSystemSettings
+      return
+    }
+    if (lastIncludeSystemSettingsRef.current === includeSystemSettings) return
+    lastIncludeSystemSettingsRef.current = includeSystemSettings
+    void generateDraft({ force: true })
+  }, [draft, generateDraft, includeSystemSettings])
 
   const issueUrl = React.useMemo(
     () => buildIssueUrl(draft?.issue_url_base || defaultIssueBase, draft?.title || '', draft?.body_markdown || ''),
@@ -157,7 +177,7 @@ export function SettingsIssueReportSection() {
             <Button
               type="button"
               onClick={handleSubmitIssue}
-              disabled={!draft?.title || !draft?.body_markdown}
+              disabled={loading || !draft?.title || !draft?.body_markdown}
               className="bg-black text-white hover:bg-black/90 dark:bg-black dark:text-white dark:hover:bg-black/90"
             >
               {copy.submitIssue}
@@ -168,6 +188,12 @@ export function SettingsIssueReportSection() {
         <div className={`mt-5 grid gap-4 border-t ${dividerClassName} pt-5`}>
           <Input value={summary} onChange={(event) => setSummary(event.target.value)} placeholder={copy.summaryPlaceholder} />
           <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={copy.notesPlaceholder} className="min-h-[120px]" />
+          <AnimatedCheckbox
+            checked={includeSystemSettings}
+            onChange={setIncludeSystemSettings}
+            label={copy.includeSystemSettingsLabel}
+            size="sm"
+          />
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{copy.issueTitleLabel}</div>
             <Input

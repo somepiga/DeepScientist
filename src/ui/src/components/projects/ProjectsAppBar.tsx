@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { SystemUpdateButton } from '@/components/system-update/SystemUpdateButton'
 import { assetUrl } from '@/lib/assets'
 import { useI18n } from '@/lib/i18n'
+import { useOnboardingStore } from '@/lib/stores/onboarding'
 import { useThemeStore } from '@/lib/stores/theme'
 import { cn } from '@/lib/utils'
 

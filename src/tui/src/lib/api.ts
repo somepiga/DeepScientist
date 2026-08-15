@@ -1,8 +1,15 @@
 import type {
+  AdminTask,
   BashLogEntry,
   BashProgress,
   BashSession,
+  BaselineRegistryEntry,
+  BenchStoreCatalogPayload,
+  BenchStoreEntryDetailPayload,
+  BenchStoreSetupPacketPayload,
   ConfigFileEntry,
+  ConfigTestPayload,
+  ConfigValidationPayload,
   ConnectorAvailabilitySnapshot,
   ConnectorSnapshot,
   FeedEnvelope,
@@ -108,6 +115,30 @@ export const client = {
     api<{ ok: boolean; snapshot: QuestSummary }>(baseUrl, '/api/quests', {
       method: 'POST',
       body: JSON.stringify({ goal }),
+    }),
+  createQuestWithOptions: (
+    baseUrl: string,
+    payload: {
+      goal: string
+      title?: string
+      quest_id?: string
+      source?: string
+      auto_start?: boolean
+      initial_message?: string
+      preferred_connector_conversation_id?: string
+      auto_bind_latest_connectors?: boolean
+      requested_connector_bindings?: Array<{
+        connector: string
+        conversation_id?: string | null
+      }>
+      force_connector_rebind?: boolean
+      requested_baseline_ref?: { baseline_id: string; variant_id?: string | null } | null
+      startup_contract?: Record<string, unknown> | null
+    }
+  ) =>
+    api<{ ok: boolean; snapshot: QuestSummary; startup?: Record<string, unknown> }>(baseUrl, '/api/quests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
   deleteQuest: (baseUrl: string, questId: string) =>
     api<{ ok: boolean; quest_id: string; deleted?: boolean }>(baseUrl, `/api/quests/${questId}`, {
@@ -237,6 +268,83 @@ export const client = {
       method: 'POST',
       body: JSON.stringify({ action, source: 'tui-ink' }),
     }),
+  runSkill: (
+    baseUrl: string,
+    questId: string,
+    payload: {
+      skill_id: string
+      message?: string
+      runner?: string
+      model?: string
+      model_reasoning_effort?: string | null
+      turn_reason?: string
+    }
+  ) =>
+    api<Record<string, unknown>>(baseUrl, `/api/quests/${questId}/runs`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  baselines: (baseUrl: string) => api<BaselineRegistryEntry[]>(baseUrl, '/api/baselines'),
+  attachBaseline: (baseUrl: string, questId: string, baselineId: string, variantId?: string | null) =>
+    api<Record<string, unknown>>(baseUrl, `/api/quests/${questId}/baseline-binding`, {
+      method: 'POST',
+      body: JSON.stringify({ baseline_id: baselineId, variant_id: variantId || undefined }),
+    }),
+  unbindBaseline: (baseUrl: string, questId: string) =>
+    api<Record<string, unknown>>(baseUrl, `/api/quests/${questId}/baseline-binding`, {
+      method: 'DELETE',
+    }),
+  benchstoreEntries: (baseUrl: string, locale?: 'en' | 'zh') => {
+    const suffix = locale ? `?locale=${encodeURIComponent(locale)}` : ''
+    return api<BenchStoreCatalogPayload>(baseUrl, `/api/benchstore/entries${suffix}`)
+  },
+  benchstoreEntry: (baseUrl: string, entryId: string, locale?: 'en' | 'zh') => {
+    const suffix = locale ? `?locale=${encodeURIComponent(locale)}` : ''
+    return api<BenchStoreEntryDetailPayload>(baseUrl, `/api/benchstore/entries/${encodeURIComponent(entryId)}${suffix}`)
+  },
+  benchstoreSetupPacket: (baseUrl: string, entryId: string, locale?: 'en' | 'zh') => {
+    const suffix = locale ? `?locale=${encodeURIComponent(locale)}` : ''
+    return api<BenchStoreSetupPacketPayload>(baseUrl, `/api/benchstore/entries/${encodeURIComponent(entryId)}/setup-packet${suffix}`)
+  },
+  installBenchstoreEntry: (baseUrl: string, entryId: string) =>
+    api<{ ok: boolean; entry_id: string; task: AdminTask }>(baseUrl, `/api/benchstore/entries/${encodeURIComponent(entryId)}/install`, {
+      method: 'POST',
+      body: JSON.stringify({ source: 'tui-ink' }),
+    }),
+  launchBenchstoreEntry: (baseUrl: string, entryId: string, locale?: 'en' | 'zh') => {
+    const suffix = locale ? `?locale=${encodeURIComponent(locale)}` : ''
+    return api<{ ok: boolean; entry_id: string; snapshot: QuestSummary; setup_packet?: Record<string, unknown> }>(
+      baseUrl,
+      `/api/benchstore/entries/${encodeURIComponent(entryId)}/launch${suffix}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ source: 'tui-ink' }),
+      }
+    )
+  },
+  systemTasks: (baseUrl: string, kind?: string, limit = 50) => {
+    const params = new URLSearchParams()
+    if (kind) params.set('kind', kind)
+    params.set('limit', String(limit))
+    return api<{ ok: boolean; items: AdminTask[] }>(baseUrl, `/api/system/tasks?${params.toString()}`)
+  },
+  systemTask: (baseUrl: string, taskId: string) =>
+    api<{ ok: boolean; task: AdminTask }>(baseUrl, `/api/system/tasks/${encodeURIComponent(taskId)}`),
+  startDoctorTask: (baseUrl: string) =>
+    api<{ ok: boolean; task: AdminTask }>(baseUrl, '/api/system/tasks/doctor', {
+      method: 'POST',
+      body: JSON.stringify({ source: 'tui-ink' }),
+    }),
+  startSystemUpdateCheckTask: (baseUrl: string) =>
+    api<{ ok: boolean; task: AdminTask }>(baseUrl, '/api/system/tasks/system-update-check', {
+      method: 'POST',
+      body: JSON.stringify({ source: 'tui-ink' }),
+    }),
+  startSystemUpdateActionTask: (baseUrl: string, action: string) =>
+    api<{ ok: boolean; task: AdminTask }>(baseUrl, '/api/system/tasks/system-update-action', {
+      method: 'POST',
+      body: JSON.stringify({ action, source: 'tui-ink' }),
+    }),
   getBashSession: (baseUrl: string, questId: string, bashId: string) =>
     api<BashSession>(baseUrl, `/api/quests/${questId}/bash/sessions/${bashId}`),
   getBashLogs: async (
@@ -363,6 +471,34 @@ export const client = {
     }>(baseUrl, `/api/config/${name}`, {
       method: 'PUT',
       body: JSON.stringify({ structured, revision }),
+    }),
+  validateConfig: (
+    baseUrl: string,
+    name: string,
+    input: { content?: string; structured?: Record<string, unknown> }
+  ) =>
+    api<ConfigValidationPayload>(baseUrl, '/api/config/validate', {
+      method: 'POST',
+      body: JSON.stringify({ name, ...input }),
+    }),
+  testConfig: (
+    baseUrl: string,
+    name: string,
+    input: {
+      content?: string
+      structured?: Record<string, unknown>
+      live?: boolean
+      delivery_targets?: Array<Record<string, unknown>>
+    }
+  ) =>
+    api<ConfigTestPayload>(baseUrl, '/api/config/test', {
+      method: 'POST',
+      body: JSON.stringify({ name, ...input }),
+    }),
+  deepxivTest: (baseUrl: string, structured: Record<string, unknown>) =>
+    api<ConfigTestPayload>(baseUrl, '/api/config/deepxiv/test', {
+      method: 'POST',
+      body: JSON.stringify({ structured }),
     }),
   updateQuestBindings: (
     baseUrl: string,

@@ -274,23 +274,12 @@ def test_upload_local_media_to_weixin_encodes_aes_key_like_openclaw(
 
 
 def test_send_weixin_message_raises_on_nonzero_ret(monkeypatch) -> None:
-    class _Response:
-        def __init__(self, payload: str) -> None:
-            self._payload = payload.encode("utf-8")
+    import httpx as _httpx
 
-        def read(self) -> bytes:
-            return self._payload
+    def _fake_request(self, method, url, **kwargs):  # noqa: ANN001
+        return _httpx.Response(200, text='{"ret":-2,"errmsg":"context invalid"}')
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr(
-        "deepscientist.connector.weixin_support.urlopen",
-        lambda request, timeout=15: _Response('{"ret":-2,"errmsg":"context invalid"}'),
-    )
+    monkeypatch.setattr("httpx.Client.request", _fake_request)
 
     with pytest.raises(RuntimeError, match="ret=-2"):
         send_weixin_message(
@@ -300,11 +289,61 @@ def test_send_weixin_message_raises_on_nonzero_ret(monkeypatch) -> None:
         )
 
 
-def test_get_weixin_updates_treats_timeout_as_empty_poll(monkeypatch) -> None:
-    def _raise_timeout(request, timeout=35):  # noqa: ANN001
-        raise TimeoutError("timed out")
+def test_weixin_ilink_caps_server_controlled_long_poll_timeout(
+    temp_home: Path,
+    monkeypatch,
+) -> None:
+    ensure_home_layout(temp_home)
+    events: list[dict] = []
+    timeouts_seen: list[int] = []
 
-    monkeypatch.setattr("deepscientist.connector.weixin_support.urlopen", _raise_timeout)
+    def fake_get_updates(*, base_url, token, get_updates_buf="", route_tag=None, timeout_ms=35_000):  # noqa: ANN001
+        timeouts_seen.append(timeout_ms)
+        if len(timeouts_seen) == 1:
+            # Server returns an absurdly large long-poll timeout (1 hour).
+            return {
+                "ret": 0,
+                "msgs": [],
+                "get_updates_buf": "buf-cap",
+                "longpolling_timeout_ms": 3_600_000,
+            }
+        service.stop()
+        return {"ret": 0, "msgs": [], "get_updates_buf": "buf-cap"}
+
+    monkeypatch.setattr("deepscientist.channels.weixin_ilink.get_weixin_updates", fake_get_updates)
+
+    service = WeixinIlinkService(
+        home=temp_home,
+        config={
+            "enabled": True,
+            "transport": "ilink_long_poll",
+            "bot_token": "wx-bot-token",
+            "account_id": "wx-bot-1@im.bot",
+            "base_url": "https://ilinkai.weixin.qq.com",
+            "cdn_base_url": "https://novac2c.cdn.weixin.qq.com/c2c",
+        },
+        on_event=lambda event: events.append(event),
+    )
+
+    assert service.start() is True
+    deadline = time.time() + 3.0
+    while time.time() < deadline and len(timeouts_seen) < 2:
+        time.sleep(0.05)
+    service.stop()
+
+    assert len(timeouts_seen) >= 2
+    # First call uses the default long-poll timeout (35s); second call must
+    # not adopt the server's 1-hour value, but be capped to the 60s ceiling.
+    assert timeouts_seen[1] == 60_000
+
+
+def test_get_weixin_updates_treats_timeout_as_empty_poll(monkeypatch) -> None:
+    import httpx as _httpx
+
+    def _raise_timeout(self, method, url, **kwargs):  # noqa: ANN001
+        raise _httpx.ReadTimeout("timed out")
+
+    monkeypatch.setattr("httpx.Client.request", _raise_timeout)
 
     response = get_weixin_updates(
         base_url="https://ilinkai.weixin.qq.com",

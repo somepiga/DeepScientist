@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Text, useInput, useStdin } from 'ink'
+import { Box, Text } from 'ink'
 import stringWidth from 'string-width'
 import { theme } from '../semantic-colors.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
+import { useSafeInput } from '../hooks/useSafeInput.js'
 
 type InputPromptProps = {
   value: string
@@ -235,8 +236,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   onCancel,
   mentionsEnabled = false,
 }) => {
-  const { isRawModeSupported } = useStdin()
-  const canUseInput = Boolean(isRawModeSupported)
   const { columns } = useTerminalSize()
   const valueRef = useRef(value)
   const cursorIndexRef = useRef(value.length)
@@ -411,7 +410,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     return handled || pasteActiveRef.current || pastePendingRef.current.length > 0
   }
 
-  useInput(
+  useSafeInput(
     (input, key) => {
       if (disabled) return
       const submitRequested = key.return || BARE_ENTER_SEQUENCES.has(input)
@@ -574,7 +573,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       if (!sanitized) return
       insertValue(sanitized)
     },
-    { isActive: canUseInput && !disabled }
+    { isActive: !disabled }
   )
 
   const textColor = isPlaceholder ? theme.text.secondary : theme.text.primary
@@ -592,9 +591,19 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         const safeCursorIndex = showCursor
           ? Math.min(cursorCharIndex, Math.max(0, lineChars.length - 1))
           : 0
-        const beforeCursor = showCursor ? lineChars.slice(0, safeCursorIndex).join('') : paddedLine
+        const placeholderCursor = isPlaceholder && showCursor
+        const beforeCursor = showCursor
+          ? placeholderCursor
+            ? ''
+            : lineChars.slice(0, safeCursorIndex).join('')
+          : paddedLine
         let cursorChar = showCursor ? lineChars[safeCursorIndex] || ' ' : ''
-        const afterCursor = showCursor ? lineChars.slice(safeCursorIndex + 1).join('') : ''
+        const afterCursor = showCursor
+          ? placeholderCursor
+            ? lineChars.slice(0, Math.max(0, lineChars.length - 1)).join('')
+            : lineChars.slice(safeCursorIndex + 1).join('')
+          : ''
+        const afterCursorOffset = placeholderCursor ? 0 : safeCursorIndex + 1
         const mentionRanges = buildMentionRanges(paddedLine, mentionsEnabled)
         if (isPlaceholder && showCursor) {
           cursorChar = ' '
@@ -620,7 +629,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             {showCursor &&
               renderMentionSegments(
                 afterCursor,
-                safeCursorIndex + 1,
+                afterCursorOffset,
                 mentionRanges,
                 textColor,
                 theme.text.mention,

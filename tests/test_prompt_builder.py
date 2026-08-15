@@ -48,11 +48,18 @@ def test_prompt_builder_includes_layered_runtime_context(temp_home: Path) -> Non
     assert "research_head_branch:" in prompt
     assert "current_workspace_root:" in prompt
     assert "built_in_mcp_namespaces: memory, artifact, bash_exec" in prompt
+    assert "built_in_mcp_namespaces: memory, artifact, bash_exec, science" not in prompt
+    assert "## Cross-Quest Recall Policy" not in prompt
+    assert "cross_quest_recall_enabled" not in prompt
+    assert "framework_quirks.md" not in prompt
+    assert "system_quirks.md" not in prompt
     assert "artifact.arxiv(paper_id=..., full_text=False)" in prompt
     assert "artifact.activate_branch(...)" in prompt
     assert "artifact.confirm_baseline(...)" in prompt
     assert "artifact.overwrite_baseline(...)" in prompt
     assert "artifact.complete_quest(...)" in prompt
+    assert "artifact.science(...)" in prompt
+    assert "Natural science and engineering evidence discipline" in prompt
     assert "## 5A. Global control surface" in prompt
     assert "chat is only a user-facing projection of state" in prompt
     assert "if autonomous continuation is enabled and the next step is clear, execution continues" in prompt
@@ -64,6 +71,15 @@ def test_prompt_builder_includes_layered_runtime_context(temp_home: Path) -> Non
     assert "intake-audit" in prompt
     assert "review" in prompt
     assert "rebuttal" in prompt
+    assert "nature-polishing" in prompt
+    assert "nature-data" in prompt
+    assert "nature-figure" in prompt
+    assert "nature-paper2ppt" in prompt
+    assert "science" in prompt
+    assert "science-artifacts" not in prompt
+    assert "science-run" not in prompt
+    assert "science-validation" not in prompt
+    assert "science/references/packages/" in prompt
     assert "## Current User Message" in prompt
     assert "requested_skill_rule:" in prompt
     assert "stage-specific execution detail lives in the requested skill" in prompt
@@ -72,6 +88,30 @@ def test_prompt_builder_includes_layered_runtime_context(temp_home: Path) -> Non
     assert "AutoFigure-Edit" in prompt
     assert len(prompt.splitlines()) < 1800
     assert len(prompt) < 125000
+
+
+def test_prompt_builder_enables_cross_quest_recall_only_for_shared_memory(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    config_manager = ConfigManager(temp_home)
+    config_manager.ensure_files()
+    config = config_manager.load_named("config")
+    config["memory"] = {"read_visibility_mode": "shared_across_quests"}
+    config_manager.save_named_payload("config", config)
+    service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    snapshot = service.create("shared recall prompt quest")
+
+    prompt = PromptBuilder(repo_root(), temp_home).build(
+        quest_id=snapshot["quest_id"],
+        skill_id="idea",
+        user_message="Find a new idea.",
+        model="gpt-5.4",
+    )
+
+    assert "memory_read_visibility_mode: shared_across_quests" in prompt
+    assert "cross_quest_recall_enabled: true" in prompt
+    assert "framework_quirks_path:" in prompt
+    assert "system_quirks_path:" in prompt
+    assert "sibling_quest_brief_glob:" in prompt
 
 
 def test_prompt_builder_includes_recovery_resume_packet_for_daemon_recovery(temp_home: Path) -> None:
@@ -338,10 +378,11 @@ def test_prompt_builder_includes_paper_contract_health_block(temp_home: Path) ->
         model="gpt-5.4",
     )
 
-    assert "paper_contract_health: blocked" in prompt
+    assert "paper_contract_health: evidence_ready=False, analysis_ready=False" in prompt
     assert "paper_health_counts: unresolved_required=1, unmapped_completed=0, blocking_pending=1" in prompt
     assert "paper_recommended_next_stage: analysis-campaign" in prompt
     assert "paper_health_tool:" in prompt
+    assert "paper_coverage_tool:" in prompt
 
 
 def test_prompt_builder_includes_surface_and_attachment_summary_for_connector_turn(temp_home: Path) -> None:
@@ -1365,6 +1406,82 @@ def test_prompt_builder_start_setup_block_includes_local_daemon_api_context(temp
     assert "built_in_mcp_namespaces: artifact, bash_exec" in prompt
     assert "artifact.prepare_start_setup_form(...)" in prompt
     assert "reply_language_rule: answer in the user's own language" in prompt
+    assert "session_patch={...}" in prompt
+    assert "mode_fit_rule" in prompt
+    assert "preview_plan_rule" in prompt
+    assert 'form_patch.decision_policy="autonomous"' in prompt
+    assert "recommended_workspace_mode=autonomous" in prompt
+    assert "copilot_handoff_rule" in prompt
+    assert "science_startup_rule" in prompt
+    assert "science_solver_rule" in prompt
+
+
+def test_prompt_builder_start_setup_preserves_science_task_brief_without_goal_md_file(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    snapshot = service.create(
+        "science setup session",
+        startup_contract={
+            "workspace_mode": "copilot",
+            "launch_mode": "custom",
+            "custom_profile": "freeform",
+            "start_setup_session": {
+                "source": "manual",
+                "locale": "zh",
+                "suggested_form": {
+                    "title": "PySCF water energy check",
+                    "goal": "Check PySCF and compute one water energy if available.",
+                },
+                "recommended_workspace_mode": "copilot",
+                "launch_readiness": "ready",
+                "copilot_handoff": {
+                    "title": "PySCF bounded science help",
+                    "startup_message": "先检查 PySCF import/version/smoke test，再决定是否运行一次水分子能量计算。",
+                    "workspace_mode": "copilot",
+                    "create_and_send": True,
+                },
+                "science_task": {
+                    "is_science_task": True,
+                    "domain": "quantum_chemistry",
+                    "task_family": "computational_run",
+                    "required_packages": ["pyscf"],
+                    "expected_node_types": [
+                        "science.package_check",
+                        "science.computational_run",
+                        "science.validation_result",
+                    ],
+                    "package_check_required": True,
+                    "solver_installation_unknown": True,
+                },
+                "science_task_brief": {
+                    "brief_type": "science_task_brief",
+                    "markdown": "## Objective\nCheck PySCF and run a small water HF/STO-3G calculation only if the smoke test passes.",
+                    "uses_fermilink_goal_structure": True,
+                    "materialize_as_file": False,
+                },
+                "science_package_cards": ["science/references/packages/pyscf.md"],
+            },
+        },
+    )
+
+    prompt = PromptBuilder(repo_root(), temp_home).build(
+        quest_id=snapshot["quest_id"],
+        skill_id="decision",
+        user_message="整理并切到协作模式。",
+        model="gpt-5.4",
+    )
+
+    assert "science_task" in prompt
+    assert "science_task_brief" in prompt
+    assert "science_package_cards" in prompt
+    assert "science/references/packages/pyscf.md" in prompt
+    assert "PySCF bounded science help" in prompt
+    assert "materialize_as_file" in prompt
+    assert "not as a required `goal.md` file" in prompt
+    assert "solver_installation_unknown" in prompt
+    assert "artifact.science(...)" in prompt
+    assert "unified `science` skill catalog" in prompt
 
 
 def test_prompt_builder_claude_start_setup_notes_namespaced_mcp_tool_names(temp_home: Path) -> None:
@@ -1442,9 +1559,11 @@ def test_prompt_builder_start_setup_prompt_avoids_unavailable_context_tools(temp
     assert "gpu_confirmation_rule" in prompt
     assert "critical_confirmation_rule" in prompt
     assert "start_setup_prepare_schema_summary" in prompt
-    assert "\"required\": [" in prompt
     assert "\"form_patch\"" in prompt
+    assert "\"session_patch\"" in prompt
     assert "\"runner_namespaced_tool\": \"mcp__artifact__prepare_start_setup_form\"" in prompt
+    assert "copilot_recommendation_rule" in prompt
+    assert "launch_preview_rule" in prompt
 
 
 def test_prompt_builder_runner_namespaced_notes_cover_supported_mcp_profiles(temp_home: Path) -> None:
@@ -1557,6 +1676,7 @@ def test_prompt_builder_settings_issue_includes_explicit_session_packet_and_mess
     assert "settings_issue_tool_schema_summary" in prompt
     assert "\"tool\": \"prepare_github_issue\"" in prompt
     assert "\"runner_namespaced_tool\": \"mcp__artifact__prepare_github_issue\"" in prompt
+    assert "\"include_system_quirks\"" in prompt
 
 
 def test_prompt_builder_start_setup_expands_recent_messages(temp_home: Path) -> None:

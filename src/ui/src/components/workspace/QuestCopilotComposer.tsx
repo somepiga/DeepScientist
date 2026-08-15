@@ -30,6 +30,8 @@ type QuestCopilotComposerProps = {
   attachments?: QuestMessageAttachmentDraft[]
   onQueueFiles?: (files: File[]) => void
   onRemoveAttachment?: (draftId: string) => void
+  shellClassName?: string
+  textareaClassName?: string
 }
 
 const MIN_ROWS = 2
@@ -78,6 +80,8 @@ export function QuestCopilotComposer({
   attachments = [],
   onQueueFiles,
   onRemoveAttachment,
+  shellClassName = '',
+  textareaClassName = '',
 }: QuestCopilotComposerProps) {
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null)
   const shellRef = React.useRef<HTMLDivElement | null>(null)
@@ -378,7 +382,8 @@ export function QuestCopilotComposer({
         className={cn(
           'relative overflow-hidden rounded-[18px] border border-black/[0.08] bg-[rgba(252,250,246,0.94)] shadow-[0_14px_34px_-30px_rgba(24,28,32,0.22)] transition-[border-color,box-shadow,transform,background-color] duration-200 dark:border-white/[0.10] dark:bg-[rgba(28,31,36,0.9)]',
           isDragActive &&
-            'border-[#9b8352]/70 bg-[rgba(252,248,240,0.98)] shadow-[0_22px_48px_-28px_rgba(155,131,82,0.35)] ring-1 ring-[#d7c6ae]/70 dark:border-[#d7c6ae]/50 dark:bg-[rgba(44,40,34,0.96)] dark:ring-[#d7c6ae]/30'
+            'border-[#9b8352]/70 bg-[rgba(252,248,240,0.98)] shadow-[0_22px_48px_-28px_rgba(155,131,82,0.35)] ring-1 ring-[#d7c6ae]/70 dark:border-[#d7c6ae]/50 dark:bg-[rgba(44,40,34,0.96)] dark:ring-[#d7c6ae]/30',
+          shellClassName
         )}
         onDragEnter={handleDragEnter}
         onDragOver={(event) => {
@@ -516,7 +521,8 @@ export function QuestCopilotComposer({
           rows={MIN_ROWS}
           data-copilot-textarea="true"
           className={cn(
-            'block w-full resize-none border-0 bg-transparent px-4 pt-4 pb-14 text-[12.5px] leading-[1.7] text-foreground outline-none placeholder:text-muted-foreground/90'
+            'block w-full resize-none border-0 bg-transparent px-4 pt-4 pb-14 text-[12.5px] leading-[1.7] text-foreground outline-none placeholder:text-muted-foreground/90',
+            textareaClassName
           )}
           style={{ paddingRight: `${textareaRightInset}px` }}
           placeholder={placeholder}

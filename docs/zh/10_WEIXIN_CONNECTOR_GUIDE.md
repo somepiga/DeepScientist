@@ -55,7 +55,7 @@ DeepScientist 已经内置了微信 iLink 运行时，因此你不需要再额�
 
 打开：
 
-- [Settings > Connectors > WeChat](/settings/connectors#connector-weixin)
+- [Settings > Connectors > WeChat](/settings/connector/weixin)
 
 然后按顺序做：
 
@@ -99,6 +99,8 @@ DeepScientist 已经内置了微信 iLink 运行时，因此你不需要再额�
 - 下一次新的微信入站刷新会话后，DeepScientist 只会回放最近 `5` 条排队更新，并且每条之间固定间隔 `2` 秒
 - 出站图片、视频、文件在 agent 提供真实本地文件路径时可以正常发送
 - 出站主实验指标图会自动作为微信原生图片发送
+
+如果你同时跑多个 quest，微信只绑定一个当前最重要的 quest。更多入口选择见 [34 多任务入口选择](./34_MULTITASK_ORCHESTRATION_GUIDE.md)。
 
 ![Quest 本地多媒体流转](../images/weixin/weixin-quest-media-flow.svg)
 
@@ -147,6 +149,33 @@ userfiles/...
 - 等待期间 DeepScientist 是否持续在线
 
 如果二维码过期，DeepScientist 会自动刷新。
+
+### 代理环境下二维码不显示或登录一直等待
+
+如果启动 DeepScientist 时使用了 `ds --proxy ...`，或者当前 shell 里设置了
+`HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`，微信登录和长轮询请求可能会继承这条代理。
+有些本地 HTTP 代理隧道对模型请求可用，但会导致微信 iLink 二维码加载失败、二维码图片不显示，
+或者手机确认后页面仍然一直等待。
+
+DeepScientist 当前依赖已经内置 `httpx[socks]`，因此 `socks5://...` 代理会自动安装所需的
+`socksio` 支持。如果旧安装仍提示 `Using SOCKS proxy, but the 'socksio' package is not installed`，
+请先更新并重新安装，或在当前 runtime 里临时执行 `pip install "httpx[socks]"`。
+
+遇到这种情况时，可以保留全局代理给模型、GitHub 等其他请求使用，同时通过 `NO_PROXY`
+和 `no_proxy` 让微信 iLink 与 CDN 域名直连：
+
+```bash
+export NO_PROXY="ilinkai.weixin.qq.com,novac2c.cdn.weixin.qq.com,127.0.0.1,localhost"
+export no_proxy="$NO_PROXY"
+ds --proxy http://127.0.0.1:7890
+```
+
+如果你原本已经设置了 `NO_PROXY`，不要直接覆盖；把上面的微信域名追加到原列表后面即可。
+
+这样做的效果是：模型请求、GitHub 下载等仍然走配置的代理，而微信二维码登录、长轮询和媒体 CDN
+请求会绕过代理直连。如果仍然无法显示二维码，可以临时取消
+`HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`http_proxy`、`https_proxy`、`all_proxy`，
+重启 DeepScientist 后重新绑定。
 
 ### 为什么我只看到文本，没有看到入站多媒体
 

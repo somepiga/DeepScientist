@@ -11,6 +11,8 @@ export function OverlayDialog({
   onClose,
   children,
   className,
+  contentClassName,
+  hideHeader = false,
   dataOnboardingId,
   closeButtonDataOnboardingId,
 }: {
@@ -20,6 +22,8 @@ export function OverlayDialog({
   onClose: () => void
   children: ReactNode
   className?: string
+  contentClassName?: string
+  hideHeader?: boolean
   dataOnboardingId?: string
   closeButtonDataOnboardingId?: string
 }) {
@@ -34,7 +38,7 @@ export function OverlayDialog({
     >
       <div
         className={cn(
-          'morandi-surface view-panel relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[32px]',
+          'morandi-surface view-panel relative flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-[32px]',
           className
         )}
         role="dialog"
@@ -42,22 +46,31 @@ export function OverlayDialog({
         data-onboarding-id={dataOnboardingId}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.08] sm:px-6">
-          <div className="min-w-0 space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-            {description ? <p className="text-sm leading-6 text-muted-foreground">{description}</p> : null}
+        {hideHeader ? null : (
+          <div className="flex items-start justify-between gap-4 border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.08] sm:px-6">
+            <div className="min-w-0 space-y-1">
+              <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+              {description ? <p className="text-sm leading-6 text-muted-foreground">{description}</p> : null}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              aria-label="Close dialog"
+              data-onboarding-id={closeButtonDataOnboardingId}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            aria-label="Close dialog"
-            data-onboarding-id={closeButtonDataOnboardingId}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        )}
+        <div
+          className={
+            contentClassName ||
+            'feed-scrollbar modal-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain'
+          }
+        >
+          {children}
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
       </div>
     </div>
   )

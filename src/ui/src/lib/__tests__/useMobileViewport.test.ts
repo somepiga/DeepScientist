@@ -22,6 +22,14 @@ describe('useMobileViewport helpers', () => {
     ).toBe(false)
   })
 
+  it('does not treat narrow desktop portrait windows as mobile', () => {
+    expect(
+      isMobileViewportMatch(900, 1200, {
+        maxWidth: MOBILE_VIEWPORT_MAX_WIDTH,
+      })
+    ).toBe(false)
+  })
+
   it('does not treat wide desktop viewports as mobile even when tall', () => {
     expect(
       isMobileViewportMatch(1200, 1600, {

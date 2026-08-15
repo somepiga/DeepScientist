@@ -59,4 +59,45 @@ describe('ReadPaperToolView', () => {
       'https://arxiv.org/pdf/2303.08774.pdf'
     )
   })
+
+  it('renders namespaced PASA MCP content envelopes', () => {
+    render(
+      <ReadPaperToolView
+        toolContent={{
+          ...baseToolContent,
+          name: 'mcp__pasa_search__read_paper',
+          function: 'mcp__pasa_search__read_paper',
+          metadata: { mcp_server: 'pasa_search' },
+          content: {
+            result: {
+              structured_content: {
+                count: 1,
+                success_count: 1,
+                failed_count: 0,
+                results: [
+                  {
+                    paper_id: '2602.00002',
+                    question: 'What evidence supports the method?',
+                    status: 'ok',
+                    answer: 'The paper reports controlled retrieval and annotation ablations.',
+                    arxiv: {
+                      paper_id: '2602.00002',
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        }}
+        live={false}
+        panelMode="inline"
+      />
+    )
+
+    expect(screen.getByText(/Processed 1 item\(s\): 1 succeeded, 0 failed\. · PASA/)).toBeInTheDocument()
+    expect(screen.getByText('What evidence supports the method?')).toBeInTheDocument()
+    expect(
+      screen.getByText('The paper reports controlled retrieval and annotation ablations.')
+    ).toBeInTheDocument()
+  })
 })

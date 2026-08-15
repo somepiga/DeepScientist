@@ -1227,6 +1227,12 @@ export function useQuestWorkspace(questId: string | null) {
       sessionRefreshInFlightRef.current = true
       try {
         await syncSessionSnapshot(targetQuestId)
+      } catch (caught) {
+        if (questIdRef.current === targetQuestId) {
+          console.warn('[useQuestWorkspace] Failed to refresh quest session.', caught)
+          setConnectionState((current) => (current === 'connected' ? 'reconnecting' : current))
+          setError('Session refresh failed; retrying...')
+        }
       } finally {
         sessionRefreshInFlightRef.current = false
         if (sessionRefreshPendingRef.current && questIdRef.current === targetQuestId) {
@@ -1560,8 +1566,13 @@ export function useQuestWorkspace(questId: string | null) {
   )
 
   const submit = useCallback(
-    async (value: string, attachments: QuestMessageAttachmentDraft[] = []) => {
+    async (
+      value: string,
+      attachments: QuestMessageAttachmentDraft[] = [],
+      options: { displayValue?: string | null } = {}
+    ) => {
       const trimmed = value.trim()
+      const displayTrimmed = String(options.displayValue ?? value).trim()
       const successfulAttachments = attachments.filter((item) => item.status === 'success')
       if ((!trimmed && successfulAttachments.length === 0) || !questId) {
         return
@@ -1575,7 +1586,7 @@ export function useQuestWorkspace(questId: string | null) {
 
       const clientMessageId = safeRandomUUID()
       const cursorBeforeSend = cursorRef.current
-      const localUserItem = createLocalUserFeedItem(trimmed, clientMessageId, successfulAttachments)
+      const localUserItem = createLocalUserFeedItem(displayTrimmed || trimmed, clientMessageId, successfulAttachments)
       updateFeedState({
         history: historyRef.current,
         pending: [...pendingFeedRef.current, localUserItem].slice(-MAX_PENDING_ITEMS),
@@ -1592,13 +1603,29 @@ export function useQuestWorkspace(questId: string | null) {
         )
         const nextDeliveryState =
           response?.message?.delivery_state ? String(response.message.delivery_state) : 'sent'
+        const serverMessageId = response?.message?.id ? String(response.message.id) : null
+        const serverClientMessageId = response?.message?.client_message_id
+          ? String(response.message.client_message_id)
+          : clientMessageId
         updateFeedState({
           history: historyRef.current,
           pending: pendingFeedRef.current.map((item) =>
             item.id === localUserItem.id && item.type === 'message'
               ? {
                   ...item,
+                  messageId: serverMessageId || item.messageId || null,
+                  clientMessageId: serverClientMessageId || item.clientMessageId || null,
                   deliveryState: nextDeliveryState,
+                  createdAt: response?.message?.created_at
+                    ? String(response.message.created_at)
+                    : item.createdAt,
+                  readState: response?.message?.read_state
+                    ? String(response.message.read_state)
+                    : item.readState,
+                  readReason: response?.message?.read_reason
+                    ? String(response.message.read_reason)
+                    : item.readReason,
+                  readAt: response?.message?.read_at ? String(response.message.read_at) : item.readAt,
                   attachments:
                     normalizeMessageAttachments(response?.message?.attachments) || item.attachments,
                 }
@@ -1647,33 +1674,71 @@ export function useQuestWorkspace(questId: string | null) {
       setError(null)
       const response = await client.readQueuedMessagesNow(questId, normalizedMessageId)
       const currentMessageState = response?.current_message_state
-      if (currentMessageState) {
+      const messageStates = [
+        ...(Array.isArray(response?.message_states) ? response.message_states : []),
+        ...(currentMessageState ? [currentMessageState] : []),
+      ]
+      const deliveredAt =
+        (response?.delivery_batch?.delivered_at ? String(response.delivery_batch.delivered_at) : '') ||
+        new Date().toISOString()
+      const recentInboundMessages = Array.isArray(response?.recent_inbound_messages)
+        ? response.recent_inbound_messages
+        : []
+      for (const messageState of messageStates) {
         patchQueuedMessageState({
-          messageId: currentMessageState.message_id,
-          clientMessageId: currentMessageState.client_message_id,
-          readState: currentMessageState.read_state,
-          readReason: currentMessageState.read_reason,
-          readAt: currentMessageState.read_at,
+          messageId: messageState.message_id,
+          clientMessageId: messageState.client_message_id,
+          readState: messageState.read_state,
+          readReason: messageState.read_reason,
+          readAt: messageState.read_at,
+        })
+      }
+      for (const inboundMessage of recentInboundMessages) {
+        patchQueuedMessageState({
+          messageId: inboundMessage.message_id,
+          clientMessageId: inboundMessage.client_message_id,
+          readState: inboundMessage.read_state || 'read',
+          readReason: inboundMessage.read_reason || 'immediate_read',
+          readAt: inboundMessage.read_at || deliveredAt,
         })
       }
       const resolvedMessageIds = new Set(
         (response.message_ids || []).map((item) => String(item || '').trim()).filter(Boolean)
       )
-      if (resolvedMessageIds.size > 0) {
+      const resolvedClientMessageIds = new Set(
+        [
+          ...(response.client_message_ids || []),
+          ...recentInboundMessages.map((item) => item.client_message_id),
+          ...messageStates.map((item) => item.client_message_id),
+        ]
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+      )
+      if (resolvedMessageIds.size > 0 || resolvedClientMessageIds.size > 0) {
         const patchMessage = (item: FeedItem) => {
+          const itemMessageId = String(item.type === 'message' ? item.messageId || '' : '').trim()
+          const itemClientMessageId = String(item.type === 'message' ? item.clientMessageId || '' : '').trim()
           if (
             item.type === 'message' &&
             item.role === 'user' &&
-            resolvedMessageIds.has(String(item.messageId || '').trim())
+            ((itemMessageId && resolvedMessageIds.has(itemMessageId)) ||
+              (itemClientMessageId && resolvedClientMessageIds.has(itemClientMessageId)))
           ) {
             return {
               ...item,
+              messageId:
+                item.messageId ||
+                recentInboundMessages.find(
+                  (candidate) =>
+                    String(candidate.client_message_id || '').trim() === itemClientMessageId
+                )?.message_id ||
+                null,
               readState: 'read' as const,
               readReason:
                 String(response?.status || '').trim() === 'already_read'
                   ? (currentMessageState?.read_reason || item.readReason || 'accepted_by_run')
                   : 'immediate_read',
-              readAt: new Date().toISOString(),
+              readAt: deliveredAt,
             }
           }
           return item
@@ -1687,10 +1752,13 @@ export function useQuestWorkspace(questId: string | null) {
         return response
       }
       queueSessionRefresh(questId, 300)
-      window.setTimeout(() => {
-        if (questIdRef.current !== questId) return
-        void bootstrap(false)
-      }, 1200)
+      const confirmationRefreshDelays = [900, 2500, 9000]
+      confirmationRefreshDelays.forEach((delay) => {
+        window.setTimeout(() => {
+          if (questIdRef.current !== questId) return
+          void bootstrap(false)
+        }, delay)
+      })
       return response
     },
     [bootstrap, patchQueuedMessageState, questId, queueSessionRefresh, updateFeedState]

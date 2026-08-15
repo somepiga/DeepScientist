@@ -389,6 +389,7 @@ acp:
 - UI label: `Max concurrent projects`
 - Meaning: upper bound on how many projects may run at the same time.
 - Recommendation: keep `1` unless you intentionally want parallel project execution.
+- Multitask entry choice: any entry is fine for a few quests; use Weixin for one main quest, QQ for up to about five, and Web as the main surface beyond that. See [34 Multitask Entry Guide](./34_MULTITASK_ORCHESTRATION_GUIDE.md).
 
 **`daemon.ack_timeout_ms`**
 
@@ -441,6 +442,37 @@ acp:
 - Allowed values: `both`, `web`, `tui`
 - UI label: `Default start mode`
 - Meaning: preferred startup surface when launching DeepScientist.
+
+### TUI debug launch switches
+
+TUI debug is not a persistent config field. It is a per-launch diagnostic switch for inspecting the current TUI surface, input route, Web analog, and render summary.
+
+Start with:
+
+```bash
+ds --tui --debug
+ds --tui --debug --debug-log /tmp/deepscientist_tui_debug.jsonl
+```
+
+Environment variables:
+
+- `TUI_DEBUG=1`
+- `DEEPSCIENTIST_TUI_DEBUG=1`
+- `TUI_DEBUG_LOG=/tmp/deepscientist_tui_debug.jsonl`
+- `DEEPSCIENTIST_TUI_DEBUG_LOG=/tmp/deepscientist_tui_debug.jsonl`
+
+Default log path:
+
+```text
+/tmp/deepscientist_tui_debug.jsonl
+```
+
+Safety requirements:
+
+- Config editor buffers and password/secret/token fields are redacted in debug JSONL.
+- Debug JSONL can be attached to issue reports or regression notes, but search it for real tokens first.
+- Terminal recordings, tmux logs, and `script` transcripts capture the real screen; they are outside the JSONL redaction boundary.
+- Web does not yet have an equivalent `?debug=1` inspector; TUI currently provides only the `web_analog` mapping.
 
 ### Logging
 
@@ -675,6 +707,20 @@ Current built-in runners:
   - Official Kimi Code CLI path, including login state and config already working in `~/.kimi`
 - `opencode`
   - OpenCode CLI path, including provider/model configurations managed directly by OpenCode
+
+The Settings page maps DeepScientist to an already-working CLI runner. Gemini, Ollama, MiniMax, GLM, Bailian, and other providers still need to be configured in the corresponding CLI first:
+
+- Codex provider / profile: see [15 Codex Provider Setup](./15_CODEX_PROVIDER_SETUP.md)
+- Claude Code / Anthropic-compatible / Ollama: see [24 Claude Code Setup](./24_CLAUDE_CODE_PROVIDER_SETUP.md)
+- OpenCode / Gemini / Ollama: see [25 OpenCode Setup](./25_OPENCODE_PROVIDER_SETUP.md)
+- vLLM, Ollama, SGLang, and local backend overview: see [21 Local Model Backends Guide](./21_LOCAL_MODEL_BACKENDS_GUIDE.md)
+
+Recommended validation order:
+
+1. make the underlying CLI work first, such as `codex exec ...`, `claude -p ...`, or `opencode run ...`
+2. fill `binary`, `config_dir`, `profile` / `model`, and `env` in Settings
+3. click `Test` or run `ds doctor --runner <name>`
+4. only then start a real quest
 
 ### Schema
 
@@ -990,6 +1036,7 @@ These fields appear across multiple connectors:
 - Type: `boolean`
 - Default: usually `true`
 - Meaning: direct messages automatically follow the current active project.
+- Multitask note: when several quests are running, do not put every task into the same chat entry. See [34 Multitask Entry Guide](./34_MULTITASK_ORCHESTRATION_GUIDE.md).
 
 ### `telegram`
 

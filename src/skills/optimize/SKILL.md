@@ -47,6 +47,7 @@ Recover the current frontier, choose one optimize submode, advance one justified
 
 - Do not treat every patch or micro-attempt as a new durable idea line.
 - Do not create a new Git branch or worktree for every implementation-level candidate.
+- Do not create a new Git branch/worktree for every implementation-level candidate.
 - Do not promote every plausible brief.
 - Do not keep widening the frontier once a small serious slate already exists.
 - Do not let one optimize pass mix multiple major route changes.
@@ -65,6 +66,7 @@ Recover the current frontier, choose one optimize submode, advance one justified
 - Before deciding the next route, call `artifact.get_optimization_frontier(...)` when available and use it as the primary optimization-state summary.
 - Candidate briefs should use `artifact.submit_idea(..., submission_mode='candidate')`.
 - Durable lines should use `artifact.submit_idea(..., submission_mode='line')`.
+- Only promote a candidate brief into a durable line when it has enough expected value, differentiation, and execution path clarity to deserve branch/worktree state.
 - Implementation-level candidate attempts inside one durable line should use `artifact.record(... report_type='optimization_candidate' ...)`.
 - Real measured line results should use `artifact.record_main_experiment(...)`.
 - All terminal work in this stage must go through `bash_exec(...)`.
@@ -121,6 +123,8 @@ Use these three object levels consistently:
 3. implementation-level candidate attempt
    `artifact.record(payload={'kind': 'report', 'report_type': 'optimization_candidate', ...})`
    Record one within-line attempt such as one patch, one smoke candidate, one debug candidate, or one fusion candidate.
+
+Use `artifact.record(payload={'kind': 'decision', ...})` when the frontier route changes, a line is promoted, a line is stopped, or the next optimize submode is selected.
 
 ## Optimize submodes
 
@@ -197,6 +201,47 @@ Use them when:
 - the frontier route is unclear
 - implementation-route choice, debug, fusion, or plateau handling needs the full playbook
 - memory writing, checklist maintenance, or prompt shaping materially affect the route
+
+## Integrated reference appendix
+
+Use these reference sections as needed without copying them into chat:
+
+### optimize-checklist-template.md
+### candidate-board-template.md
+### method-brief-template.md
+### brief-shaping-playbook.md
+### candidate-ranking-template.md
+### frontier-review-template.md
+### optimization-memory-template.md
+### fusion-playbook.md
+### codegen-route-playbook.md
+### debug-response-template.md
+### prompt-patterns.md
+### plateau-response-playbook.md
+
+Codegen route choices should stay explicit: stepwise generation for incremental edits, diff / patch generation for contained changes, and full rewrite only when the old surface is genuinely the blocker.
+Mandatory first-call sequence: refresh `artifact.get_optimization_frontier(...)`, recover quest state, then choose `brief`, `rank`, `seed`, `loop`, `fusion`, `debug`, or `stop`.
+Use memory.search(...) for same-line local attempt memory before repeating a known failure or reopening stale frontier assumptions.
+
+Stall-recovery protocol: if a line stops improving, decide whether the issue is mechanism family, change-layer diversity, validation-cost-aware seed policy, validation-cost-aware loop policy, or execution noise.
+Internal submode selection should preserve a coverage contract and a distinct promotion policy for each route.
+InternAgent maps most naturally to codegen-route and execution-surface optimization; MLEvolve maps most naturally to search-loop, mutation, and validation orchestration.
+
+Brief shaping should clarify the bottleneck, constraints, and comparability boundary first, then generate a small differentiated slate, usually `2-3` serious approaches.
+Recommend one approach with explicit tradeoffs against the alternatives, and self-check the winning brief for ambiguity, overlap, and weak justification before submission.
+recommend one approach with explicit tradeoffs against the alternatives
+Candidate briefs should expose `why_now`.
+
+For seed mode, use a validation-cost-aware seed policy: if checks are under about `20` minutes, a separate smoke stage is optional; direct submission into quick parallel validation is acceptable.
+Only skip smoke when the parallel quick validations are expected to produce distinguishable conclusions.
+only skip smoke when the parallel quick validations are expected to produce distinguishable conclusions
+Use smoke test or direct quick validation according to uncertainty, and you may skip a separate smoke stage and submit several quick validations in parallel when the hypotheses are separable.
+For loop mode, use a validation-cost-aware loop policy; if the validation loop is slow, do not keep paying for frontier uncertainty that could have been reduced in `brief`.
+Gate evolution on clear objective signal rather than small local preference.
+gate evolution on clear objective signal
+
+Family-shift trigger: when repeated same-family edits stall, revisit the mechanism family.
+Task-category primer: prefer simple-first changes, one atomic improvement per pass, and bugfix-only passes when the failure is localized.
 
 ## Exit criteria
 

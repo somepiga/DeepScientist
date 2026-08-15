@@ -12,7 +12,25 @@ The right mental model is:
 For the other built-in runners, see also:
 
 - [24 Claude Code Setup](./24_CLAUDE_CODE_PROVIDER_SETUP.md)
+- [27 Kimi Code Setup](./27_KIMI_CODE_PROVIDER_SETUP.md)
 - [25 OpenCode Setup](./25_OPENCODE_PROVIDER_SETUP.md)
+
+## Official docs to read first
+
+Use the current Codex docs and the target provider docs as the source of truth:
+
+- Codex CLI reference: `https://developers.openai.com/codex/cli/reference`
+- Codex config reference: `https://developers.openai.com/codex/config-reference`
+- Ollama OpenAI compatibility: `https://docs.ollama.com/openai`
+- Ollama + Codex: `https://docs.ollama.com/integrations/codex`
+- Gemini OpenAI compatibility: `https://ai.google.dev/gemini-api/docs/openai`
+
+For DeepScientist, the important mapping is:
+
+- Codex provider, profile, and model selection still live in `~/.codex/config.toml`
+- the DeepScientist Codex runner mainly forwards `--profile`, `--model`, approval policy, sandbox mode, reasoning effort, and env
+- DeepScientist does not currently append `--oss` or `--local-provider`, so use a named Codex profile when you want repeatable Ollama usage inside DeepScientist
+- if a provider only exposes OpenAI Chat Completions and not Responses API, the latest Codex path may not be the best fit; prefer [25 OpenCode Setup](./25_OPENCODE_PROVIDER_SETUP.md) for that case
 
 ## What files matter
 
@@ -46,6 +64,25 @@ Always follow this order:
 3. validate `codex` or `codex --profile <name>` directly
 4. validate DeepScientist with `ds doctor`
 5. launch DeepScientist with the same Codex profile
+
+`codex login` is not the same as the DeepScientist startup probe. Login only
+checks authentication setup. `ds doctor` sends a real non-interactive Codex
+request and expects a `HELLO` response. If login succeeds but `ds doctor` fails,
+run this direct smoke test from the same shell:
+
+```bash
+printf 'Reply with exactly HELLO.' | codex --search exec --json --cd /tmp --skip-git-repo-check -
+```
+
+For a profile-backed setup, add the profile:
+
+```bash
+printf 'Reply with exactly HELLO.' | codex --search --profile provider_alias exec --json --cd /tmp --skip-git-repo-check -
+```
+
+If the direct command fails, fix Codex, the provider key, the model, or the proxy
+first. If the direct command succeeds but `ds doctor` fails, compare `which
+codex`, `CODEX_HOME`, proxy variables, and `~/DeepScientist/config/runners.yaml`.
 
 ## Step 1: confirm the Codex binary
 
@@ -246,7 +283,12 @@ Non-interactive smoke check:
 codex exec --profile provider_alias "Reply with exactly OK."
 ```
 
-If this fails, stop there and fix Codex first.
+If this fails, stop there and fix Codex first. For the closest match to
+DeepScientist's probe, prefer:
+
+```bash
+printf 'Reply with exactly HELLO.' | codex --search --profile provider_alias exec --json --cd /tmp --skip-git-repo-check -
+```
 
 ## Step 5: map that setup into DeepScientist
 
@@ -364,6 +406,7 @@ Important:
 - for provider-backed Codex profiles, prefer `model: inherit`
 - only hard-code `model:` in DeepScientist if you are sure the provider accepts that exact explicit model id
 - DeepScientist launches Codex from an isolated runtime home under `.ds/codex-home`, but copies your configured `~/.codex` auth, config, skills, agents, and prompts into that runtime copy first
+- if `ds doctor` reports a failed startup probe, read its `probe command`, `exit code`, `stderr excerpt`, and `stdout excerpt`; those fields describe the real Codex request failure, not just login state
 
 ## One-off overrides without editing `config.toml`
 
@@ -404,6 +447,158 @@ codex:
   profile: ""
   model: gpt-5.4
 ```
+
+## Ollama
+
+Ollama publishes both OpenAI-compatible API docs and a Codex integration. For DeepScientist, turn that into a named Codex profile first, then run DeepScientist with `ds doctor --codex-profile <name>`.
+
+Use this path when:
+
+- Ollama is already stable on the machine
+- the target model has enough context and coding/tool ability for DeepScientist runs
+- `http://localhost:11434/v1/responses` works, or the official Ollama Codex integration generated a working Codex profile
+
+Avoid this path when:
+
+- your Ollama install only exposes `/v1/chat/completions`
+- the model has a very short context window
+- you are trying to connect Gemini; OpenCode is usually the cleaner Gemini route
+
+### 1. Start and test Ollama
+
+```bash
+ollama --version
+ollama serve
+```
+
+In another terminal:
+
+```bash
+ollama pull gpt-oss:20b
+ollama run gpt-oss:20b "Reply with exactly HELLO."
+```
+
+Replace `gpt-oss:20b` with the model you actually plan to use.
+
+### 2. Test the OpenAI-compatible endpoint
+
+```bash
+curl http://localhost:11434/v1/models
+```
+
+Then test Responses:
+
+```bash
+curl http://localhost:11434/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-oss:20b",
+    "input": "Reply with exactly HELLO."
+  }'
+```
+
+If `/v1/responses` fails, upgrade Ollama or change the model before trying DeepScientist through the latest Codex path.
+
+### 3. Generate or write a Codex profile
+
+The official Ollama docs provide a Codex setup flow:
+
+```bash
+ollama launch codex --config
+```
+
+After that, inspect:
+
+```bash
+sed -n '1,220p' ~/.codex/config.toml
+```
+
+For DeepScientist, make sure you have a named profile similar to:
+
+```toml
+[model_providers.ollama-launch]
+name = "Ollama"
+base_url = "http://localhost:11434/v1"
+wire_api = "responses"
+requires_openai_auth = false
+
+[profiles.ollama-launch]
+model = "gpt-oss:20b"
+model_provider = "ollama-launch"
+```
+
+Do not name a custom provider `ollama`; that can conflict with Codex built-ins. Use a name such as `ollama-launch` or `local_ollama`.
+
+### 4. Validate Codex directly
+
+```bash
+codex --profile ollama-launch
+codex exec --profile ollama-launch "Reply with exactly OK."
+```
+
+If this fails, fix Ollama or the Codex profile first.
+
+### 5. Use the same profile in DeepScientist
+
+One-off:
+
+```bash
+ds doctor --codex-profile ollama-launch
+ds --codex-profile ollama-launch
+```
+
+Persistent `~/DeepScientist/config/runners.yaml`:
+
+```yaml
+codex:
+  enabled: true
+  binary: codex
+  config_dir: ~/.codex
+  profile: ollama-launch
+  model: inherit
+  model_reasoning_effort: high
+  approval_policy: never
+  sandbox_mode: workspace-write
+```
+
+## Gemini
+
+Gemini's official OpenAI-compatible endpoint uses:
+
+```text
+https://generativelanguage.googleapis.com/v1beta/openai/
+```
+
+and typically reads:
+
+```bash
+export GEMINI_API_KEY="..."
+```
+
+Gemini is not the recommended default route for Codex + DeepScientist because Gemini's OpenAI-compatible docs focus on Chat Completions while the current Codex provider path is more Responses-oriented. If you want Gemini, prefer [25 OpenCode Setup](./25_OPENCODE_PROVIDER_SETUP.md).
+
+If you still want to experiment with Codex + Gemini as a chat-only provider, use a profile like this and validate Codex before touching DeepScientist:
+
+```toml
+[model_providers.gemini_chat]
+name = "Gemini OpenAI-compatible Chat"
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+wire_api = "chat"
+env_key = "GEMINI_API_KEY"
+requires_openai_auth = false
+
+[profiles.gemini]
+model = "gemini-3-flash-preview"
+model_provider = "gemini_chat"
+```
+
+```bash
+export GEMINI_API_KEY="..."
+codex exec --profile gemini "Reply with exactly OK."
+ds doctor --codex-profile gemini
+```
+
+If the direct Codex check fails, switch to OpenCode instead.
 
 ## MiniMax
 

@@ -34,6 +34,7 @@ import { openQuestDocumentAsFileNode } from '@/lib/api/quest-files'
 import { useOpenFile } from '@/hooks/useOpenFile'
 import { useBashLogStream } from '@/lib/hooks/useBashLogStream'
 import { useBashSessionStream } from '@/lib/hooks/useBashSessionStream'
+import { getLocalQuestGraphFromSummary, primeLocalQuestSummary } from '@/lib/api/lab'
 import { EnhancedTerminal } from '@/lib/plugins/cli/components/EnhancedTerminal'
 import LabQuestGraphCanvas from '@/lib/plugins/lab/components/LabQuestGraphCanvas'
 import { useI18n } from '@/lib/i18n/useI18n'
@@ -1228,6 +1229,72 @@ function QuestCanvasSurface({
   const clearGraphSelection = useLabGraphSelectionStore((state) => state.clear)
   const selection = useLabGraphSelectionStore((state) => state.selection)
   const setGraphSelection = useLabGraphSelectionStore((state) => state.setSelection)
+  const realSnapshotHydrationRef = React.useRef({
+    questId,
+    hydrated: Boolean(snapshot),
+  })
+  const optimisticSnapshot = React.useMemo(
+    () =>
+      snapshot ?? {
+        quest_id: questId,
+        title: `Project ${questId}`,
+        status: 'loading',
+        runtime_status: 'loading',
+        active_anchor: 'baseline',
+        workspace_mode: 'copilot',
+        branch: 'main',
+        updated_at: new Date().toISOString(),
+        counts: {
+          bash_running_count: 0,
+          artifacts: 0,
+          memory_cards: 0,
+        },
+        summary: {
+          status_line: 'Restoring quest state...',
+        },
+      },
+    [questId, snapshot]
+  )
+  const fetchGraph = React.useCallback(
+    (
+      projectIdArg: string,
+      questIdArg: string,
+      params?: { view?: 'branch' | 'event' | 'stage'; search?: string; atEventId?: string | null }
+    ) => {
+      if (projectIdArg === questId && questIdArg === questId) {
+        return getLocalQuestGraphFromSummary(projectIdArg, optimisticSnapshot, params)
+      }
+      throw new Error('Quest snapshot is required before loading the canvas graph.')
+    },
+    [optimisticSnapshot, questId]
+  )
+
+  React.useEffect(() => {
+    if (realSnapshotHydrationRef.current.questId !== questId) {
+      realSnapshotHydrationRef.current = {
+        questId,
+        hydrated: Boolean(snapshot),
+      }
+    }
+  }, [questId, snapshot])
+
+  React.useEffect(() => {
+    if (!snapshot) return
+    const snapshotQuestId = String(snapshot.quest_id || questId)
+    if (snapshotQuestId !== questId) return
+    if (realSnapshotHydrationRef.current.questId !== questId) {
+      realSnapshotHydrationRef.current = {
+        questId,
+        hydrated: true,
+      }
+      primeLocalQuestSummary(questId, snapshot)
+      return
+    }
+    primeLocalQuestSummary(questId, snapshot)
+    if (realSnapshotHydrationRef.current.hydrated) return
+    realSnapshotHydrationRef.current.hydrated = true
+    void queryClient.invalidateQueries({ queryKey: ['lab-quest-graph', questId, questId] })
+  }, [questId, queryClient, snapshot])
 
   React.useEffect(() => {
     clearGraphSelection()
@@ -1254,14 +1321,14 @@ function QuestCanvasSurface({
       ['branch_node', 'stage_node', 'baseline_node'].includes(String(selection.selection_type || ''))
   )
   const canvasLiveRun = React.useMemo(() => {
-    const runtimeStatus = String(snapshot?.runtime_status ?? snapshot?.status ?? '')
+    const runtimeStatus = String(optimisticSnapshot.runtime_status ?? optimisticSnapshot.status ?? '')
       .trim()
       .toLowerCase()
     if (runtimeStatus === 'stopped' || runtimeStatus === 'paused') return false
-    if (snapshot?.active_run_id) return true
+    if (optimisticSnapshot.active_run_id) return true
     if (runtimeStatus === 'running') return true
-    return (snapshot?.counts?.bash_running_count ?? 0) > 0
-  }, [snapshot])
+    return (optimisticSnapshot.counts?.bash_running_count ?? 0) > 0
+  }, [optimisticSnapshot])
 
   return (
     <div
@@ -1303,17 +1370,24 @@ function QuestCanvasSurface({
 
       <div className="h-full min-h-0 overflow-hidden">
         {/* Keep the lab canvas refresh contract explicit for shared surface tests: onRefresh={handleRefresh}. */}
-        <LabQuestGraphCanvas
-          projectId={questId}
-          questId={questId}
-          readOnly
-          liveRun={canvasLiveRun}
-          preferredViewMode="branch"
-          activeBranch={snapshot?.branch || null}
-          highlightBranch={selection?.branch_name || null}
-          showFloatingPanels={false}
-          onStageOpen={onOpenStageSelection}
-        />
+        {optimisticSnapshot ? (
+          <LabQuestGraphCanvas
+            projectId={questId}
+            questId={questId}
+            readOnly
+            liveRun={canvasLiveRun}
+            preferredViewMode="branch"
+            activeBranch={optimisticSnapshot.branch || null}
+            highlightBranch={selection?.branch_name || null}
+            showFloatingPanels={false}
+            fetchGraph={fetchGraph}
+            onStageOpen={onOpenStageSelection}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Loading branch canvas...
+          </div>
+        )}
       </div>
     </div>
   )

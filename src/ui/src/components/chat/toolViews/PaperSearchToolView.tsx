@@ -2,8 +2,15 @@
 
 import { AlertTriangle, BookOpen, ExternalLink, FileText } from 'lucide-react'
 import type { ToolViewProps } from './types'
-
-type UnknownRecord = Record<string, unknown>
+import {
+  asRecord,
+  formatPaperProviderLabel,
+  normalizeArxivId,
+  pickString,
+  resolvePaperProviderServer,
+  resolvePaperProviderSource,
+  unwrapToolContent,
+} from './paper-tool-utils'
 
 interface NormalizedPaper {
   title: string
@@ -22,34 +29,21 @@ interface NormalizedQuestionResult {
   error?: string
 }
 
-function asRecord(value: unknown): UnknownRecord {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as UnknownRecord
-  }
-  return {}
-}
-
-function pickString(...values: unknown[]): string {
-  for (const value of values) {
-    if (typeof value !== 'string') continue
-    const trimmed = value.trim()
-    if (trimmed) return trimmed
-  }
-  return ''
-}
-
-function normalizePaper(value: unknown): NormalizedPaper | null {
+function normalizePaper(value: unknown, fallbackSource: string): NormalizedPaper | null {
   const paper = asRecord(value)
-  const arxivId = pickString(paper.arxiv_id, paper.link, paper.id)
+  const arxivId = normalizeArxivId(pickString(paper.arxiv_id, paper.paper_id, paper.arxivId, paper.id))
   const absUrl = pickString(
     paper.abs_url,
+    paper.absUrl,
+    paper.arxiv_url,
     arxivId ? `https://arxiv.org/abs/${arxivId}` : ''
   )
   const pdfUrl = pickString(
     paper.pdf_url,
+    paper.pdfUrl,
     arxivId ? `https://arxiv.org/pdf/${arxivId}.pdf` : ''
   )
-  const url = pickString(paper.url, absUrl, pdfUrl)
+  const url = pickString(paper.url, paper.link, absUrl, pdfUrl)
   const normalized: NormalizedPaper = {
     title: pickString(paper.title, paper.name, 'Untitled'),
     abstract: pickString(paper.abstract, paper.snippet, paper.summary, paper.description),
@@ -57,20 +51,23 @@ function normalizePaper(value: unknown): NormalizedPaper | null {
     absUrl,
     arxivId,
     pdfUrl,
-    source: pickString(paper.source, 'arxiv'),
+    source: pickString(paper.source, fallbackSource),
   }
   if (!normalized.title && !normalized.url && !normalized.abstract) return null
   return normalized
 }
 
-function normalizeQuestionResult(value: unknown): NormalizedQuestionResult | null {
+function normalizeQuestionResult(
+  value: unknown,
+  fallbackSource: string
+): NormalizedQuestionResult | null {
   const row = asRecord(value)
   const question = pickString(row.question, row.query)
   if (!question) return null
 
   const papersRaw = Array.isArray(row.papers) ? row.papers : []
   const papers = papersRaw
-    .map(normalizePaper)
+    .map((paper) => normalizePaper(paper, fallbackSource))
     .filter((paper): paper is NormalizedPaper => paper != null)
   const countFromField = typeof row.count === 'number' ? row.count : papers.length
   const error = pickString(row.error) || undefined
@@ -99,15 +96,33 @@ function buildFaviconUrl(value?: string) {
 export function PaperSearchToolView({ toolContent, panelMode }: ToolViewProps) {
   const showHeader = panelMode == null
   const toolRecord = asRecord(toolContent)
+  const providerServer = resolvePaperProviderServer(toolRecord)
+  const providerLabel = formatPaperProviderLabel(providerServer)
+  const providerSource = resolvePaperProviderSource(providerServer)
   const rawContent = asRecord(toolContent.content)
-  const fallbackContent = asRecord(rawContent.result)
-  const content = Object.keys(fallbackContent).length > 0 ? fallbackContent : rawContent
+  const unwrappedContent = unwrapToolContent(toolContent)
+  const content = Array.isArray(unwrappedContent) ? { papers: unwrappedContent } : asRecord(unwrappedContent)
   const error = pickString(content.error, rawContent.error, toolRecord.error) || undefined
-  const rawPapers = Array.isArray(content.papers) ? content.papers : []
-  const papers = rawPapers.map(normalizePaper).filter((paper): paper is NormalizedPaper => paper != null)
-  const questionResultsRaw = Array.isArray(content.question_results) ? content.question_results : []
+  const rawPapers =
+    Array.isArray(content.papers)
+      ? content.papers
+      : Array.isArray(content.results)
+        ? content.results
+        : Array.isArray(content.result)
+          ? content.result
+          : Array.isArray(content.items)
+            ? content.items
+            : []
+  const papers = rawPapers
+    .map((paper) => normalizePaper(paper, providerSource))
+    .filter((paper): paper is NormalizedPaper => paper != null)
+  const questionResultsRaw = Array.isArray(content.question_results)
+    ? content.question_results
+    : Array.isArray(content.questionResults)
+      ? content.questionResults
+      : []
   const questionResults = questionResultsRaw
-    .map(normalizeQuestionResult)
+    .map((item) => normalizeQuestionResult(item, providerSource))
     .filter((item): item is NormalizedQuestionResult => item != null)
   const hasGroupedResults = questionResults.length > 0
   const queryFromContent = pickString(
@@ -142,8 +157,11 @@ export function PaperSearchToolView({ toolContent, panelMode }: ToolViewProps) {
   const isSearchCompleted = !isSearching && !error
   const hasAnyGroupedPaper = hasGroupedResults && questionResults.some((group) => group.papers.length > 0)
   const shouldShowNoResults = isSearchCompleted && (hasGroupedResults ? !hasAnyGroupedPaper : count <= 0)
+  const searchSourceLabel = providerLabel || 'papers'
   const noResultMessage = isSearching
-    ? 'Searching arXiv papers...'
+    ? providerLabel
+      ? `Searching ${searchSourceLabel} papers...`
+      : 'Searching papers...'
     : shouldShowNoResults
       ? 'Search completed, but no papers were returned. Try a narrower question.'
       : 'No papers found.'
@@ -238,7 +256,7 @@ export function PaperSearchToolView({ toolContent, panelMode }: ToolViewProps) {
         <div className="flex h-[36px] items-center border-b border-[var(--border-main)] bg-[var(--background-gray-main)] px-3 shadow-[inset_0px_1px_0px_0px_#FFFFFF]">
           <BookOpen className="mr-2 h-4 w-4 text-[var(--text-tertiary)]" />
           <div className="flex-1 text-center text-xs font-medium text-[var(--text-tertiary)]">
-            Paper Search
+            {providerLabel ? `${providerLabel} Paper Search` : 'Paper Search'}
           </div>
         </div>
       ) : null}
@@ -250,12 +268,14 @@ export function PaperSearchToolView({ toolContent, panelMode }: ToolViewProps) {
             <div className="text-xs text-[var(--text-tertiary)]">
               Question: &quot;{query}&quot;{' '}
               {count !== undefined && `• ${count} papers found`}
+              {providerLabel ? ` • ${providerLabel}` : ''}
             </div>
           )}
           {hasGroupedResults && (
             <div className="text-xs text-[var(--text-tertiary)]">
               Parallel questions: {questionResults.length}
               {count !== undefined && ` • ${count} merged papers found`}
+              {providerLabel ? ` • ${providerLabel}` : ''}
             </div>
           )}
           {totalSearchCalls !== undefined || annotationGateHint ? (

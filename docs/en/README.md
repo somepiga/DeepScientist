@@ -46,17 +46,17 @@ Built-in runners today:
 - [32 Windows + WSL2 Deployment Guide](./32_WINDOWS_WSL2_DEPLOYMENT_GUIDE.md)
   Read this if you are on Windows and want the recommended WSL2-based deployment path instead of guessing the environment setup.
 - [05 TUI Guide](./05_TUI_GUIDE.md)
-  Read this if your main surface is the terminal and you want one end-to-end path through `ds --tui`, quests, connectors, and cross-surface work.
+  Read this if your main surface is the terminal and you want one end-to-end path through `ds --tui`, quests, connectors, cross-surface work, and TUI debug snapshots.
 - [15 Codex Provider Setup](./15_CODEX_PROVIDER_SETUP.md)
-  Read this when you want to run DeepScientist through MiniMax, GLM, Volcengine Ark, Alibaba Bailian Coding Plan, or another Codex profile.
+  Read this when you want to run DeepScientist through OpenAI, Ollama, MiniMax, GLM, Volcengine Ark, Alibaba Bailian Coding Plan, or another Codex profile. Gemini through Codex is an advanced experiment; OpenCode is usually the better Gemini route.
 - [24 Claude Code Setup](./24_CLAUDE_CODE_PROVIDER_SETUP.md)
-  Read this when Claude Code already works on your machine and you want DeepScientist to reuse it directly.
+  Read this when Claude Code already works on your machine and you want DeepScientist to reuse it directly, or when you want to use Ollama through its Anthropic-compatible API.
 - [27 Kimi Code Setup](./27_KIMI_CODE_PROVIDER_SETUP.md)
   Read this when the official Kimi Code CLI already works on your machine and you want DeepScientist to use it as a separate builtin runner.
 - [25 OpenCode Setup](./25_OPENCODE_PROVIDER_SETUP.md)
-  Read this when OpenCode already works on your machine and you want DeepScientist to reuse its provider/model configuration.
+  Read this when OpenCode already works on your machine and you want DeepScientist to reuse its provider/model configuration, especially for Gemini or Ollama.
 - [21 Local Model Backends Guide](./21_LOCAL_MODEL_BACKENDS_GUIDE.md)
-  Read this if you want to run DeepScientist through local OpenAI-compatible backends such as vLLM, Ollama, or SGLang.
+  Read this if you want to run DeepScientist through local model backends such as vLLM, Ollama, or SGLang and need to choose between Codex, Claude Code, and OpenCode.
 - [26 Citation And Attribution](./26_CITATION_AND_ATTRIBUTION.md)
   Read this if DeepScientist materially helped a paper or report and you want the preferred citation, acknowledgment wording, and attribution boundary.
 - [12 Guided Workflow Tour](./12_GUIDED_WORKFLOW_TOUR.md)
@@ -99,6 +99,8 @@ Built-in runners today:
   Use QQ as a practical collaboration surface for progress, commands, and milestone delivery.
 - [04 Lingzhu Connector Guide](./04_LINGZHU_CONNECTOR_GUIDE.md)
   Bind Lingzhu / Rokid Glasses to DeepScientist.
+- [34 Multitask Entry Guide](./34_MULTITASK_ORCHESTRATION_GUIDE.md)
+  Read this when several quests are running and you need to choose between Web, Weixin, QQ, or another connector.
 
 ## If you want to understand how the system works
 
@@ -117,6 +119,8 @@ Built-in runners today:
 
 - [09 Doctor](./09_DOCTOR.md)
   Start here for diagnostics and common runtime problems.
+- [33 Workspace Explorer Q&A](./33_WORKSPACE_EXPLORER_QA.md)
+  Check this when files or folders exist in the terminal but do not appear in Web Explorer or Search; it explains active worktrees, `FILES` / `SCOPE`, refresh behavior, and Git status boundaries.
 - [30 Settings Control Center Guide](./30_SETTINGS_CONTROL_CENTER_GUIDE.md)
   Use this when you want the operator view of summary, hardware, diagnostics, errors, logs, quests, repairs, controllers, stats, and search.
 - [15 Codex Provider Setup](./15_CODEX_PROVIDER_SETUP.md)
@@ -146,5 +150,5 @@ Built-in runners today:
 Welcome to join the WeChat group for discussion.
 
 <p align="center">
-  <img src="../../assets/readme/wechat6.jpg" alt="DeepScientist WeChat group" width="360" />
+  <img src="../../assets/readme/wechat15.jpg" alt="DeepScientist WeChat group" width="360" />
 </p>

@@ -13,6 +13,7 @@ import type {
   PdfAnnotationEffectData,
   PdfJumpEffectData,
   RouteNavigateEffectData,
+  ScienceFocusEffectData,
   StartSetupPatchEffectData,
 } from '@/lib/types/ui-effects'
 import { queueFileJumpEffect } from '@/lib/ai/file-jump-queue'
@@ -39,6 +40,7 @@ const FILE_QUEUE_EVENT = 'ds:file:queue'
 const FILE_JUMP_EVENT = 'ds:file:jump'
 const ROUTE_NAVIGATE_EVENT = 'ds:route:navigate'
 const START_SETUP_PATCH_EVENT = 'ds:start-setup:patch'
+const SCIENCE_FOCUS_EVENT = 'ds:science:focus'
 
 function dispatchCustomEvent(name: string, detail: unknown) {
   if (typeof window === 'undefined') return
@@ -582,10 +584,21 @@ function handleRouteNavigate(data: RouteNavigateEffectData) {
 
 function handleStartSetupPatch(data: StartSetupPatchEffectData) {
   const patch = data.patch && typeof data.patch === 'object' && !Array.isArray(data.patch) ? data.patch : null
-  if (!patch) return
+  const sessionPatch = data.session_patch && typeof data.session_patch === 'object' && !Array.isArray(data.session_patch) ? data.session_patch : null
+  if (!patch && !sessionPatch) return
   dispatchCustomEvent(START_SETUP_PATCH_EVENT, {
-    patch,
+    ...(patch ? { patch } : {}),
+    ...(sessionPatch ? { session_patch: sessionPatch } : {}),
     message: typeof data.message === 'string' ? data.message : undefined,
+  })
+}
+
+function handleScienceFocus(data: ScienceFocusEffectData) {
+  dispatchCustomEvent(SCIENCE_FOCUS_EVENT, {
+    node_id: typeof data.node_id === 'string' ? data.node_id : null,
+    focus: data.focus !== false,
+    open_detail: Boolean(data.open_detail),
+    notify: Boolean(data.notify),
   })
 }
 
@@ -658,6 +671,9 @@ export function handleUIEffect(effect: Effect, context?: UIEffectContext) {
       return
     case 'start_setup:patch':
       handleStartSetupPatch(data as StartSetupPatchEffectData)
+      return
+    case 'science:focus':
+      handleScienceFocus(data as ScienceFocusEffectData)
       return
     default:
       if (process.env.NODE_ENV !== 'production') {

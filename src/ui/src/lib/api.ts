@@ -57,10 +57,31 @@ type MessageQueueStateResponse = {
   message?: string
   message_id?: string
   message_ids?: string[]
+  client_message_ids?: string[]
   scheduled?: boolean
   started?: boolean
   queued?: boolean
   reason?: string
+  delivery_batch?: {
+    batch_id?: string | null
+    message_ids?: string[] | null
+    client_message_ids?: string[] | null
+    delivered_at?: string | null
+  } | null
+  recent_inbound_messages?: Array<{
+    message_id?: string | null
+    client_message_id?: string | null
+    read_state?: string | null
+    read_reason?: string | null
+    read_at?: string | null
+  }>
+  message_states?: Array<{
+    message_id?: string | null
+    client_message_id?: string | null
+    read_state?: string | null
+    read_reason?: string | null
+    read_at?: string | null
+  }>
   current_message_state?: {
     message_id?: string | null
     client_message_id?: string | null
@@ -158,6 +179,7 @@ export const client = {
       active_anchor?: string
       default_runner?: string
       workspace_mode?: 'copilot' | 'autonomous'
+      decision_policy?: 'autonomous' | 'user_gated'
     }
   ) =>
     api<{ ok: boolean; snapshot: QuestSummary }>(`/api/quests/${questId}/settings`, {
@@ -517,6 +539,24 @@ export const client = {
         },
       })
       .then((response) => response.data),
+  importQuestChatAttachments: (
+    questId: string,
+    payload: {
+      source_quest_id: string
+      attachments: Array<Record<string, unknown>>
+    }
+  ) =>
+    api<{
+      ok: boolean
+      imported_count?: number
+      attachments?: Array<{
+        draft_id?: string
+      } & Record<string, unknown>>
+      message?: string
+    }>(`/api/quests/${questId}/chat/imports`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   deleteChatAttachment: (questId: string, draftId: string) =>
     api<Record<string, unknown>>(`/api/quests/${questId}/chat/uploads/${encodeURIComponent(draftId)}`, {
       method: 'DELETE',
@@ -558,6 +598,7 @@ export const client = {
       method: 'POST',
       body: JSON.stringify({
         message_id: messageId || undefined,
+        client_message_id: messageId && !String(messageId).startsWith('msg-') ? messageId : undefined,
         source: 'web-react',
       }),
     }),

@@ -169,6 +169,130 @@ export type ConfigFileEntry = {
   exists: boolean
 }
 
+export type ConfigValidationPayload = {
+  ok: boolean
+  parsed?: Record<string, unknown>
+  warnings?: string[]
+  errors?: string[]
+  summary?: string
+}
+
+export type ConfigTestPayload = {
+  ok: boolean
+  summary?: string
+  warnings?: string[]
+  errors?: string[]
+  items?: Array<{
+    name?: string
+    ok?: boolean
+    summary?: string
+    warnings?: string[]
+    errors?: string[]
+    details?: Record<string, unknown>
+  }>
+  details?: Record<string, unknown>
+  preview?: string
+}
+
+export type AdminTask = {
+  task_id: string
+  kind: string
+  status: string
+  progress_current?: number | null
+  progress_total?: number | null
+  progress_percent?: number | null
+  current_step?: string | null
+  message?: string | null
+  created_at?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  result_path?: string | null
+  error?: string | null
+  metadata?: Record<string, unknown> | null
+  last_event_seq?: number | null
+}
+
+export type AdminTaskEvent = {
+  seq?: number
+  event: string
+  message?: string | null
+  created_at?: string | null
+  data?: Record<string, unknown> | null
+}
+
+export type BenchStoreEntry = {
+  id: string
+  name?: string
+  one_line?: string
+  task_description?: string
+  snapshot_status?: string | null
+  support_level?: string | null
+  cost_band?: string | null
+  time_band?: string | null
+  difficulty?: string | null
+  data_access?: string | null
+  risk_flags?: string[]
+  risk_notes?: string[]
+  install_state?: Record<string, unknown> | null
+  compatibility?: Record<string, unknown> | null
+  recommendation?: Record<string, unknown> | null
+  setup_prompt_preview?: string | null
+  [key: string]: unknown
+}
+
+export type BenchStoreCatalogPayload = {
+  ok: boolean
+  items: BenchStoreEntry[]
+  total?: number
+  device_summary?: string | null
+  invalid_entries?: Array<{ source_file?: string; message?: string }>
+  shelves?: Record<string, string[]>
+}
+
+export type BenchStoreEntryDetailPayload = {
+  ok: boolean
+  entry: BenchStoreEntry
+  device_summary?: string | null
+}
+
+export type BenchStoreSetupPacket = {
+  entry_id: string
+  assistant_label?: string | null
+  project_title?: string | null
+  benchmark_local_path?: string | null
+  local_dataset_paths?: string[]
+  device_summary?: string | null
+  device_fit?: string | null
+  requires_paper?: boolean | null
+  benchmark_goal?: string | null
+  constraints?: string[]
+  suggested_form?: Record<string, unknown> | null
+  startup_instruction?: string | null
+  launch_payload?: {
+    title?: string | null
+    goal?: string | null
+    initial_message?: string | null
+    startup_contract?: Record<string, unknown> | null
+  } | null
+}
+
+export type BenchStoreSetupPacketPayload = {
+  ok: boolean
+  entry_id: string
+  setup_packet: BenchStoreSetupPacket
+}
+
+export type BaselineRegistryEntry = {
+  baseline_id: string
+  summary?: string | null
+  variant_id?: string | null
+  variants?: Array<Record<string, unknown>>
+  created_at?: string | null
+  updated_at?: string | null
+  path?: string | null
+  [key: string]: unknown
+}
+
 export type OpenDocumentPayload = {
   document_id: string
   title: string
@@ -246,6 +370,57 @@ export type FeedEnvelope = {
       update: Record<string, unknown>
     }
   }>
+}
+
+export type TuiDebugRouteSnapshot = {
+  kind: string
+  target: string
+  reason: string
+  command?: string | null
+  arg?: string | null
+  parsed_command?: string | null
+}
+
+export type TuiDebugSnapshot = {
+  surface: string
+  web_analog: string
+  route: TuiDebugRouteSnapshot
+  input: {
+    raw: string
+    parsed: string
+    preview: string
+    redacted?: boolean
+    redaction_reason?: string | null
+    length?: number
+  }
+  screen: {
+    main: string
+    composer: string
+    selected?: string | null
+    input_visible: boolean
+    input_redacted: boolean
+    debug_strip_visible: boolean
+  }
+  status_line: string
+  connection_state: string
+  active_quest_id?: string | null
+  browse_quest_id?: string | null
+  config_view?: string | null
+  config_mode?: string | null
+  quest_panel_mode?: string | null
+  utility_panel_kind?: string | null
+  session_id?: string | null
+  counts: {
+    quests: number
+    history: number
+    pending: number
+    config_items: number
+    selected_index: number
+    suggestions: number
+    utility_lines: number
+  }
+  log_path?: string | null
+  signature: string
 }
 
 export type BashSessionStatus = 'running' | 'terminating' | 'completed' | 'failed' | 'terminated'

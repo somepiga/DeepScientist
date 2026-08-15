@@ -17,6 +17,7 @@ from ..codex_cli_compat import (
     provider_profile_metadata_from_home,
 )
 from ..config import ConfigManager
+from ..evidence_packets import compact_runner_tool_event
 from ..gitops import export_git_graph
 from ..process_control import process_session_popen_kwargs
 from ..prompts import PromptBuilder
@@ -30,6 +31,7 @@ from .base import (
     RunResult,
     builtin_mcp_server_names_for_custom_profile,
     extract_start_setup_patch_from_text,
+    extract_start_setup_session_patch_from_text,
     resolve_mcp_tool_profile_for_quest,
 )
 from .events import RunnerEventWriter
@@ -48,6 +50,7 @@ _BUILTIN_MCP_TOOL_APPROVALS: dict[str, tuple[str, ...]] = {
     ),
     "artifact": (
         "record",
+        "science",
         "checkpoint",
         "prepare_branch",
         "activate_branch",
@@ -55,6 +58,10 @@ _BUILTIN_MCP_TOOL_APPROVALS: dict[str, tuple[str, ...]] = {
         "list_research_branches",
         "resolve_runtime_refs",
         "get_paper_contract_health",
+        "validate_manuscript_coverage",
+        "validate_academic_outline",
+        "validate_manuscript_language",
+        "compile_outline_to_writing_plan",
         "get_quest_state",
         "get_global_status",
         "get_method_scoreboard",
@@ -126,6 +133,40 @@ _WINDOWS_GBK_SAFE_REPLACEMENTS: dict[str, str] = {
     "̀": "",
     "́": "",
 }
+
+
+def _usage_metrics_from_event(event: dict[str, Any]) -> dict[str, int]:
+    candidates: list[dict[str, Any]] = []
+    for key in ("usage", "token_usage", "turn_usage"):
+        value = event.get(key)
+        if isinstance(value, dict):
+            candidates.append(value)
+    item = event.get("item")
+    if isinstance(item, dict):
+        for key in ("usage", "token_usage", "turn_usage"):
+            value = item.get(key)
+            if isinstance(value, dict):
+                candidates.append(value)
+    aliases = {
+        "input_tokens": ("input_tokens", "prompt_tokens"),
+        "cached_input_tokens": ("cached_input_tokens", "cached_tokens", "cached_prompt_tokens"),
+        "output_tokens": ("output_tokens", "completion_tokens"),
+        "total_tokens": ("total_tokens",),
+    }
+    merged: dict[str, int] = {}
+    for candidate in candidates:
+        for target, source_keys in aliases.items():
+            if target in merged:
+                continue
+            for key in source_keys:
+                value = candidate.get(key)
+                if isinstance(value, int):
+                    merged[target] = value
+                    break
+                if isinstance(value, float):
+                    merged[target] = int(value)
+                    break
+    return merged
 
 
 def _compact_text(value: object, *, limit: int = 1200) -> str:
@@ -534,6 +575,56 @@ def _mcp_result_payload(item: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _parse_single_text_content(value: Any) -> Any | None:
+    if not isinstance(value, list) or len(value) != 1:
+        return None
+    item = value[0]
+    if not isinstance(item, dict):
+        return None
+    text = item.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
+def _raw_tool_result_payload(event: dict[str, Any]) -> Any | None:
+    item = event.get("item") if isinstance(event.get("item"), dict) else {}
+    item_type = str(item.get("type") or event.get("item_type") or "")
+    if item_type == "mcp_tool_call":
+        result = item.get("result")
+        if isinstance(result, dict):
+            structured = result.get("structured_content") or result.get("structuredContent")
+            if structured is not None:
+                return structured
+            parsed_content = _parse_single_text_content(result.get("content"))
+            if parsed_content is not None:
+                return parsed_content
+            return result
+        if result is not None:
+            return result
+
+    for value in (
+        item.get("result"),
+        item.get("aggregated_output"),
+        item.get("changes"),
+        item.get("output"),
+        item.get("content"),
+        item.get("error"),
+        event.get("result"),
+        event.get("aggregated_output"),
+        event.get("changes"),
+        event.get("output"),
+        event.get("content"),
+        event.get("error"),
+    ):
+        if value is not None:
+            return value
+    return None
+
+
 def _mcp_tool_metadata(
     *,
     quest_id: str,
@@ -869,6 +960,34 @@ class CodexRunner:
                 "windows_gbk_replacements": prompt_sanitization,
             },
         )
+        configured_tool_budget = runner_config.get("tool_call_budget")
+        if not isinstance(configured_tool_budget, int):
+            configured_tool_budget = DEFAULT_TURN_TOOL_CALL_BUDGET
+        tool_budget_telemetry = _new_tool_budget_telemetry(tool_call_budget=configured_tool_budget)
+        telemetry: dict[str, Any] = {
+            "version": 1,
+            "quest_id": request.quest_id,
+            "run_id": request.run_id,
+            "skill_id": request.skill_id,
+            "turn_reason": request.turn_reason,
+            "turn_intent": request.turn_intent,
+            "turn_mode": request.turn_mode,
+            "model": request.model,
+            "model_inherited": str(request.model or "").strip().lower()
+            in {"", "inherit", "default", "codex-default", "inherit_local_codex_default"},
+            "reasoning_effort": request.reasoning_effort,
+            "runner_profile": str(runner_config.get("profile") or "").strip() or None,
+            "prompt_bytes": len(prompt.encode("utf-8", errors="replace")),
+            "stdout_event_count": 0,
+            "stdout_bytes": 0,
+            "tool_result_count": 0,
+            "tool_result_bytes_total": 0,
+            "compacted_tool_result_count": 0,
+            "full_detail_tool_call_count": 0,
+            **tool_budget_telemetry,
+            "token_usage": {},
+            "created_at": utc_now(),
+        }
 
         env = dict(**os.environ)
         runner_env = runner_config.get("env") if isinstance(runner_config.get("env"), dict) else {}
@@ -970,10 +1089,17 @@ class CodexRunner:
                 line = raw_line.rstrip("\n")
                 if not line:
                     continue
+                telemetry["stdout_event_count"] = int(telemetry.get("stdout_event_count") or 0) + 1
+                telemetry["stdout_bytes"] = int(telemetry.get("stdout_bytes") or 0) + len(
+                    line.encode("utf-8", errors="replace")
+                )
                 try:
                     payload = json.loads(line)
                 except json.JSONDecodeError:
                     payload = {"raw": line}
+                usage_metrics = _usage_metrics_from_event(payload)
+                if usage_metrics:
+                    telemetry["token_usage"] = usage_metrics
                 timestamp = utc_now()
                 append_jsonl(history_events, {"timestamp": timestamp, "event": payload})
                 append_jsonl(stdout_events, {"timestamp": timestamp, "line": line})
@@ -993,6 +1119,39 @@ class CodexRunner:
                     created_at=timestamp,
                 )
                 if tool_event is not None:
+                    if str(tool_event.get("type") or "") == "runner.tool_call":
+                        _record_tool_budget_event(telemetry, tool_event)
+                        args_text = str(tool_event.get("args") or "")
+                        if "detail" in args_text and "full" in args_text.lower():
+                            telemetry["full_detail_tool_call_count"] = int(
+                                telemetry.get("full_detail_tool_call_count") or 0
+                            ) + 1
+                    if str(tool_event.get("type") or "") == "runner.tool_result":
+                        raw_tool_payload = _raw_tool_result_payload(payload)
+                        compaction_kwargs: dict[str, Any] = {}
+                        if raw_tool_payload is not None:
+                            compaction_kwargs["raw_payload"] = raw_tool_payload
+                        compacted_tool_event, compaction_meta = compact_runner_tool_event(
+                            tool_event,
+                            quest_root=request.quest_root,
+                            run_id=request.run_id,
+                            **compaction_kwargs,
+                        )
+                        tool_event = compacted_tool_event
+                        telemetry["tool_result_count"] = int(telemetry.get("tool_result_count") or 0) + 1
+                        telemetry["tool_result_bytes_total"] = int(
+                            telemetry.get("tool_result_bytes_total") or 0
+                        ) + int(
+                            compaction_meta.get("source_payload_bytes")
+                            or compaction_meta.get("output_bytes")
+                            or compaction_meta.get("payload_bytes")
+                            or 0
+                        )
+                        if bool(compaction_meta.get("compacted")):
+                            telemetry["compacted_tool_result_count"] = int(
+                                telemetry.get("compacted_tool_result_count") or 0
+                            ) + 1
+                        _record_tool_budget_event(telemetry, tool_event)
                     append_jsonl(quest_events, tool_event)
                 message_events, message_output_parts = _message_events(
                     payload,
@@ -1033,6 +1192,37 @@ class CodexRunner:
                 stderr_text=stderr_text,
                 summary=summary_text or output_text,
             )
+            append_jsonl(
+                quest_events,
+                {
+                    "event_id": generate_id("evt"),
+                    "type": "runner.turn_telemetry",
+                    "quest_id": request.quest_id,
+                    "run_id": request.run_id,
+                    "source": "codex",
+                    "skill_id": request.skill_id,
+                    "model": request.model,
+                    "prompt_bytes": telemetry.get("prompt_bytes"),
+                    "stdout_bytes": telemetry.get("stdout_bytes"),
+                    "tool_call_budget": telemetry.get("tool_call_budget"),
+                    "tool_call_count": telemetry.get("tool_call_count"),
+                    "tool_count": telemetry.get("tool_count"),
+                    "tool_call_budget_remaining": telemetry.get("tool_call_budget_remaining"),
+                    "tool_call_budget_exceeded": telemetry.get("tool_call_budget_exceeded"),
+                    "unique_command_count": telemetry.get("unique_command_count"),
+                    "read_tool_call_count": telemetry.get("read_tool_call_count"),
+                    "repeated_read_result_count": telemetry.get("repeated_read_result_count"),
+                    "repeated_read_ratio": telemetry.get("repeated_read_ratio"),
+                    "tool_result_bytes_total": telemetry.get("tool_result_bytes_total"),
+                    "compacted_tool_result_count": telemetry.get("compacted_tool_result_count"),
+                    "saved_bytes": telemetry.get("saved_bytes"),
+                    "full_detail_tool_call_count": telemetry.get("full_detail_tool_call_count"),
+                    "full_detail_count": telemetry.get("full_detail_count"),
+                    "token_usage": telemetry.get("token_usage"),
+                    "telemetry_path": str(telemetry_path),
+                    "created_at": utc_now(),
+                },
+            )
             write_text(history_root / "assistant.md", (output_text or "") + ("\n" if output_text else ""))
             write_text(run_root / "stderr.txt", stderr_text)
             result_payload = {
@@ -1042,6 +1232,7 @@ class CodexRunner:
                 "exit_code": exit_code,
                 "history_root": str(history_root),
                 "run_root": str(run_root),
+                "telemetry_path": str(telemetry_path),
                 "output_text": output_text,
                 "stderr_text": stderr_text,
                 "completed_at": utc_now(),
@@ -1155,14 +1346,16 @@ class CodexRunner:
         if not isinstance(startup_contract.get("start_setup_session"), dict):
             return
         patch = extract_start_setup_patch_from_text(output_text)
-        if not patch:
+        session_patch = extract_start_setup_session_patch_from_text(output_text)
+        if not patch and not session_patch:
             return
         result = self.artifact_service.apply_start_setup_form_patch(
             request.quest_root,
             form_patch=patch,
+            session_patch=session_patch,
             message="Applied from runner fallback `start_setup_patch` block.",
         )
-        patch_keys = sorted(result.get("form_patch", {}).keys()) if isinstance(result.get("form_patch"), dict) else sorted(patch.keys())
+        patch_keys = sorted(result.get("form_patch", {}).keys()) if isinstance(result.get("form_patch"), dict) else sorted((patch or {}).keys())
         append_jsonl(
             quest_events,
             {

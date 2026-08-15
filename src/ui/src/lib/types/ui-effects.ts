@@ -14,6 +14,7 @@ export type UIEffectName =
   | 'notebook:block_inserted'
   | 'route:navigate'
   | 'start_setup:patch'
+  | 'science:focus'
 
 export type PdfRect = {
   x1: number
@@ -98,8 +99,17 @@ export interface RouteNavigateEffectData {
 }
 
 export interface StartSetupPatchEffectData {
-  patch: Record<string, unknown>
+  patch?: Record<string, unknown>
+  session_patch?: Record<string, unknown>
   message?: string | null
+  [key: string]: unknown
+}
+
+export interface ScienceFocusEffectData {
+  node_id?: string | null
+  focus?: boolean
+  open_detail?: boolean
+  notify?: boolean
   [key: string]: unknown
 }
 
@@ -126,6 +136,7 @@ export interface UIEffectDataMap {
   }
   'route:navigate': RouteNavigateEffectData
   'start_setup:patch': StartSetupPatchEffectData
+  'science:focus': ScienceFocusEffectData
 }
 
 export type KnownEffect = {

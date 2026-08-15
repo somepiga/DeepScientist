@@ -7,6 +7,8 @@ import shutil
 import socket
 import subprocess
 import threading
+import time
+import shlex
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -109,8 +111,10 @@ class MockDaemon:
 
 
 @contextmanager
-def spawn_tui(base_url: str) -> Any:
+def spawn_tui(base_url: str, args: list[str] | None = None, env_overrides: dict[str, str] | None = None) -> Any:
     env = os.environ.copy()
+    if env_overrides:
+        env.update(env_overrides)
     env["DEEPSCIENTIST_ALT_BUFFER"] = "0"
     env["DEEPSCIENTIST_INCREMENTAL_RENDER"] = "0"
     env["TERM"] = "xterm-256color"
@@ -118,9 +122,11 @@ def spawn_tui(base_url: str) -> Any:
     env["LINES"] = "45"
     env["FORCE_COLOR"] = "0"
     env["NO_COLOR"] = "1"
+    extra_args = " ".join(shlex.quote(arg) for arg in (args or []))
+    command = f"node src/tui/dist/index.js --base-url {shlex.quote(base_url)}{f' {extra_args}' if extra_args else ''}"
     child = pexpect.spawn(
         "script",
-        ["-qfec", f"node src/tui/dist/index.js --base-url {base_url}", "/dev/null"],
+        ["-qfec", command, "/dev/null"],
         cwd=str(ROOT),
         env=env,
         encoding="utf-8",
@@ -168,6 +174,253 @@ def default_connector_routes(state: dict[str, Any]) -> dict[str, RouteHandler]:
         "/api/connectors": lambda current, _body: current.get("connector_snapshots", []),
         "/api/config/files": lambda _current, _body: state.get("config_files", []),
     }
+
+
+def test_tui_non_tty_does_not_throw_raw_mode_error() -> None:
+    process = subprocess.Popen(
+        ["node", "src/tui/dist/index.js", "--base-url", "http://127.0.0.1:9"],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        time.sleep(1.5)
+        process.terminate()
+        output, _ = process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        output, _ = process.communicate(timeout=5)
+
+    assert "Raw mode is not supported" not in output
+
+
+def test_tui_new_command_creates_and_auto_starts_quest() -> None:
+    state: dict[str, Any] = {
+        "quests": [],
+        "created_bodies": [],
+    }
+
+    def list_quests(current: dict[str, Any], _body: dict[str, Any] | None) -> list[dict[str, Any]]:
+        return current["quests"]
+
+    def create_quest(current: dict[str, Any], body: dict[str, Any] | None) -> dict[str, Any]:
+        assert body is not None
+        current["created_bodies"].append(body)
+        snapshot = {
+            "quest_id": "q-001",
+            "title": body["goal"],
+            "status": "running",
+            "active_anchor": "decision",
+            "branch": "main",
+            "quest_root": "/tmp/q-001",
+        }
+        current["quests"] = [snapshot]
+        return {"ok": True, "snapshot": snapshot, "startup": {"ok": True}}
+
+    get_routes = {
+        "/api/quests": list_quests,
+        **default_connector_routes(state),
+        "/api/quests/q-001/session": lambda current, _body: {
+            "ok": True,
+            "quest_id": "q-001",
+            "snapshot": current["quests"][0],
+            "acp_session": {"session_id": "quest:q-001", "slash_commands": []},
+        },
+        "/api/quests/q-001/events?after=0&format=acp&session_id=quest%3Aq-001&limit=160&tail=1": lambda _current, _body: {
+            "cursor": 0,
+            "acp_updates": [],
+        },
+    }
+    post_routes = {
+        "/api/quests": create_quest,
+    }
+
+    with MockDaemon(state=state, get_routes=get_routes, post_routes=post_routes) as daemon:
+        with spawn_tui(daemon.base_url) as child:
+            child.expect("request mode")
+            child.send("/new Audit benchmark pipeline")
+            press_enter(child)
+            child.expect("q-001")
+
+    assert state["created_bodies"] == [
+        {
+            "goal": "Audit benchmark pipeline",
+            "source": "tui-ink",
+            "auto_start": True,
+            "initial_message": "Audit benchmark pipeline",
+        }
+    ]
+
+
+def test_tui_benchstore_command_lists_catalog() -> None:
+    state: dict[str, Any] = {}
+    get_routes = {
+        **default_quest_routes(),
+        **default_connector_routes(state),
+        "/api/benchstore/entries": lambda _current, _body: {
+            "ok": True,
+            "total": 1,
+            "device_summary": "test device",
+            "items": [
+                {
+                    "id": "toy.bench",
+                    "name": "Toy Benchmark",
+                    "one_line": "Small benchmark fixture",
+                    "snapshot_status": "runnable",
+                }
+            ],
+        },
+    }
+
+    with MockDaemon(state=state, get_routes=get_routes) as daemon:
+        with spawn_tui(daemon.base_url) as child:
+            child.expect("request mode")
+            child.send("/benchstore")
+            press_enter(child)
+            child.expect("BenchStore")
+            child.expect("toy.bench")
+            child.expect("Small benchmark fixture")
+
+
+def test_tui_doctor_command_starts_system_task() -> None:
+    state: dict[str, Any] = {"doctor_started": 0}
+
+    def start_doctor(current: dict[str, Any], _body: dict[str, Any] | None) -> dict[str, Any]:
+        current["doctor_started"] += 1
+        return {
+            "ok": True,
+            "task": {
+                "task_id": "admintask-doctor-001",
+                "kind": "doctor",
+                "status": "running",
+                "current_step": "collecting",
+                "message": "Doctor is running.",
+            },
+        }
+
+    with MockDaemon(
+        state=state,
+        get_routes={**default_quest_routes(), **default_connector_routes(state)},
+        post_routes={"/api/system/tasks/doctor": start_doctor},
+    ) as daemon:
+        with spawn_tui(daemon.base_url) as child:
+            child.expect("request mode")
+            child.send("/doctor")
+            press_enter(child)
+            child.expect("Task admintask-doctor-001")
+            child.expect("doctor")
+            child.expect("running")
+
+    assert state["doctor_started"] == 1
+
+
+def test_tui_unknown_slash_command_is_blocked_locally() -> None:
+    state: dict[str, Any] = {}
+    with MockDaemon(state=state, get_routes={**default_quest_routes(), **default_connector_routes(state)}) as daemon:
+        with spawn_tui(daemon.base_url) as child:
+            child.expect("request mode")
+            child.send("/missing-command")
+            press_enter(child)
+            child.expect("Unknown TUI Command")
+            child.expect("blocked locally")
+
+
+def test_tui_debug_mode_exposes_route_snapshot_and_logs(tmp_path: Path) -> None:
+    state: dict[str, Any] = {}
+    debug_log = tmp_path / 'tui-debug.jsonl'
+    with MockDaemon(state=state, get_routes={**default_quest_routes(), **default_connector_routes(state)}) as daemon:
+        with spawn_tui(
+            daemon.base_url,
+            args=['--debug', '--debug-log', str(debug_log)],
+        ) as child:
+            child.expect("debug · surface: home")
+
+            child.send("/config")
+            press_enter(child)
+            child.expect("debug · surface: config:root:browse")
+            child.expect("Web Settings")
+
+            child.send("\x1b")
+            child.expect("Config browser closed.")
+
+            child.send("/debug")
+            press_enter(child)
+            child.expect("TUI Debug")
+            child.expect("kind: local-debug")
+            child.expect("target: debug inspector")
+            child.expect("debug · surface: utility:debug")
+            child.expect("Web Settings > diagnostics / audit")
+
+    lines = debug_log.read_text(encoding='utf-8').strip().splitlines()
+    assert lines, "debug logging should produce at least one snapshot"
+    snapshot = json.loads(lines[-1])
+    assert snapshot["surface"] == "utility:debug"
+    assert snapshot["web_analog"] == "Web Settings > diagnostics / audit"
+    assert snapshot["utility_panel_kind"] == "debug"
+    assert snapshot["counts"]["utility_lines"] > 0
+    assert snapshot["screen"]["main"].startswith("Utility panel")
+
+
+def test_tui_debug_log_redacts_config_editor_buffers(tmp_path: Path) -> None:
+    secret = "SUPERSECRET-TUI-DEBUG-TOKEN"
+    state: dict[str, Any] = {
+        "config_files": [
+            {
+                "name": "config",
+                "path": "/tmp/config.yaml",
+                "required": True,
+                "exists": True,
+            }
+        ],
+        "config_document": {
+            "document_id": "config::config",
+            "title": "config.yaml",
+            "path": "/tmp/config.yaml",
+            "writable": True,
+            "content": f"deepxiv:\n  token: {secret}\n",
+            "revision": "cfg-rev-debug-redaction",
+        },
+    }
+    debug_log = tmp_path / "tui-debug-redacted.jsonl"
+
+    get_routes = {
+        **default_quest_routes(),
+        **default_connector_routes(state),
+        "/api/config/config": lambda current, _body: current["config_document"],
+    }
+
+    with MockDaemon(state=state, get_routes=get_routes) as daemon:
+        with spawn_tui(
+            daemon.base_url,
+            args=["--debug", "--debug-log", str(debug_log)],
+        ) as child:
+            open_config_root(child)
+            press_down(child)
+            press_enter(child)
+            child.expect("Global Config Files")
+            press_enter(child)
+            child.expect("Config Editor")
+            child.expect("debug · surface: config:files:edit")
+            child.expect("redacted")
+            child.sendcontrol("d")
+            child.expect("TUI Debug")
+            child.expect("raw: \\[redacted:")
+            child.expect("input visible: yes")
+            child.send("\x1b")
+            child.expect("Config Editor")
+            child.expect("debug · surface: config:files:edit")
+
+    log_text = debug_log.read_text(encoding="utf-8")
+    assert secret not in log_text
+    snapshots = [json.loads(line) for line in log_text.strip().splitlines() if line.strip()]
+    editor_snapshots = [item for item in snapshots if item.get("surface") == "config:files:edit"]
+    assert editor_snapshots, "debug logging should capture the config editor state"
+    latest_editor = editor_snapshots[-1]
+    assert latest_editor["input"]["redacted"] is True
+    assert latest_editor["input"]["raw"].startswith("[redacted:")
+    assert latest_editor["route"]["arg"].startswith("[redacted:")
+    assert latest_editor["screen"]["input_redacted"] is True
 
 
 def test_tui_backspace_deletes_input_in_config_editor() -> None:
@@ -536,7 +789,7 @@ def test_tui_lingzhu_connector_edit_generates_ak_and_saves_selected_connector() 
             press_enter(child)
             child.expect("Connector Field Editor")
             child.send("\x7f" * 48)
-            child.send("http://demo.local")
+            child.send("https://demo.example")
             press_enter(child)
             child.expect("Updated Public base URL in draft")
 
@@ -553,7 +806,7 @@ def test_tui_lingzhu_connector_edit_generates_ak_and_saves_selected_connector() 
         "command_prefix": "/",
     }
     assert saved_structured["weixin"] == {"enabled": False}
-    assert saved_structured["lingzhu"]["public_base_url"] == "http://demo.local"
+    assert saved_structured["lingzhu"]["public_base_url"] == "https://demo.example"
     assert re.fullmatch(r"[a-z0-9]{8}(?:-[a-z0-9]{4}){3}-[a-z0-9]{12}", saved_structured["lingzhu"]["auth_ak"])
 
 

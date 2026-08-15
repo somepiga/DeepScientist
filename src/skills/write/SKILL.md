@@ -14,25 +14,79 @@ skill_role: stage
 ## One-Sentence Summary
 - Refresh the paper contract first, then draft section-by-section from durable evidence; if evidence, figures, or citations are not ready, repair or route back instead of writing around the gap.
 
+## Pre-write Revision Strategy Gate
+
+Before editing a manuscript, first produce a concrete revision strategy from the current evidence state.
+Do not begin polishing prose until the strategy separates:
+
+- evidence gaps: require new analysis, rerun, or claim downgrade
+- manuscript-mapping gaps: completed results missing from main text, table, figure, or appendix
+- unsupported writing: claims present in the draft without durable result artifacts
+- narrative / positioning gaps: weak framing, novelty boundary, contribution logic
+- citation gaps: too few or weak references for the claimed scope
+- metadata drift: matrix, ledger, outline, figures, tables, and manuscript disagree
+
+For each issue, choose exactly one action:
+
+- run or request analysis
+- downgrade or remove the claim
+- add result to main text
+- move result to appendix with a clear bridge
+- add or repair a table/figure
+- add verified citations
+- repair the paper contract before writing
+- route to review / decision instead of writing
+
+Never make an unsupported claim sound more convincing.
+If evidence is missing, either obtain evidence, narrow the claim, or mark the blocker.
+
 ## Workflow
 1. Refresh control state first.
    Run `memory.list_recent(scope='quest', limit=5)` plus one writing-relevant `memory.search(...)`. If restart context is unclear, use `artifact.get_quest_state(detail='summary')`, `artifact.read_quest_documents(...)`, or `artifact.get_conversation_context(...)`.
 2. Lock the paper contract before heavy prose.
    Keep `paper/selected_outline.json`, `paper/evidence_ledger.json`, and `paper/paper_experiment_matrix.md` or `.json` aligned. Use `artifact.get_paper_contract(detail='full')` as the default paper-reading surface when section rows, experiment rows, or analysis rows matter. Use `artifact.get_paper_contract_health(detail='full')` when outline state, experiment rows, or evidence ownership may be stale. Use `artifact.submit_paper_outline(mode='candidate'|'select'|'revise', ...)` instead of leaving outline choice only in prose.
-3. Refresh literature and citation truth.
+   When several paper shapes are plausible, record one or more outline candidates with `artifact.submit_paper_outline(mode='candidate', ...)`, then select or revise explicitly with `artifact.submit_paper_outline(mode='select'|'revise', ...)`; do not force extra outline rounds once the selected outline is good enough for the current writing job.
+3. Validate the outline before drafting.
+   Run `artifact.validate_academic_outline(detail='full')`. If it fails, use `paper-outline` or `artifact.submit_paper_outline(mode='revise', ...)` to repair the paper idea, claims, evidence boundaries, and analysis plan before prose work. When it passes, run `artifact.compile_outline_to_writing_plan(detail='full')` and draft from those jobs.
+4. Sort source material before drafting.
+   Ask: is this a claim, an experiment setting, a reproducibility detail, implementation plumbing, artifact history, or a user/operator instruction? Claims and experiment settings may become manuscript text. Reproducibility details usually go to appendix. Artifact history and user/operator instructions should not appear in the manuscript.
+5. Refresh literature and citation truth.
    Run `breadth -> shortlist -> depth`. Use DeepXiv or OpenAlex for discovery when available, then retrieve BibTeX from DOI or arXiv, not from memory. Keep `paper/references.bib` machine-usable and audit it before bundle submission.
-4. Plan displays before prose.
+   If DeepXiv is declared available by the system prompt, prefer it for paper-centric discovery and shortlist triage before broad web search when it can answer the question directly. If DeepXiv is declared unavailable, do not try to force it; stay on the legacy route. Use `artifact.arxiv(paper_id=..., full_text=False)` for actual arXiv paper reads before escalating to full text.
+6. Plan displays before prose.
    If a section needs a paper-facing measured figure, use `paper-plot` first. Use `figure-polish` only after a durable first-pass render exists. Sync resulting figure paths and takeaways back into `paper/evidence_ledger.json`, `paper/paper_experiment_matrix.md`, and the draft.
-5. Draft by section jobs, not one long stream.
+7. Route Nature companion work by paper surface.
+   Open a `nature-*` skill only after the current section job, evidence rows, and unresolved fields are known. Use the companion skill to produce a bounded section/figure/deck deliverable, then return to `write` to integrate it into the draft, evidence ledger, figure/table catalog, references, and bundle status.
+8. Draft by section jobs, not one long stream.
    Write introduction / related work / method / experiments / analysis / conclusion as separate jobs. Write the abstract late, after evidence order and section roles stabilize. For oral-grade upgrades, follow the `Draft To Top Conference Oral` section below.
-6. Validate before output and route if needed.
-   Build or refresh the claim-evidence map, packaging state, and appendix bridges. If the draft is evidence-complete enough, prepare it for `finalize`; otherwise record the blocker and route back through `decision`, `experiment`, or `analysis-campaign`.
+9. Validate before output and route if needed.
+   Refresh claim-evidence, packaging, appendix bridges, `artifact.validate_manuscript_language(detail='full')`, and `artifact.validate_manuscript_coverage(detail='full')`. A short memo is only `artifact.submit_paper_bundle(package_type='draft_checkpoint', ...)`; use `submission_package` only when `submission_ready=true`.
+
+## Paper Quality Reminder
+
+Do not let structural readiness stand in for paper quality.
+
+- Compile success, section count, figure/table count, and `draft_checkpoint_ready` mean only that a package exists.
+- A mature empirical draft needs a reader-facing thesis, central insight, scoped claims, novelty boundary, reviewer objections, and a mapped analysis plan from `paper-outline`.
+- Before calling a full manuscript strong, check the actual ready experiment/analysis group count from `artifact.validate_manuscript_coverage(detail='full')`.
+- Normally expect 5-10 ready paper-facing experiment/analysis groups total; if the user asked for a concrete count such as 4-8 analyses, treat that as the active tracked target.
+- If the count is below the target, either route to `analysis-campaign`, write an explicit analysis-budget waiver that downgrades the paper scope, or narrow the claims. Do not hide the shortage with prose.
+- If duplicate item ids, stale outline refs, or pending main-text rows inflate the count, repair the paper contract before writing claims from those rows.
+- Apply the publishability stop-loss rule: if the current evidence, novelty boundary, or reader value cannot support a defensible paper after reasonable claim narrowing, stop drafting and route to `decision` for a recommended `stop` or `branch`; record any narrowed non-paper objective as the next direction. If the recommended action is `stop` because paper quality is too low, ask the user to confirm before ending the paper objective. Consider user publication, scope, cost, or non-paper preferences before routing, and ask when the preference would change the route. Do not use polished prose to keep an unpublishable paper line alive.
 
 ## Tool Use
 - `artifact.get_paper_contract_health(detail='full')`:
   use when a weak section may actually be caused by stale outline state, unresolved experiment rows, or unclear evidence ownership.
 - `artifact.get_paper_contract(detail='full')`:
   use by default before drafting any section, table, or analysis prose that depends on concrete main-experiment rows, analysis rows, or section-level `result_table` content.
+- `artifact.validate_manuscript_coverage(detail='full')`:
+  use before bundle submission or finalize; it checks sections, displays, ready analysis groups, PDF, and checklist state.
+- `artifact.validate_academic_outline(detail='full')`:
+  use before serious drafting; it checks whether the outline has a paper idea, scoped claims, evidence boundaries, method, evaluation plan, and enough planned analyses.
+- `artifact.compile_outline_to_writing_plan(detail='full')`:
+  use after the outline is valid; it turns the outline into section-level writing jobs.
+- `artifact.validate_manuscript_language(detail='full')`:
+  use after major prose edits and before submission; it catches route/user/worktree/port/batch wording that should not be in main text.
 - `artifact.get_quest_state(detail='summary')`, `artifact.read_quest_documents(...)`, `artifact.get_conversation_context(...)`:
   use when restart context is unclear, when exact durable wording matters, or when you need file truth instead of chat recollection.
 - `artifact.submit_paper_outline(mode='candidate'|'select'|'revise', ...)`:
@@ -40,7 +94,7 @@ skill_role: stage
 - `artifact.create_analysis_campaign(...)`:
   use only when a real paper-facing evidence gap needs follow-up analysis; do not use it for prose cleanup, citation chores, or generic "improve the paper" tasks.
 - `artifact.submit_paper_bundle(...)`:
-  use only when the draft, bibliography, and bundle metadata are already durable enough to hand off.
+  use explicit `package_type`: `draft_checkpoint`, `review_package`, or `submission_package` only after coverage is submission-ready.
 - `artifact.interact(...)` or other durable artifact updates:
   use when the writing pass materially changes paper status, route choice, or bundle readiness and the change should survive beyond chat.
 - `bash_exec(...)`:
@@ -50,6 +104,11 @@ skill_role: stage
 - `memory.write(...)`:
   use only for reusable lessons such as citation retrieval rules, packaging traps, figure-integration lessons, or section-rewrite heuristics; do not store one-off draft text, transient wording, or current-section notes that should live in files.
 
+## Interaction Discipline
+
+Follow the shared interaction contract injected by the system prompt.
+For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
+
 ## AVOID / Pitfalls
 - Do not start with background explanation or overview prose; start with contract health, section job, and evidence state.
 - Do not keep drafting while outline, evidence ledger, or experiment matrix are stale.
@@ -57,21 +116,43 @@ skill_role: stage
 - Do not draft around missing evidence, unstable baselines, or unresolved non-optional experiment rows.
 - Do not hand-write BibTeX, citations, metrics, or method details from memory.
 - Do not improvise a new plotting stack inside `write` when `paper-plot` should own the first-pass figure.
+- Do not use `nature-polishing` to make unsupported, stale, or overbroad claims sound stronger.
+- Do not use `nature-data` to invent repositories, accession numbers, DOIs, licences, embargoes, access committees, or ethics approvals.
+- Do not use `nature-paper2ppt` unless the user asked for an actual presentation deck.
 - Do not merge experiments and analysis into one undifferentiated result dump when they need distinct reviewer-facing jobs.
+- Do not treat `evidence_ready` or `analysis_ready` as equivalent to `manuscript_ready` or `submission_ready`.
+- Do not submit a paper-shot memo as a final paper package; checkpoint it and continue writing/review.
 - Do not use rows that are not clearly bound to the current `selected_outline_ref` / active paper line.
+- Do not keep revising a paper line whose publishability has collapsed; record the blocker and route to `decision` instead of accumulating more draft text.
 - Do not keep appending new material to the top control block until it turns back into prose-heavy documentation; keep the top short and use the longer guidance below only when the task actually matches it.
+- Do not paste or paraphrase user requests, route decisions, branch/worktree state, checklist language, command names, prompt state, or artifact-management history into manuscript prose.
+- Do not write phrases such as `the user requested`, `the latest user requirement`, `paper restart`, `this quest`, `the agent`, `the worktree`, `we were told`, `he accepted`, `paper should`, or `remaining work on this manuscript` inside a paper draft.
+- Do not use arithmetic endpoint/batch shorthand such as `64 + 64` or `64+64` in manuscript prose, titles, abstracts, captions, or conclusions.
+- Do not let figure captions contain tool recommendations, website promotion, TODOs, or polish notes.
 
 ## Constraints
 - Keep these files aligned when they exist:
   `paper/selected_outline.json`, `paper/evidence_ledger.json`, `paper/paper_experiment_matrix.md` or `.json`, `paper/references.bib`, `paper/claim_evidence_map.json`, `paper/paper_bundle_manifest.json`.
 - If a section depends on experiment or analysis evidence, draft from the current paper contract rows, not from remembered summaries.
 - If method, system, or implementation details are mentioned, treat the current codebase, configs, scripts, logs, and durable outputs as the primary truth surface; comments, plans, TODOs, and old draft wording are only hints until verified.
+- User requirements and control files are allowed to constrain the writing route, but they are not evidence and are not manuscript text.
+- Main text should usually describe serving and evaluation setup as a benchmark, comparison budget, evidence source, or evaluation protocol, not as local operator configuration. If exact throughput settings matter, put them in an appendix or reproducibility table.
 - Any shell, CLI, Python, bash, node, git, npm, uv, LaTeX, or file-inspection execution in this stage must go through `bash_exec(...)`.
 - Use `artifact.create_analysis_campaign(...)` only for real paper-facing evidence gaps, not for prose cleanup or citation chores.
 - Use `artifact.submit_paper_bundle(...)` only after draft, bibliography, and bundle metadata are durable enough to hand off.
+- A mature empirical paper usually needs 5-10 paper-facing experiment/analysis groups unless scoped otherwise; if fewer, justify or route to `analysis-campaign`.
+- A user-specified analysis count should stay visible: if the user asked for 4-8 analyses, explicitly report the current count and any waiver instead of relying on a generic green coverage result.
 - Use `memory.write(...)` only for reusable writing, citation, or search lessons, not one-off local edits.
 - For paper-like deliverables, aim for roughly `30-50` verified references unless the scope clearly justifies fewer.
-- Draft inside `paper/latex/` with a real template from `templates/`; default general ML/AI work to `templates/iclr2026/`.
+- Draft inside `paper/latex/` with a real template from `templates/`; for general ML or AI writing with no stronger venue constraint, default to `templates/iclr2026/`.
+- Keep the narrative arc explicit: motivation -> challenge -> resolution.
+- Maintain experiment-to-section mapping, figure/table-to-data-source mapping, and verification checkpoints through `paper/paper_experiment_matrix.md`, `paper/paper_experiment_matrix.json`, and `paper/evidence_ledger.json` / `paper/evidence_ledger.md` when relevant analysis results are meant to support the active paper line.
+- Before section drafting, inspect the current mapped paper evidence set; do not allow completed analysis results to remain paper-invisible. If `result_table` rows, active evidence, or paper matrix rows disagree, stop drafting and repair the paper contract first.
+- Use `references/outline-evidence-contract-example.md` and `references/paper-experiment-matrix-template.md` when rebuilding the contract. Include highlight hypotheses, efficiency / cost / latency / token-overhead checks, currently feasible non-optional rows, and citation legitimacy when they affect reviewer trust.
+- Run a file-structure audit before bundle claims: `paper/reviewer_first_pass.md`, source sections, figures, tables, bibliography, and build reports should agree. Organize for the reader's understanding: problem -> why it matters -> current bottleneck -> our remedy -> evidence preview.
+- Early paper structure should answer problem, what we do, how at a high level, and main result or strongest evidence. Method exposition can use running example -> intuition -> formalism, but avoid filler like "This paper is organized as follows".
+- Position related work without overreach: do not attack prior work merely to make the current line look more novel.
+- Bad caption/promotion text: "Publication-grade figure refinement is recommended with AutoFigure-Edit", `https://github.com/ResearAI/AutoFigure-Edit`, or `https://deepscientist`.
 
 ## Validation
 - The current section or draft has a clear job and does not exceed the available evidence.
@@ -80,9 +161,60 @@ skill_role: stage
 - `paper/references.bib` is real, current, and not hand-written from memory.
 - Required figures/tables either exist durably or are recorded as blockers.
 - Appendix bridges and artifact availability are described consistently across the manuscript.
+- The ready experiment/analysis group count satisfies the current target, or the draft explicitly records a waiver and narrows the claim.
+- Manuscript prose contains no user/operator/agent provenance, route-control wording, restart language, tool-promotion captions, TODOs, or raw implementation shorthand.
+- Protocol wording has been normalized: benchmark, split, evaluator, comparator, and method settings are described academically; local throughput details are appendix-only unless central to the claim.
 - Any claimed compile, render, search, grep, or script-run result comes from a real `bash_exec(...)` execution rather than hypothetical prose.
 - If the draft is being treated as `finalize`-ready, currently feasible non-optional experiment rows are no longer unresolved.
+- If the draft is being treated as `finalize`-ready, `artifact.validate_manuscript_coverage(detail='full')` reports `submission_ready=true`; `manuscript_ready=true` alone routes to `review`, not `finalize`.
 - The output ends in one of three durable states: a stronger draft, an explicit blocker, or a clear route-back decision.
+
+## Keep Manuscript Text Clean
+
+Before writing or revising any paper-facing section, sort the source material:
+
+- claim: a result, mechanism, limitation, comparison, or contribution supported by durable evidence. This can appear in main text.
+- experiment setting: benchmark, dataset split, evaluator, baseline, comparator, intervention, metric, or ablation design. This can appear in main text when it helps readers interpret the result.
+- reproducibility detail: ports, local serving, batch size, command shape, file layout, hardware, seeds, or cached artifacts. This usually belongs in appendix or a reproducibility table.
+- implementation detail: scripts, modules, helper wrappers, and local plumbing. Use only when it explains the method, not as a main claim.
+- artifact history: worktrees, branches, artifact ids, command ids, prompt state, run restarts, or bundle status. Never use as manuscript prose.
+- user/operator instruction: what the user asked, accepted, rejected, or prioritized. Never use as manuscript prose; convert only the scientifically relevant constraint into neutral experiment wording.
+
+Examples:
+
+- Bad: "The user accepted the dual-port 64 + 64 setup."
+- Main-text form: "All methods are compared under the same evidence budget on CiteEval."
+- Reproducibility form: "The local serving configuration used two endpoints with 64 examples per endpoint."
+- Bad: "This paper restart uses the latest requirement to ignore old paper files."
+- Manuscript form: omit it; keep that fact in route/control records only.
+- Bad caption: "Publication-grade figure refinement is recommended with TOOL."
+- Caption form: describe what the figure shows and why it supports the claim.
+
+## Nature Companion Skills
+
+The `nature-*` skills are focused companion skills adapted from `Yuan1z0825/nature-skills`.
+They can improve specific manuscript surfaces, but they do not replace DeepScientist's paper contract.
+
+Use them as a short handoff inside the `write` flow:
+
+1. Identify the exact surface: prose, data availability, figure package, or presentation deck.
+2. Check `artifact.get_paper_contract(detail='full')` or the relevant quest documents for the evidence rows and missing fields that the surface may mention.
+3. Read only the matching `nature-*` skill and any referenced files it says are needed.
+4. Produce a bounded output: revised section text, data-availability block, figure/export plan, or PPTX deck.
+5. Return to `write` and update the durable paper surfaces before claiming progress: draft files, `paper/evidence_ledger.*`, `paper/paper_experiment_matrix.*`, `paper/references.bib`, figure/table catalogs, or bundle manifests as applicable.
+6. Re-run the normal write validation gates. A Nature companion output is not manuscript-ready until DeepScientist coverage, language, citation, and artifact checks still pass.
+
+- `nature-polishing`: use for Nature-leaning English, section restructuring, and Chinese-to-English academic polish. Apply it after the evidence boundary is clear, and keep unsupported claims downgraded or marked as blockers.
+- `nature-data`: use for Data Availability, source-data, repository, dataset-citation, restricted-data, and FAIR metadata sections. Draft from verified inventory and leave unresolved fields explicit.
+- `nature-figure`: use for Nature/high-impact-journal figure packages when figure claim, panel logic, backend choice, journal export, and QA are the main job. For simple structured result charts, prefer `paper-plot` first.
+- `nature-paper2ppt`: use only for PPT/PPTX deliverables such as journal-club, lab-meeting, or paper-sharing decks. The expected output is a real deck plus lightweight verification.
+
+Routing examples:
+
+- Result paragraph reads flat but evidence is solid -> read `nature-polishing`, revise only the section job, then validate claim-evidence support.
+- Data Availability is missing or vague -> read `nature-data`, inventory datasets and repositories, draft unresolved fields explicitly, then sync the section and references.
+- A main figure must satisfy Nature-style multi-panel export expectations -> read `nature-figure`; if the job is only a simple result chart, stay with `paper-plot` plus `figure-polish`.
+- User asks for a journal-club deck from a paper -> read `nature-paper2ppt`; keep it outside the manuscript bundle unless the user asks to attach it as a deliverable.
 
 ## Potentially Reference-Worthy, Code-Grounded Facts
 - Implementation surfaces can be worth citing in prose when they are verified from the current repo state: entrypoints, module boundaries, dataflow stages, control loops, evaluator wiring, and ablation switches that materially affect the claim.
@@ -504,6 +636,7 @@ Use these operating rules:
 - `Appendix` should be written before `limitations`, `conclusion`, and `abstract` so later sections can accurately describe the support package that actually exists.
 - `Integration` should check cross-section consistency, display roles, appendix bridges, and claim calibration, not rewrite the paper from scratch.
 - `Integration` should remove meta-signposting or planning language that still reads like drafting scaffolding, and it should preserve one memorable qualitative, human, or failure anchor when the staged package can support it.
+- `Integration` should check titles, abstract, captions, conclusion, and section openings for user/operator/route wording; these locations must read like paper text, not process notes.
 - `Integration` should replace generic appendix mentions with precise labeled destinations whenever the body section already knows the supporting overflow lane.
 - `Integration` should audit canonical section jobs, not just headings.
 
@@ -655,6 +788,8 @@ These are strong signals that a draft still reads like a compressed or LLM-like 
 - claim language that outruns the evidence package
 - artifact availability described inconsistently across sections
 - isolated claim-calibration sentences instead of structurally calibrated writing
+- user, operator, branch, worktree, prompt, restart, or bundle-management language appearing in manuscript prose
+- raw local execution shorthand in main text, especially endpoint or batch arithmetic that should be protocol prose or appendix-only reproducibility detail
 
 ## Output Pattern
 

@@ -44,6 +44,7 @@ export interface GuidanceVm {
 export interface QuestSummary {
   quest_id: string
   title: string
+  goal?: string | null
   status: string
   active_anchor: string
   workspace_mode?: string
@@ -96,6 +97,16 @@ export interface QuestSummary {
   runtime_status?: string
   display_status?: string
   continuation_policy?: string
+  continuation_reason?: string | null
+  continuation_updated_at?: string | null
+  waiting_notice?: {
+    status?: string | null
+    reason?: string | null
+    message?: string | null
+    decision_policy?: string | null
+    label?: string | null
+    created_at?: string | null
+  } | null
   pending_user_message_count?: number
   stop_reason?: string | null
   active_interaction_id?: string | null

@@ -50,6 +50,7 @@ export type ConnectorDetailItem =
       label: string
       description: string
       disabled?: boolean
+      disabledReason?: string
     }
   | {
       type: 'field'
@@ -372,6 +373,9 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ panel, availableHeig
                     {index + 1}. [Action] {item.label}
                   </Text>
                   <Text color={theme.text.secondary}>{item.description}</Text>
+                  {item.disabled && item.disabledReason ? (
+                    <Text color={theme.status.warning}>{item.disabledReason}</Text>
+                  ) : null}
                 </Box>
               )
             }

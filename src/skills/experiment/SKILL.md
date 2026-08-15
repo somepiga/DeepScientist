@@ -29,6 +29,41 @@ Do not use `experiment` when:
 
 Turn one selected route into one trustworthy measured result with the smallest valid amount of execution, then record and route from the evidence.
 
+## Quick workflow
+
+- Recover the selected idea, accepted baseline, metric contract, and current workspace before implementation.
+- Keep the selected idea summarized in `1-2` sentences, then write a minimal code-change map before touching broad code.
+- Define the null hypothesis, alternative hypothesis, research question, research type, research objective, experimental setup, experimental results, experimental analysis, and experimental conclusions as the run matures.
+- Run only the checks needed to maximize valid evidence per unit time and compute.
+- Use equivalence-preserving efficiency upgrades when they preserve baseline comparability; For `comparison_ready`, `verify-local-existing`, attach, or import should usually beat full reproduction.
+- If an efficiency change affects baseline comparability, treat it as a real experiment change.
+- Prefer one clean implementation pass and one real run over repeated half-runs when the route is already concrete.
+- Implement according to the current `PLAN.md`; revise the plan before changing the route.
+- implement according to the current `PLAN.md`
+- Extra metrics are allowed, but missing required metrics are not.
+- extra metrics are allowed, but missing required metrics are not
+- If a useful non-canonical metric appears, record it as supplementary output rather than replacing the canonical comparator.
+- In algorithm-first work, `experiment` is the execution surface of `optimize`, then results return to `optimize` or `decision` for frontier review.
+- End with a concise `1-2` sentence outcome summary, `evaluation_summary`, `claim_update`, `baseline_relation`, `failure_mode`, and `next_action`.
+
+## Required plan and checklist
+
+Use `PLAN.md` and `CHECKLIST.md` when the run is non-trivial, expensive, or branch/worktree-sensitive.
+If the plan or checklist is stale, revise `PLAN.md` before spending more code or compute.
+Keep a rolling run log or rolling durable experiment log that captures command ids, output paths, metric changes, and blocker changes.
+
+The planning surface should cover:
+
+- selected idea summarized in `1-2` sentences
+- minimal code-change map
+- experiment tier: `auxiliary/dev` or `main/test`
+- minimum -> solid -> maximum evidence target
+- significance-testing plan when statistical claims are likely
+- references/main-experiment-plan-template.md
+- references/main-experiment-checklist-template.md
+
+Incremental-recording rule: record the run contract early, update it as evidence arrives, and do not wait until the end to reconstruct what happened.
+
 ## Control workflow
 
 1. Lock the run contract.

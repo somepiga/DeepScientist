@@ -16,6 +16,7 @@ from mcp.types import ToolAnnotations
 from ..artifact import ArtifactService
 from ..artifact.metrics import MetricContractValidationError
 from ..bash_exec import BashExecService
+from ..evidence_packets import cached_compact_mcp_tool_result, compact_mcp_tool_result
 from ..memory import MemoryService
 from ..quest import QuestService
 from ..shared import read_json
@@ -205,6 +206,10 @@ ARTIFACT_STATE_CHANGE_WATCHDOG_NOTES = {
         "Paper outline state changed durably and this tool does not send a user-visible summary on its own. "
         "Send one concise artifact.interact(...) update now."
     ),
+    "compile_outline_to_writing_plan": (
+        "Paper writing plan state changed durably and this tool does not send a user-visible summary on its own. "
+        "Send one concise artifact.interact(...) update now."
+    ),
     "publish_baseline": (
         "Baseline publication changed durable state and this tool does not send a user-visible summary "
         "on its own. Send one concise artifact.interact(...) update now."
@@ -246,6 +251,32 @@ START_SETUP_FORM_FIELDS: tuple[str, ...] = (
     "custom_brief",
     "user_language",
 )
+START_SETUP_SESSION_FIELDS: tuple[str, ...] = (
+    "fit_assessment",
+    "recommended_workspace_mode",
+    "launch_readiness",
+    "missing_confirmations",
+    "preview_plan",
+    "materials_summary",
+    "copilot_handoff",
+    "science_task",
+    "science_task_brief",
+    "science_package_cards",
+)
+
+
+def _split_nested_start_setup_payload(payload: dict[str, Any] | None) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    if not isinstance(payload, dict):
+        return None, None
+    form_patch = payload.get("form_patch") if isinstance(payload.get("form_patch"), dict) else None
+    session_patch = payload.get("session_patch") if isinstance(payload.get("session_patch"), dict) else None
+    suggested_form = payload.get("suggested_form") if isinstance(payload.get("suggested_form"), dict) else None
+    if isinstance(suggested_form, dict):
+        if form_patch is None and isinstance(suggested_form.get("form_patch"), dict):
+            form_patch = suggested_form.get("form_patch")
+        if session_patch is None and isinstance(suggested_form.get("session_patch"), dict):
+            session_patch = suggested_form.get("session_patch")
+    return form_patch, session_patch
 
 
 def _normalize_bash_exec_command_input(raw_command: Any) -> str:
@@ -286,6 +317,158 @@ def _read_only_tool_annotations(*, title: str | None = None) -> ToolAnnotations:
 
 def _metric_validation_error_payload(exc: MetricContractValidationError) -> dict[str, Any]:
     return exc.as_payload()
+
+
+def _artifact_call(name: str, why: str) -> dict[str, str]:
+    return {"name": name, "why": why}
+
+
+def _artifact_guided_error_payload(
+    service: ArtifactService,
+    quest_root: Path,
+    *,
+    tool_name: str,
+    exc: Exception,
+) -> dict[str, Any]:
+    message = str(exc).strip() or f"`artifact.{tool_name}` failed."
+    guidance: list[str] = []
+    suggested_artifact_calls: list[dict[str, str]] = []
+    extra: dict[str, Any] = {}
+
+    if "selected_outline_ref" in message or "No selected outline is available" in message:
+        outlines = service.list_paper_outlines(quest_root)
+        outline_items = [dict(item) for item in (outlines.get("outlines") or []) if isinstance(item, dict)]
+        candidate_ids = [
+            str(item.get("outline_id") or "").strip()
+            for item in outline_items
+            if str(item.get("status") or "").strip() in {"candidate", "revised"}
+            and str(item.get("outline_id") or "").strip()
+        ]
+        extra["outline_candidates"] = outline_items
+        if candidate_ids:
+            guidance.append(f"Select a candidate outline first. Available candidates: {', '.join(candidate_ids[:5])}.")
+            guidance.append(
+                "Use `artifact.submit_paper_outline(mode='select', outline_id='...', selected_reason='...')` "
+                "to promote one of those candidates before retrying the writing-facing campaign."
+            )
+            suggested_artifact_calls.append(
+                _artifact_call(
+                    "artifact.submit_paper_outline(mode='select', outline_id='...', selected_reason='...')",
+                    "Promote one candidate outline into the active paper line.",
+                )
+            )
+        else:
+            guidance.append("Create a candidate outline first, then select it before launching a writing-facing analysis campaign.")
+            suggested_artifact_calls.append(
+                _artifact_call(
+                    "artifact.submit_paper_outline(mode='candidate', ...)",
+                    "Create the first paper outline candidate for this quest.",
+                )
+            )
+        guidance.append(
+            "If the work is only exploratory evidence and not yet bound to the paper contract, downgrade it to a pre-outline analysis-lite / non-writing-facing campaign instead."
+        )
+        suggested_artifact_calls.append(
+            _artifact_call(
+                "artifact.create_analysis_campaign(...)",
+                "Retry only after the selected outline and paper-facing fields are explicit, or simplify the campaign so it is no longer writing-facing.",
+            )
+        )
+    elif "research_questions" in message:
+        guidance.append("Provide non-empty research_questions before launching a writing-facing analysis campaign.")
+        guidance.append("The cleanest fix is to revise the selected outline so the paper contract and campaign input agree.")
+        suggested_artifact_calls.extend(
+            [
+                _artifact_call(
+                    "artifact.submit_paper_outline(mode='revise', ...)",
+                    "Add research_questions to the selected outline.",
+                ),
+                _artifact_call(
+                    "artifact.create_analysis_campaign(..., research_questions=[...], experimental_designs=[...], todo_items=[...])",
+                    "Retry the campaign with explicit writing-facing fields.",
+                ),
+            ]
+        )
+    elif "experimental_designs" in message:
+        guidance.append("Provide non-empty experimental_designs before launching a writing-facing analysis campaign.")
+        guidance.append("If the paper contract is still thin, revise the selected outline before retrying.")
+        suggested_artifact_calls.extend(
+            [
+                _artifact_call(
+                    "artifact.submit_paper_outline(mode='revise', ...)",
+                    "Add experimental_designs to the selected outline.",
+                ),
+                _artifact_call(
+                    "artifact.create_analysis_campaign(..., experimental_designs=[...])",
+                    "Retry the campaign with explicit experimental designs.",
+                ),
+            ]
+        )
+    elif "todo_items" in message or "outline-bound paper contract fields" in message:
+        guidance.append("Every writing-facing analysis slice needs a todo item with section_id, item_id, paper_role, and claim_links.")
+        guidance.append("Do not launch a paper-facing campaign until every slice is mapped back into the outline contract.")
+        suggested_artifact_calls.append(
+            _artifact_call(
+                "artifact.create_analysis_campaign(..., todo_items=[...])",
+                "Retry with one outline-bound todo item per slice.",
+            )
+        )
+    elif "confirmed or waived baseline gate" in message:
+        guidance.append("Open the baseline gate first, or explicitly waive it if skipping is justified.")
+        suggested_artifact_calls.extend(
+            [
+                _artifact_call("artifact.confirm_baseline(...)", "Confirm the active baseline and metric contract."),
+                _artifact_call("artifact.waive_baseline(...)", "Record an explicit waiver if baseline work should be skipped."),
+            ]
+        )
+    elif "An active idea is required before starting an analysis campaign." in message:
+        guidance.append("Create or activate an idea before launching an analysis campaign.")
+        suggested_artifact_calls.extend(
+            [
+                _artifact_call("artifact.submit_idea(...)", "Create the next durable idea route first."),
+                _artifact_call("artifact.activate_branch(...)", "Switch back to the branch that owns the accepted idea line."),
+            ]
+        )
+    elif "baseline_path" in message:
+        guidance.append("Use a quest-local baseline path under `baselines/local/...` or `baselines/imported/...`.")
+        guidance.append("If the baseline lives outside the quest, materialize or attach it first instead of passing an external path directly.")
+        suggested_artifact_calls.extend(
+            [
+                _artifact_call("artifact.attach_baseline(...)", "Attach a reusable baseline package when one already exists."),
+                _artifact_call("artifact.confirm_baseline(...)", "Confirm the quest-local baseline after it is materialized."),
+            ]
+        )
+    elif "imported baseline" in message or "protocol-breaking" in message:
+        guidance.append("Do not overwrite the accepted baseline in place when comparability changed materially.")
+        guidance.append("Use a new baseline id or a new variant when the path, protocol, or comparator meaning changed.")
+        suggested_artifact_calls.extend(
+            [
+                _artifact_call("artifact.confirm_baseline(...)", "Confirm the new baseline or variant as a separate comparator."),
+                _artifact_call("artifact.overwrite_baseline(...)", "Use overwrite only when the baseline is still the same accepted comparator."),
+            ]
+        )
+    elif "submit_paper_bundle requires a selected outline" in message:
+        guidance.append("Select an outline before bundling the paper package.")
+        suggested_artifact_calls.append(
+            _artifact_call(
+                "artifact.submit_paper_outline(mode='select', outline_id='...', selected_reason='...')",
+                "Select the active outline before generating the final paper bundle.",
+            )
+        )
+    else:
+        guidance.append("Inspect the current quest state and the tool-specific required fields before retrying.")
+        suggested_artifact_calls.append(
+            _artifact_call("artifact.get_quest_state(detail='full')", "Read the current durable quest state before retrying the tool.")
+        )
+
+    return {
+        "ok": False,
+        "tool_name": f"artifact.{tool_name}",
+        "message": message,
+        "guidance": guidance,
+        "suggested_artifact_calls": suggested_artifact_calls,
+        **extra,
+    }
 
 
 def _progress_watchdog_note(tool_call_count: int) -> str:
@@ -412,6 +595,8 @@ def _coerce_prepare_bool(value: Any, *, field_name: str) -> bool:
 
 
 def _sanitize_start_setup_form_patch(form_patch: dict[str, Any] | None) -> dict[str, Any]:
+    if form_patch is None:
+        return {}
     if not isinstance(form_patch, dict):
         raise ValueError("`form_patch` must be an object.")
     patch: dict[str, Any] = {}
@@ -428,16 +613,58 @@ def _sanitize_start_setup_form_patch(form_patch: dict[str, Any] | None) -> dict[
             patch[key] = str(value).strip() if not isinstance(value, bool) else value
             continue
         raise ValueError(f"`form_patch.{key}` must be a string or boolean.")
-    if not patch:
-        raise ValueError("`form_patch` must include at least one supported field.")
     return patch
 
 
-def _start_setup_patch_effect(form_patch: dict[str, Any], *, message: str | None = None) -> dict[str, Any]:
+def _sanitize_start_setup_session_patch(session_patch: dict[str, Any] | None) -> dict[str, Any]:
+    if session_patch is None:
+        return {}
+    if not isinstance(session_patch, dict):
+        raise ValueError("`session_patch` must be an object.")
+    patch: dict[str, Any] = {}
+    for key in START_SETUP_SESSION_FIELDS:
+        if key not in session_patch:
+            continue
+        value = session_patch.get(key)
+        if value is None:
+            continue
+        if key in {"recommended_workspace_mode", "launch_readiness"}:
+            patch[key] = str(value).strip()
+            continue
+        if key == "missing_confirmations":
+            if not isinstance(value, list):
+                raise ValueError("`session_patch.missing_confirmations` must be an array of strings.")
+            patch[key] = [str(item).strip() for item in value if str(item).strip()]
+            continue
+        if key == "science_package_cards":
+            if not isinstance(value, list):
+                raise ValueError("`session_patch.science_package_cards` must be an array of strings.")
+            patch[key] = [str(item).strip() for item in value if str(item).strip()]
+            continue
+        if key in {"fit_assessment", "preview_plan", "copilot_handoff", "science_task", "science_task_brief"}:
+            if not isinstance(value, dict):
+                raise ValueError(f"`session_patch.{key}` must be an object.")
+            patch[key] = json.loads(json.dumps(value, ensure_ascii=False))
+            continue
+        if key == "materials_summary":
+            if not isinstance(value, list):
+                raise ValueError("`session_patch.materials_summary` must be an array.")
+            patch[key] = [dict(item) for item in value if isinstance(item, dict)]
+            continue
+    return patch
+
+
+def _start_setup_patch_effect(
+    form_patch: dict[str, Any],
+    *,
+    session_patch: dict[str, Any] | None = None,
+    message: str | None = None,
+) -> dict[str, Any]:
     return {
         "name": "start_setup:patch",
         "data": {
             "patch": dict(form_patch),
+            "session_patch": dict(session_patch or {}),
             "message": str(message or "").strip() or None,
         },
     }
@@ -450,6 +677,7 @@ def _prepare_github_issue_payload_via_daemon(
     user_notes: str | None = None,
     include_doctor: bool = True,
     include_logs: bool = True,
+    include_system_quirks: bool = False,
 ) -> dict[str, Any]:
     base_url, daemon_state = _local_daemon_api_base_url(home)
     if not base_url:
@@ -465,6 +693,7 @@ def _prepare_github_issue_payload_via_daemon(
         "user_notes": str(user_notes or "").strip() or None,
         "include_doctor": bool(include_doctor),
         "include_logs": bool(include_logs),
+        "include_system_quirks": bool(include_system_quirks),
     }
     headers = {
         "Content-Type": "application/json",
@@ -897,6 +1126,113 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             state_change_note=ARTIFACT_STATE_CHANGE_WATCHDOG_NOTES.get(tool_name),
         )
 
+    def _quest_relative_path(value: Any) -> str | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        path = Path(text)
+        if not path.is_absolute():
+            return text
+        quest_root = context.require_quest_root().resolve()
+        try:
+            active_workspace_root = quest_service.active_workspace_root(quest_root)
+        except Exception:
+            active_workspace_root = None
+        roots = [context.worktree_root, active_workspace_root, context.quest_root]
+        seen: set[str] = set()
+        for raw_root in roots:
+            if raw_root is None:
+                continue
+            root = raw_root.resolve()
+            key = str(root)
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                return path.resolve().relative_to(root).as_posix()
+            except ValueError:
+                continue
+        try:
+            return path.resolve().relative_to(quest_root).as_posix()
+        except ValueError:
+            return text
+
+    def _compact_artifact_delta(value: Any) -> dict[str, Any] | None:
+        if not isinstance(value, dict):
+            return None
+        return {
+            key: value.get(key)
+            for key in (
+                "schema_version",
+                "delta_id",
+                "delta_kind",
+                "sidecar_rel_path",
+                "path_count",
+                "changed_paths",
+            )
+            if value.get(key) is not None
+        }
+
+    def _compact_paths(payload: dict[str, Any], keys: tuple[str, ...]) -> dict[str, str]:
+        paths: dict[str, str] = {}
+        for key in keys:
+            relative = _quest_relative_path(payload.get(key))
+            if relative:
+                paths[key] = relative
+        return paths
+
+    def compact_paper_write_result(payload: dict[str, Any], *, tool_name: str) -> dict[str, Any]:
+        compact: dict[str, Any] = {
+            "ok": bool(payload.get("ok")),
+            "tool_name": tool_name,
+            "artifact_delta": _compact_artifact_delta(payload.get("artifact_delta")),
+            "hint": "Full paper artifact content was written to files; read the listed paths or artifact_delta sidecar only when needed.",
+        }
+        if tool_name == "submit_paper_outline":
+            compact.update(
+                {
+                    "mode": payload.get("mode"),
+                    "outline_id": payload.get("outline_id"),
+                    "paths": _compact_paths(
+                        payload,
+                        (
+                            "outline_path",
+                            "selected_outline_path",
+                            "outline_manifest_path",
+                            "paper_line_state_path",
+                            "outline_selection_path",
+                            "revised_outline_path",
+                        ),
+                    ),
+                }
+            )
+            return compact
+
+        manifest = payload.get("manifest") if isinstance(payload.get("manifest"), dict) else {}
+        paper_line_state = payload.get("paper_line_state") if isinstance(payload.get("paper_line_state"), dict) else {}
+        continuation = payload.get("continuation") if isinstance(payload.get("continuation"), dict) else {}
+        compact.update(
+            {
+                "package_type": manifest.get("package_type"),
+                "title": manifest.get("title"),
+                "selected_outline_ref": manifest.get("selected_outline_ref"),
+                "paper_branch": manifest.get("paper_branch") or paper_line_state.get("paper_branch"),
+                "next_anchor": continuation.get("anchor") or "decision",
+                "paths": _compact_paths(
+                    payload,
+                    (
+                        "manifest_path",
+                        "baseline_inventory_path",
+                        "evidence_ledger_path",
+                        "paper_line_state_path",
+                        "manuscript_coverage_path",
+                        "open_source_manifest_path",
+                    ),
+                ),
+            }
+        )
+        return compact
+
     if issue_only_profile:
         @server.tool(
             name="prepare_github_issue",
@@ -910,6 +1246,7 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             user_notes: str = "",
             include_doctor: bool = True,
             include_logs: bool = True,
+            include_system_quirks: bool = False,
             open_settings_page: bool = True,
             comment: str | dict[str, Any] | None = None,
         ) -> dict[str, Any]:
@@ -919,6 +1256,7 @@ def build_artifact_server(context: McpContext) -> FastMCP:
                 user_notes=user_notes,
                 include_doctor=include_doctor,
                 include_logs=include_logs,
+                include_system_quirks=include_system_quirks,
             )
             if open_settings_page:
                 result["ui_effects"] = [_issue_draft_route_effect(result)]
@@ -935,17 +1273,27 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             ),
         )
         def prepare_start_setup_form(
-            form_patch: dict[str, Any],
+            form_patch: dict[str, Any] | None = None,
+            session_patch: dict[str, Any] | None = None,
             message: str = "",
             comment: str | dict[str, Any] | None = None,
         ) -> dict[str, Any]:
+            nested_form_patch, nested_session_patch = _split_nested_start_setup_payload(form_patch)
+            if nested_form_patch is not None:
+                form_patch = nested_form_patch
+            if session_patch is None and nested_session_patch is not None:
+                session_patch = nested_session_patch
             sanitized_patch = _sanitize_start_setup_form_patch(form_patch)
+            sanitized_session_patch = _sanitize_start_setup_session_patch(session_patch)
+            if not sanitized_patch and not sanitized_session_patch:
+                raise ValueError("At least one of `form_patch` or `session_patch` must include supported fields.")
             result = service.apply_start_setup_form_patch(
                 context.require_quest_root(),
                 form_patch=sanitized_patch,
+                session_patch=sanitized_session_patch,
                 message=message,
             )
-            result["ui_effects"] = [_start_setup_patch_effect(sanitized_patch, message=message)]
+            result["ui_effects"] = [_start_setup_patch_effect(sanitized_patch, session_patch=sanitized_session_patch, message=message)]
             return finalize_artifact_tool(result, tool_name="prepare_start_setup_form")
 
         return server
@@ -971,6 +1319,94 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             enriched,
             workspace_root=context.worktree_root,
         )
+
+    @server.tool(
+        name="science",
+        description=(
+            "Record and update Science Evidence Graph nodes under the artifact namespace. "
+            "Use this for natural-science and engineering package checks, computational runs, dataset analyses, "
+            "parameter sweeps, validation results, and scientific claims. Do not use it for execution; "
+            "all commands, solver runs, SSH, and HPC work must go through bash_exec."
+        ),
+    )
+    def science(
+        action: str,
+        node_type: str | None = None,
+        node_id: str | None = None,
+        title: str | None = None,
+        summary: str | None = None,
+        status: str | None = None,
+        domain: str | None = None,
+        package_id: str | None = None,
+        task_type: str | None = None,
+        key_results: list[dict[str, Any]] | None = None,
+        evidence_paths: list[str] | None = None,
+        input_paths: list[str] | None = None,
+        output_paths: list[str] | None = None,
+        log_paths: list[str] | None = None,
+        validation_paths: list[str] | None = None,
+        parent_node_ids: list[str] | None = None,
+        related_node_ids: list[str] | None = None,
+        claim_type: str | None = None,
+        trust: str | None = None,
+        canvas: dict[str, Any] | None = None,
+        notify: bool = False,
+        relation_type: str | None = None,
+        relation_summary: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        comment: str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        def _normalize_paths(values: list[str] | None) -> list[str]:
+            if not isinstance(values, list):
+                return []
+            normalized: list[str] = []
+            seen: set[str] = set()
+            for value in values:
+                path = _quest_relative_path(value)
+                if not path or path in seen:
+                    continue
+                seen.add(path)
+                normalized.append(path)
+            return normalized
+
+        source: dict[str, Any] = {"kind": "agent"}
+        if context.agent_role:
+            source["role"] = context.agent_role
+        if context.run_id:
+            source["run_id"] = context.run_id
+        if context.worker_id:
+            source["worker_id"] = context.worker_id
+        result = service.science(
+            context.require_quest_root(),
+            action=action,
+            node_type=node_type,
+            node_id=node_id,
+            title=title,
+            summary=summary,
+            status=status,
+            domain=domain,
+            package_id=package_id,
+            task_type=task_type,
+            key_results=key_results,
+            evidence_paths=_normalize_paths(evidence_paths),
+            input_paths=_normalize_paths(input_paths),
+            output_paths=_normalize_paths(output_paths),
+            log_paths=_normalize_paths(log_paths),
+            validation_paths=_normalize_paths(validation_paths),
+            parent_node_ids=parent_node_ids,
+            related_node_ids=related_node_ids,
+            claim_type=claim_type,
+            trust=trust,
+            canvas=canvas,
+            notify=notify,
+            relation_type=relation_type,
+            relation_summary=relation_summary,
+            metadata=metadata,
+            source=source,
+            run_id=context.run_id,
+            workspace_root=context.worktree_root,
+        )
+        return finalize_artifact_tool(result, tool_name="science")
 
     @server.tool(name="checkpoint", description="Create a Git checkpoint in the current quest repository.")
     def checkpoint(
@@ -1059,15 +1495,26 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         create_worktree_if_missing: bool = True,
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return service.activate_branch(
-            context.require_quest_root(),
-            branch=branch,
-            idea_id=idea_id,
-            run_id=run_id,
-            anchor=anchor,
-            promote_to_head=promote_to_head,
-            create_worktree_if_missing=create_worktree_if_missing,
-        )
+        try:
+            return service.activate_branch(
+                context.require_quest_root(),
+                branch=branch,
+                idea_id=idea_id,
+                run_id=run_id,
+                anchor=anchor,
+                promote_to_head=promote_to_head,
+                create_worktree_if_missing=create_worktree_if_missing,
+            )
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="activate_branch",
+                    exc=exc,
+                ),
+                tool_name="activate_branch",
+            )
 
     @server.tool(
         name="submit_idea",
@@ -1184,10 +1631,107 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         detail: str = "summary",
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return service.get_paper_contract_health(
+        result = service.get_paper_contract_health(
             context.require_quest_root(),
             detail=detail,
         )
+        normalized_detail = str(detail or "summary").strip().lower() or "summary"
+        return compact_mcp_tool_result(
+            result,
+            quest_root=context.require_quest_root(),
+            run_id=context.run_id,
+            tool_name="artifact.get_paper_contract_health",
+            detail=normalized_detail,
+            force=normalized_detail == "full",
+            reason="artifact_full_detail_context_budget",
+            full_detail_requested=normalized_detail == "full",
+        )
+
+    @server.tool(
+        name="validate_manuscript_coverage",
+        description=(
+            "Validate whether the current paper is only a draft checkpoint or a full manuscript/submission package. "
+            "Checks section coverage, figures/tables, ready analysis groups, PDF, and submission checklist state."
+        ),
+        annotations=_read_only_tool_annotations(title="Validate manuscript coverage"),
+    )
+    def validate_manuscript_coverage(
+        detail: str = "summary",
+        minimum_sections: int = 5,
+        minimum_analysis_groups: int = 5,
+        comment: str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return service.validate_manuscript_coverage(
+            context.require_quest_root(),
+            detail=detail,
+            minimum_sections=minimum_sections,
+            minimum_analysis_groups=minimum_analysis_groups,
+        )
+
+    @server.tool(
+        name="validate_academic_outline",
+        description=(
+            "Validate that the selected outline is a real paper plan before drafting. "
+            "Checks the one-sentence paper idea, story spine, evidence boundaries, core claims, method, evaluation plan, "
+            "4-8 planned analyses or an explicit waiver, and implementation wording leakage."
+        ),
+        annotations=_read_only_tool_annotations(title="Validate academic outline"),
+    )
+    def validate_academic_outline(
+        detail: str = "summary",
+        comment: str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return service.validate_academic_outline(
+            context.require_quest_root(),
+            detail=detail,
+        )
+
+    @server.tool(
+        name="validate_manuscript_language",
+        description=(
+            "Scan paper draft/LaTeX for main-text implementation or route terms that should stay in artifact records "
+            "or appendix reproducibility details."
+        ),
+        annotations=_read_only_tool_annotations(title="Validate manuscript language"),
+    )
+    def validate_manuscript_language(
+        detail: str = "summary",
+        scope: str = "main_text",
+        comment: str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return service.validate_manuscript_language(
+            context.require_quest_root(),
+            detail=detail,
+            scope=scope,
+        )
+
+    @server.tool(
+        name="compile_outline_to_writing_plan",
+        description=(
+            "Turn the selected outline into concrete writing jobs for introduction, method, setup, results, analyses, "
+            "limitations, and abstract. Use after validate_academic_outline and before drafting."
+        ),
+    )
+    def compile_outline_to_writing_plan(
+        detail: str = "summary",
+        comment: str | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        try:
+            result = service.compile_outline_to_writing_plan(
+                context.require_quest_root(),
+                detail=detail,
+            )
+            return finalize_state_changing_artifact_tool(result, tool_name="compile_outline_to_writing_plan")
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="compile_outline_to_writing_plan",
+                    exc=exc,
+                ),
+                tool_name="compile_outline_to_writing_plan",
+            )
 
     @server.tool(
         name="get_quest_state",
@@ -1201,9 +1745,21 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         detail: str = "summary",
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return service.get_quest_state(
+        result = service.get_quest_state(
             context.require_quest_root(),
             detail=detail,
+        )
+        normalized_detail = str(detail or "summary").strip().lower() or "summary"
+        return cached_compact_mcp_tool_result(
+            result,
+            quest_root=context.require_quest_root(),
+            run_id=context.run_id,
+            tool_name="artifact.get_quest_state",
+            detail=normalized_detail,
+            cache_key={"detail": normalized_detail},
+            force=normalized_detail == "full",
+            reason="artifact_full_detail_context_budget",
+            full_detail_requested=normalized_detail == "full",
         )
 
     @server.tool(
@@ -1219,10 +1775,23 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         locale: str = "zh",
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return service.get_global_status(
+        result = service.get_global_status(
             context.require_quest_root(),
             detail=detail,
             locale=locale,
+        )
+        normalized_detail = str(detail or "brief").strip().lower() or "brief"
+        normalized_locale = str(locale or "zh").strip().lower() or "zh"
+        return cached_compact_mcp_tool_result(
+            result,
+            quest_root=context.require_quest_root(),
+            run_id=context.run_id,
+            tool_name="artifact.get_global_status",
+            detail=normalized_detail,
+            cache_key={"detail": normalized_detail, "locale": normalized_locale},
+            force=normalized_detail == "full",
+            reason="artifact_full_detail_context_budget",
+            full_detail_requested=normalized_detail == "full",
         )
 
     @server.tool(
@@ -1407,6 +1976,16 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             )
         except MetricContractValidationError as exc:
             return _metric_validation_error_payload(exc)
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="record_main_experiment",
+                    exc=exc,
+                ),
+                tool_name="record_main_experiment",
+            )
 
     @server.tool(
         name="create_analysis_campaign",
@@ -1427,24 +2006,39 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         todo_items: list[dict[str, Any]] | None = None,
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return service.create_analysis_campaign(
-            context.require_quest_root(),
-            campaign_title=campaign_title,
-            campaign_goal=campaign_goal,
-            parent_run_id=parent_run_id,
-            slices=slices,
-            campaign_origin=campaign_origin,
-            selected_outline_ref=selected_outline_ref,
-            research_questions=research_questions,
-            experimental_designs=experimental_designs,
-            todo_items=todo_items,
-        )
+        try:
+            return service.create_analysis_campaign(
+                context.require_quest_root(),
+                campaign_title=campaign_title,
+                campaign_goal=campaign_goal,
+                parent_run_id=parent_run_id,
+                slices=slices,
+                campaign_origin=campaign_origin,
+                selected_outline_ref=selected_outline_ref,
+                research_questions=research_questions,
+                experimental_designs=experimental_designs,
+                todo_items=todo_items,
+            )
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="create_analysis_campaign",
+                    exc=exc,
+                ),
+                tool_name="create_analysis_campaign",
+            )
 
     @server.tool(
         name="submit_paper_outline",
         description=(
             "Persist a paper outline candidate, select an approved outline, or revise the selected outline. "
-            "Use this before analysis campaigns that should support final writing claims."
+            "Use this before analysis campaigns that should support final writing claims. "
+            "For paper-facing work, put the paper idea and section plan in detailed_outline.paper_view, "
+            "and keep result rows, paths, run ids, and reproducibility details in detailed_outline.evidence_view. "
+            "Good paper_view records a one-sentence thesis, what the reader should learn, evidence boundaries, "
+            "and a 4-8 item analysis plan when the paper is mature."
         ),
     )
     def submit_paper_outline(
@@ -1459,19 +2053,33 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         selected_reason: str | None = None,
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        result = service.submit_paper_outline(
-            context.require_quest_root(),
-            mode=mode,
-            outline_id=outline_id,
-            title=title,
-            note=note,
-            story=story,
-            ten_questions=ten_questions,
-            detailed_outline=detailed_outline,
-            review_result=review_result,
-            selected_reason=selected_reason,
-        )
-        return finalize_state_changing_artifact_tool(result, tool_name="submit_paper_outline")
+        try:
+            result = service.submit_paper_outline(
+                context.require_quest_root(),
+                mode=mode,
+                outline_id=outline_id,
+                title=title,
+                note=note,
+                story=story,
+                ten_questions=ten_questions,
+                detailed_outline=detailed_outline,
+                review_result=review_result,
+                selected_reason=selected_reason,
+            )
+            return finalize_state_changing_artifact_tool(
+                compact_paper_write_result(result, tool_name="submit_paper_outline"),
+                tool_name="submit_paper_outline",
+            )
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="submit_paper_outline",
+                    exc=exc,
+                ),
+                tool_name="submit_paper_outline",
+            )
 
     @server.tool(
         name="list_paper_outlines",
@@ -1482,12 +2090,20 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         annotations=_read_only_tool_annotations(title="List paper outlines"),
     )
     def list_paper_outlines(comment: str | dict[str, Any] | None = None) -> dict[str, Any]:
-        return service.list_paper_outlines(context.require_quest_root())
+        return cached_compact_mcp_tool_result(
+            service.list_paper_outlines(context.require_quest_root()),
+            quest_root=context.require_quest_root(),
+            run_id=context.run_id,
+            tool_name="artifact.list_paper_outlines",
+            detail="inventory",
+            cache_key={"detail": "inventory"},
+            reason="artifact_inventory_context_budget",
+        )
 
     @server.tool(
         name="submit_paper_bundle",
         description=(
-            "Persist the final paper bundle manifest, including outline, draft, LaTeX/PDF outputs, and build reports."
+            "Persist a paper bundle manifest. Defaults to a draft checkpoint; use package_type='submission_package' only for submission-ready manuscripts."
         ),
     )
     def submit_paper_bundle(
@@ -1501,21 +2117,38 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         compile_report_path: str | None = None,
         pdf_path: str | None = None,
         latex_root_path: str | None = None,
+        package_type: str = "draft_checkpoint",
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return service.submit_paper_bundle(
-            context.require_quest_root(),
-            title=title,
-            summary=summary,
-            outline_path=outline_path,
-            draft_path=draft_path,
-            writing_plan_path=writing_plan_path,
-            references_path=references_path,
-            claim_evidence_map_path=claim_evidence_map_path,
-            compile_report_path=compile_report_path,
-            pdf_path=pdf_path,
-            latex_root_path=latex_root_path,
-        )
+        try:
+            result = service.submit_paper_bundle(
+                context.require_quest_root(),
+                title=title,
+                summary=summary,
+                outline_path=outline_path,
+                draft_path=draft_path,
+                writing_plan_path=writing_plan_path,
+                references_path=references_path,
+                claim_evidence_map_path=claim_evidence_map_path,
+                compile_report_path=compile_report_path,
+                pdf_path=pdf_path,
+                latex_root_path=latex_root_path,
+                package_type=package_type,
+            )
+            return finalize_state_changing_artifact_tool(
+                compact_paper_write_result(result, tool_name="submit_paper_bundle"),
+                tool_name="submit_paper_bundle",
+            )
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="submit_paper_bundle",
+                    exc=exc,
+                ),
+                tool_name="submit_paper_bundle",
+            )
 
     @server.tool(
         name="record_analysis_slice",
@@ -1574,8 +2207,19 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         if comment is not None and "comment" not in enriched:
             enriched["comment"] = comment
         enriched.setdefault("source", {"kind": "artifact_publish", "quest_id": context.quest_id, "quest_root": str(context.require_quest_root())})
-        result = service.publish_baseline(context.require_quest_root(), enriched)
-        return finalize_state_changing_artifact_tool(result, tool_name="publish_baseline")
+        try:
+            result = service.publish_baseline(context.require_quest_root(), enriched)
+            return finalize_state_changing_artifact_tool(result, tool_name="publish_baseline")
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="publish_baseline",
+                    exc=exc,
+                ),
+                tool_name="publish_baseline",
+            )
 
     @server.tool(name="attach_baseline", description="Attach a published baseline to the current quest.")
     def attach_baseline(
@@ -1583,8 +2227,19 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         variant_id: str | None = None,
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        result = service.attach_baseline(context.require_quest_root(), baseline_id, variant_id)
-        return finalize_state_changing_artifact_tool(result, tool_name="attach_baseline")
+        try:
+            result = service.attach_baseline(context.require_quest_root(), baseline_id, variant_id)
+            return finalize_state_changing_artifact_tool(result, tool_name="attach_baseline")
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="attach_baseline",
+                    exc=exc,
+                ),
+                tool_name="attach_baseline",
+            )
 
     @server.tool(
         name="confirm_baseline",
@@ -1607,7 +2262,7 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         primary_metric: PrimaryMetricPayload | None = None,
         auto_advance: bool = True,
         comment: str | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        ) -> dict[str, Any]:
         try:
             result = service.confirm_baseline(
                 context.require_quest_root(),
@@ -1627,6 +2282,86 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             return finalize_state_changing_artifact_tool(result, tool_name="confirm_baseline")
         except MetricContractValidationError as exc:
             return _metric_validation_error_payload(exc)
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="confirm_baseline",
+                    exc=exc,
+                ),
+                tool_name="confirm_baseline",
+            )
+
+    @server.tool(
+        name="overwrite_baseline",
+        description=(
+            "Refresh an already accepted baseline after verified code, variant, or canonical metric changes. "
+            "This rewrites the active baseline reference and downstream inventories, so comparator-breaking changes "
+            "should usually become a new baseline id or variant instead of an in-place overwrite."
+        ),
+    )
+    def overwrite_baseline(
+        change_summary: str,
+        baseline_id: str | None = None,
+        baseline_path: str | None = None,
+        variant_id: str | None = None,
+        summary: str | None = None,
+        baseline_kind: str | None = None,
+        metric_contract: MetricContractPayload | None = None,
+        metric_directions: dict[str, str] | None = None,
+        metrics_summary: dict[str, Any] | None = None,
+        primary_metric: PrimaryMetricPayload | None = None,
+        supplementary_baselines: list[SupplementaryBaselinePayload] | None = None,
+        overwrite_scope: str = "full_refresh",
+        allow_path_change: bool = False,
+        allow_protocol_breaking_change: bool = False,
+        sync_requested_baseline_ref: bool = True,
+        refresh_analysis_inventory: bool = True,
+        refresh_paper_inventory: bool = True,
+        auto_advance: bool = True,
+        comment: str | dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+        try:
+            result = service.overwrite_baseline(
+                context.require_quest_root(),
+                baseline_id=baseline_id,
+                baseline_path=baseline_path,
+                variant_id=variant_id,
+                summary=summary,
+                change_summary=change_summary,
+                baseline_kind=baseline_kind,
+                metric_contract=metric_contract.model_dump(exclude_none=True) if metric_contract is not None else None,
+                metric_directions=metric_directions,
+                metrics_summary=metrics_summary,
+                primary_metric=primary_metric.model_dump(exclude_none=True) if primary_metric is not None else None,
+                supplementary_baselines=[
+                    item.model_dump(exclude_none=True) for item in (supplementary_baselines or [])
+                ]
+                or None,
+                overwrite_scope=overwrite_scope,
+                allow_path_change=allow_path_change,
+                allow_protocol_breaking_change=allow_protocol_breaking_change,
+                sync_requested_baseline_ref=sync_requested_baseline_ref,
+                refresh_analysis_inventory=refresh_analysis_inventory,
+                refresh_paper_inventory=refresh_paper_inventory,
+                auto_advance=auto_advance,
+                strict_metric_contract=True,
+                comment=comment,
+            )
+            return finalize_state_changing_artifact_tool(result, tool_name="overwrite_baseline")
+        except MetricContractValidationError as exc:
+            return _metric_validation_error_payload(exc)
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="overwrite_baseline",
+                    exc=exc,
+                ),
+                tool_name="overwrite_baseline",
+            )
 
     @server.tool(
         name="overwrite_baseline",
@@ -1697,13 +2432,24 @@ def build_artifact_server(context: McpContext) -> FastMCP:
         auto_advance: bool = True,
         comment: str | dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        result = service.waive_baseline(
-            context.require_quest_root(),
-            reason=reason,
-            comment=comment,
-            auto_advance=auto_advance,
-        )
-        return finalize_state_changing_artifact_tool(result, tool_name="waive_baseline")
+        try:
+            result = service.waive_baseline(
+                context.require_quest_root(),
+                reason=reason,
+                comment=comment,
+                auto_advance=auto_advance,
+            )
+            return finalize_state_changing_artifact_tool(result, tool_name="waive_baseline")
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            return finalize_artifact_tool(
+                _artifact_guided_error_payload(
+                    service,
+                    context.require_quest_root(),
+                    tool_name="waive_baseline",
+                    exc=exc,
+                ),
+                tool_name="waive_baseline",
+            )
 
     @server.tool(
         name="arxiv",
@@ -1874,6 +2620,28 @@ def build_bash_exec_server(context: McpContext) -> FastMCP:
         quest_root = context.require_quest_root().resolve()
 
         def finalize(payload: dict[str, Any]) -> dict[str, Any]:
+            if normalized_mode == "read":
+                bash_id = str(payload.get("bash_id") or payload.get("id") or id or "")
+                payload = cached_compact_mcp_tool_result(
+                    payload,
+                    quest_root=quest_root,
+                    run_id=context.run_id,
+                    tool_name="bash_exec.bash_exec",
+                    detail="read",
+                    cache_key={
+                        "mode": "read",
+                        "bash_id": bash_id,
+                        "start": start,
+                        "tail": tail,
+                        "tail_limit": tail_limit,
+                        "before_seq": before_seq,
+                        "after_seq": after_seq,
+                        "order": order,
+                        "include_log": include_log,
+                    },
+                    source_path=service.terminal_log_path(quest_root, bash_id) if bash_id else None,
+                    reason="bash_exec_read_context_budget",
+                )
             quest_service.record_tool_activity(
                 quest_root,
                 tool_name=f"bash_exec.{normalized_mode}",

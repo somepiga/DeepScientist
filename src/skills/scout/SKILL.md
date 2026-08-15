@@ -59,6 +59,7 @@ Resolve only the minimum framing unknowns that change the next anchor, then stop
 - Before broad external search, check quest or global memory first with `memory.list_recent(...)` and `memory.search(...)`.
 - When search tools are available, actively use them.
 - If DeepXiv is declared available by the system prompt, prefer the DeepXiv route for paper-centric discovery and shortlist triage before broader open-web search.
+- If DeepXiv is declared unavailable, stay on the legacy route: memory reuse, web discovery, and `artifact.arxiv(...)` for actual paper reads.
 - When a specific arXiv paper must be read or summarized, use `artifact.arxiv(paper_id=..., full_text=False)` instead of defaulting to a raw PDF.
 - Keep discovery in search tooling by default; use `artifact.arxiv(...)` only for actual paper reading, and set `full_text=True` only when needed.
 - `scout` should normally hand off to `baseline` or `idea` as soon as the next move is decision-ready.

@@ -176,4 +176,85 @@ describe('PaperSearchToolView', () => {
       )
     ).toBeInTheDocument()
   })
+
+  it('renders namespaced DeepXiv MCP structured results as paper cards', () => {
+    render(
+      <PaperSearchToolView
+        toolContent={{
+          ...baseToolContent,
+          name: 'mcp__deepxiv__paper_search',
+          function: 'mcp__deepxiv__paper_search',
+          metadata: { mcp_server: 'deepxiv' },
+          args: {
+            query: 'gradient diversity for reasoning generalization',
+          },
+          content: {
+            result: {
+              structuredContent: {
+                query: 'gradient diversity for reasoning generalization',
+                result: [
+                  {
+                    title: 'Gradient Diversity Predicts Reasoning Generalization',
+                    abstract: 'We study model-relevant data diversity with gradient features.',
+                    paper_id: '2601.00001',
+                    source: 'deepxiv',
+                  },
+                ],
+              },
+            },
+          },
+        }}
+        live={false}
+        panelMode="inline"
+      />
+    )
+
+    expect(
+      screen.getByText('Question: "gradient diversity for reasoning generalization" • 1 papers found • DeepXiv')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Gradient Diversity Predicts Reasoning Generalization')).toBeInTheDocument()
+    expect(screen.getByText('arXiv:2601.00001')).toBeInTheDocument()
+    expect(screen.getByText('deepxiv')).toBeInTheDocument()
+  })
+
+  it('renders JSON text envelopes returned by MCP content blocks', () => {
+    render(
+      <PaperSearchToolView
+        toolContent={{
+          ...baseToolContent,
+          name: 'mcp__pasa_search__paper_search',
+          function: 'mcp__pasa_search__paper_search',
+          metadata: { mcp_server: 'pasa_search' },
+          args: {
+            query: 'paper review agents',
+          },
+          content: {
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    query: 'paper review agents',
+                    papers: [
+                      {
+                        title: 'Agentic Review Workflows for Scientific Papers',
+                        arxiv_id: '2602.00002',
+                        summary: 'A search and reading pipeline for AI-assisted paper review.',
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          },
+        }}
+        live={false}
+        panelMode="inline"
+      />
+    )
+
+    expect(screen.getByText('Question: "paper review agents" • 1 papers found • PASA')).toBeInTheDocument()
+    expect(screen.getByText('Agentic Review Workflows for Scientific Papers')).toBeInTheDocument()
+    expect(screen.getByText('pasa')).toBeInTheDocument()
+  })
 })

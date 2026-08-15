@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react'
-import { Box, Text, useInput } from 'ink'
+import { Box, Text } from 'ink'
 
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
+import { useSafeInput } from '../hooks/useSafeInput.js'
 import { theme } from '../semantic-colors.js'
 import type { QuestSummary } from '../types.js'
 import { SelectionList, type SelectionItem } from './shared/SelectionList.js'
@@ -76,7 +77,7 @@ export const QuestScreen: React.FC<QuestScreenProps> = ({
     )
   )
 
-  useInput((input, key) => {
+  useSafeInput((input, key) => {
     const submitRequested = key.return || input === '\r' || input === '\n'
     if (key.upArrow) {
       onMove?.(-1)

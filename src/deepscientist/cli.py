@@ -61,6 +61,19 @@ def _parse_optional_bool(value: object) -> bool | None:
     return None
 
 
+def _normalize_cli_runner_name(value: object, fallback: str = "") -> str:
+    normalized = str(value or "").strip().lower().replace("_", "-")
+    if not normalized:
+        return fallback
+    if normalized in {"claude-code", "claudecode"}:
+        return "claude"
+    if normalized in {"kimi-code", "kimicode"}:
+        return "kimi"
+    if normalized in {"open-code", "open code", "opencode-ai", "opencodeai"}:
+        return "opencode"
+    return normalized.replace("-", "")
+
+
 def _daemon_request_headers(home: Path) -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
     state = read_json(home / "runtime" / "daemon.json", {})
@@ -117,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     daemon_parser.add_argument("--port", type=int, default=None)
     daemon_parser.add_argument("--auth", default=None)
     daemon_parser.add_argument("--auth-token", default=None)
+    daemon_parser.add_argument("--runner", default=None, help=argparse.SUPPRESS)
     daemon_parser.add_argument(
         "--prompt-version",
         default=None,
@@ -150,7 +164,13 @@ def build_parser() -> argparse.ArgumentParser:
     graph_parser = subparsers.add_parser("graph")
     graph_parser.add_argument("quest_id")
 
-    subparsers.add_parser("doctor", aliases=["docker"])
+    doctor_parser = subparsers.add_parser("doctor", aliases=["docker"])
+    doctor_parser.add_argument(
+        "--runner",
+        action="append",
+        default=None,
+        help="Probe one runner instead of every enabled runner. Can be repeated or comma-separated; use `all` for every built-in runner.",
+    )
 
     push_parser = subparsers.add_parser("push")
     push_parser.add_argument("quest_id")
@@ -295,8 +315,13 @@ def daemon_command(
     auth: str | None,
     auth_token: str | None,
     prompt_version: str | None,
+    runner: str | None = None,
 ) -> int:
     ensure_home_layout(home)
+    normalized_runner = _normalize_cli_runner_name(runner)
+    if normalized_runner:
+        os.environ["DEEPSCIENTIST_DEFAULT_RUNNER"] = normalized_runner
+        os.environ["DEEPSCIENTIST_ENABLE_RUNNER"] = normalized_runner
     config_manager = ConfigManager(home)
     config_manager.ensure_files()
     config = config_manager.load_named("config")
@@ -385,18 +410,21 @@ def run_command(
         opencode_runner=opencode_runner,
         pi_runner=pi_runner,
     )
-    candidate_runners = [runner_override, config.get("default_runner", "codex"), "codex"]
+    explicit_runner = _normalize_cli_runner_name(runner_override)
+    candidate_runners = [explicit_runner, config.get("default_runner", "codex"), "codex"]
     runner_name = "codex"
     runner_cfg = {}
     for candidate in candidate_runners:
-        normalized = str(candidate or "").strip().lower()
+        normalized = _normalize_cli_runner_name(candidate)
         if not normalized:
             continue
         current_cfg = runners.get(normalized, {}) if isinstance(runners.get(normalized), dict) else {}
-        if current_cfg.get("enabled") is False:
+        if current_cfg.get("enabled") is False and normalized != explicit_runner:
             continue
         runner_name = normalized
-        runner_cfg = current_cfg
+        runner_cfg = dict(current_cfg)
+        if normalized == explicit_runner:
+            runner_cfg["enabled"] = True
         break
     if runner_cfg.get("enabled") is False:
         print(
@@ -521,8 +549,8 @@ def graph_command(home: Path, quest_id: str) -> int:
     return 0
 
 
-def doctor_command(home: Path) -> int:
-    report = run_doctor(home, repo_root=repo_root())
+def doctor_command(home: Path, runner_names: list[str] | None = None) -> int:
+    report = run_doctor(home, repo_root=repo_root(), runner_names=runner_names)
     sys.stdout.write(render_doctor_report(report))
     return 0 if report.get("ok") else 1
 
@@ -645,7 +673,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "resume":
         return resume_command(home, args.quest_id)
     if args.command == "daemon":
-        return daemon_command(home, args.host, args.port, args.auth, args.auth_token, args.prompt_version)
+        return daemon_command(home, args.host, args.port, args.auth, args.auth_token, args.prompt_version, args.runner)
     if args.command == "run":
         return run_command(home, args.quest_id, args.skill_id, args.message, args.model, args.prompt_version, args.runner)
     if args.command == "ui":
@@ -657,7 +685,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "graph":
         return graph_command(home, args.quest_id)
     if args.command in {"doctor", "docker"}:
-        return doctor_command(home)
+        return doctor_command(home, args.runner)
     if args.command == "push":
         return push_command(home, args.quest_id)
     if args.command == "memory" and args.memory_command == "search":

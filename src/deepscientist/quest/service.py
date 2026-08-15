@@ -66,6 +66,13 @@ _EVENT_TYPE_BYTES_RE = re.compile(rb'"(?:type|event_type)"\s*:\s*"([^"]+)"')
 _EVENT_TOOL_NAME_BYTES_RE = re.compile(rb'"tool_name"\s*:\s*"([^"]+)"')
 _EVENT_RUN_ID_BYTES_RE = re.compile(rb'"run_id"\s*:\s*"([^"]+)"')
 CONTINUATION_POLICIES = {"auto", "when_external_progress", "wait_for_user_or_resume", "none"}
+AUTONOMOUS_BLOCKING_WAIT_REASONS = {
+    "completion_approval",
+    "credential_required",
+    "privacy_or_data_export_boundary",
+    "large_cost_or_external_paid_api",
+    "user_gated_decision_request",
+}
 _CHAT_ATTACHMENT_TEXT_EXTENSIONS = {".txt", ".md", ".markdown", ".mdx", ".json", ".csv", ".log", ".yaml", ".yml"}
 _CHAT_ATTACHMENT_TEXT_MIME_PREFIXES = ("text/",)
 _CHAT_ATTACHMENT_TEXT_MIME_TYPES = {"application/json", "application/x-yaml", "text/csv"}
@@ -1634,16 +1641,18 @@ class QuestService:
         for artifact in recent_artifacts:
             payload = artifact.get("payload") if isinstance(artifact.get("payload"), dict) else {}
             artifact_path = artifact.get("path")
+            artifact_kind = str(payload.get("kind") or artifact.get("kind") or "").strip()
             entries.append(
                 {
                     "id": f"artifact:{payload.get('artifact_id') or artifact_path}",
                     "kind": "artifact",
-                    "title": str(payload.get("artifact_id") or artifact.get("kind") or "artifact"),
+                    "title": str(payload.get("title") or payload.get("artifact_id") or artifact.get("kind") or "artifact"),
                     "summary": payload.get("summary") or payload.get("message") or payload.get("reason") or "Artifact updated.",
                     "status": payload.get("status"),
                     "reason": payload.get("reason"),
                     "created_at": payload.get("updated_at") or payload.get("created_at"),
                     "paths": list((payload.get("paths") or {}).values()) + ([str(artifact_path)] if artifact_path else []),
+                    "stage_key": "science" if artifact_kind.startswith("science.") else payload.get("stage_key"),
                 }
             )
             add_file(str(artifact_path) if artifact_path else None, source="artifact")
@@ -2104,6 +2113,7 @@ class QuestService:
         bundle_manifest = bundle_manifest if isinstance(bundle_manifest, dict) else {}
         experiment_matrix_path = paper_root / "paper_experiment_matrix.md"
         experiment_matrix_json_path = paper_root / "paper_experiment_matrix.json"
+        manuscript_coverage_path = paper_root / "manuscript_coverage.json"
         claim_map_path = paper_root / "claim_evidence_map.json"
         paper_line_state_path = paper_root / "paper_line_state.json"
         evidence_ledger = self._paper_evidence_payload(quest_root, workspace_root)
@@ -2160,6 +2170,8 @@ class QuestService:
             "selected_outline_ref": str(selected_outline.get("outline_id") or bundle_manifest.get("selected_outline_ref") or "").strip() or None,
             "title": str(selected_outline.get("title") or bundle_manifest.get("title") or "").strip() or None,
             "story": str(selected_outline.get("story") or "").strip() or None,
+            "paper_view": selected_outline.get("paper_view") if isinstance(selected_outline.get("paper_view"), dict) else None,
+            "evidence_view": selected_outline.get("evidence_view") if isinstance(selected_outline.get("evidence_view"), dict) else None,
             "research_questions": detailed_outline.get("research_questions") if isinstance(detailed_outline.get("research_questions"), list) else [],
             "experimental_designs": detailed_outline.get("experimental_designs") if isinstance(detailed_outline.get("experimental_designs"), list) else [],
             "contributions": detailed_outline.get("contributions") if isinstance(detailed_outline.get("contributions"), list) else [],
@@ -2177,6 +2189,7 @@ class QuestService:
                 "outline_manifest": str(outline_manifest_path) if outline_manifest_path.exists() else None,
                 "experiment_matrix": str(experiment_matrix_path) if experiment_matrix_path.exists() else None,
                 "experiment_matrix_json": str(experiment_matrix_json_path) if experiment_matrix_json_path.exists() else None,
+                "manuscript_coverage": str(manuscript_coverage_path) if manuscript_coverage_path.exists() else None,
                 "bundle_manifest": str(bundle_manifest_path) if bundle_manifest_path.exists() else None,
                 "claim_evidence_map": str(claim_map_path) if claim_map_path.exists() else None,
                 "paper_line_state": str(paper_line_state_path) if paper_line_state_path.exists() else None,
@@ -2570,11 +2583,25 @@ class QuestService:
         evidence_items = [
             dict(item) for item in ((paper_evidence or {}).get("items") or []) if isinstance(item, dict)
         ]
-        ledger_by_item = {
-            str(item.get("item_id") or "").strip(): item
-            for item in evidence_items
-            if str(item.get("item_id") or "").strip()
-        }
+        ledger_by_item: dict[str, list[dict[str, Any]]] = {}
+        for item in evidence_items:
+            item_id = str(item.get("item_id") or "").strip()
+            if item_id:
+                ledger_by_item.setdefault(item_id, []).append(item)
+
+        def ready_ledger_item(item_id: str) -> dict[str, Any] | None:
+            candidates = ledger_by_item.get(item_id) or []
+            ready_statuses = {"ready", "completed", "analyzed", "written", "recorded", "supported"}
+            ready = [
+                item
+                for item in candidates
+                if str(item.get("status") or "").strip().lower() in ready_statuses
+            ]
+            if ready:
+                main = [item for item in ready if str(item.get("paper_role") or "").strip() == "main_text"]
+                return main[0] if main else ready[0]
+            return candidates[0] if candidates else None
+
         unresolved_required_items: list[dict[str, Any]] = []
         ready_section_count = 0
         for section in paper_contract.get("sections") or []:
@@ -2583,7 +2610,7 @@ class QuestService:
             required_items = [str(item).strip() for item in (section.get("required_items") or []) if str(item).strip()]
             section_ready = True
             for item_id in required_items:
-                ledger_item = ledger_by_item.get(item_id)
+                ledger_item = ready_ledger_item(item_id)
                 status = str((ledger_item or {}).get("status") or "").strip().lower()
                 if status not in {"ready", "completed", "analyzed", "written", "recorded", "supported"}:
                     unresolved_required_items.append(
@@ -2670,6 +2697,18 @@ class QuestService:
             if isinstance(paper_contract.get("bundle_manifest"), dict)
             else {}
         )
+        package_type = str(bundle_manifest.get("package_type") or "draft_checkpoint").strip().lower().replace("-", "_")
+        if package_type in {"", "draft", "memo", "checkpoint", "paper_memo"}:
+            package_type = "draft_checkpoint"
+        elif package_type in {"review", "review_bundle"}:
+            package_type = "review_package"
+        elif package_type in {"final", "final_bundle", "submission", "submission_bundle"}:
+            package_type = "submission_package"
+        elif package_type not in {"draft_checkpoint", "review_package", "submission_package"}:
+            package_type = "draft_checkpoint"
+        coverage_path = str(((paper_contract.get("paths") or {}).get("manuscript_coverage") or "")).strip()
+        manuscript_coverage = read_json(Path(coverage_path), {}) if coverage_path else {}
+        manuscript_coverage = manuscript_coverage if isinstance(manuscript_coverage, dict) else {}
         submission_checklist_path = str(((paper_contract.get("paths") or {}).get("submission_checklist") or "")).strip()
         submission_checklist = read_json(Path(submission_checklist_path), {}) if submission_checklist_path else {}
         submission_checklist = submission_checklist if isinstance(submission_checklist, dict) else {}
@@ -2683,9 +2722,23 @@ class QuestService:
         closure_state = "bundle_not_ready"
         delivery_state = "not_ready"
         keep_bundle_fixed_by_default = False
-        if bundle_status == "present":
+        evidence_ready = contract_ok
+        analysis_ready = writing_ready
+        academic_outline_ready = bool(manuscript_coverage.get("academic_outline_ready"))
+        analysis_plan_ready = bool(manuscript_coverage.get("analysis_plan_ready"))
+        language_firewall_ok = bool(manuscript_coverage.get("language_firewall_ok"))
+        draft_checkpoint_ready = bool(active_line.get("draft_checkpoint_ready")) or draft_status == "present" or bundle_status == "present"
+        manuscript_ready = bool(active_line.get("manuscript_ready")) or bool(manuscript_coverage.get("manuscript_ready"))
+        submission_ready = bool(active_line.get("submission_ready")) or bool(manuscript_coverage.get("submission_ready"))
+        if submission_ready:
             closure_state = "delivery_ready"
-            delivery_state = "bundle_ready"
+            delivery_state = "submission_ready"
+        elif manuscript_ready:
+            closure_state = "review_before_submission"
+            delivery_state = "manuscript_ready"
+        elif draft_checkpoint_ready:
+            closure_state = "draft_checkpoint_continue_writing"
+            delivery_state = "draft_checkpoint_ready"
         if delivered_at or "delivered" in overall_status:
             delivery_state = "delivered"
             closure_state = "delivered_continue_research" if "continue" in overall_status else "delivered_parked"
@@ -2694,15 +2747,30 @@ class QuestService:
         if unmapped_completed_items:
             recommended_next_stage = "write"
             recommended_action = "sync_paper_contract"
+        elif manuscript_coverage and not academic_outline_ready:
+            recommended_next_stage = "write"
+            recommended_action = "repair_academic_outline_with_paper_outline"
+        elif manuscript_coverage and not analysis_plan_ready:
+            recommended_next_stage = "write"
+            recommended_action = "repair_analysis_plan_with_paper_outline"
         elif unresolved_required_items or blocking_pending_slices:
             recommended_next_stage = "analysis-campaign"
             recommended_action = "complete_required_supplementary"
+        elif manuscript_coverage and not language_firewall_ok and draft_checkpoint_ready:
+            recommended_next_stage = "write"
+            recommended_action = "repair_manuscript_language"
         elif draft_status != "present":
             recommended_next_stage = "write"
             recommended_action = "draft_paper"
         elif bundle_status != "present":
             recommended_next_stage = "write"
-            recommended_action = "prepare_bundle"
+            recommended_action = "submit_draft_checkpoint"
+        elif not manuscript_ready:
+            recommended_next_stage = "write"
+            recommended_action = "expand_manuscript_and_figures"
+        elif not submission_ready:
+            recommended_next_stage = "review"
+            recommended_action = "prepare_submission_package"
         else:
             recommended_next_stage = "finalize"
             recommended_action = "finalize_paper_line"
@@ -2721,7 +2789,16 @@ class QuestService:
             "selected_outline_ref": selected_outline_ref,
             "contract_ok": contract_ok,
             "writing_ready": writing_ready,
-            "finalize_ready": writing_ready and bundle_status == "present",
+            "evidence_ready": evidence_ready,
+            "analysis_ready": analysis_ready,
+            "academic_outline_ready": academic_outline_ready,
+            "analysis_plan_ready": analysis_plan_ready,
+            "language_firewall_ok": language_firewall_ok,
+            "draft_checkpoint_ready": draft_checkpoint_ready,
+            "manuscript_ready": manuscript_ready,
+            "submission_ready": submission_ready,
+            "finalize_ready": submission_ready,
+            "package_type": package_type,
             "closure_state": closure_state,
             "delivery_state": delivery_state,
             "delivered_at": delivered_at,
@@ -2750,6 +2827,27 @@ class QuestService:
             "draft_status": draft_status,
             "bundle_status": bundle_status,
             "blocking_reasons": blocking_reasons,
+            "manuscript_blocking_reasons": list(
+                active_line.get("manuscript_blocking_reasons")
+                or manuscript_coverage.get("manuscript_blockers")
+                or []
+            ),
+            "manuscript_warning_reasons": list(
+                active_line.get("manuscript_warning_reasons")
+                or manuscript_coverage.get("manuscript_warnings")
+                or []
+            ),
+            "submission_blocking_reasons": list(
+                active_line.get("submission_blocking_reasons")
+                or manuscript_coverage.get("submission_blockers")
+                or []
+            ),
+            "submission_warning_reasons": list(
+                active_line.get("submission_warning_reasons")
+                or manuscript_coverage.get("submission_warnings")
+                or []
+            ),
+            "manuscript_coverage": manuscript_coverage or None,
             "recommended_next_stage": recommended_next_stage,
             "recommended_action": recommended_action,
             "unresolved_required_items": unresolved_required_items[:12],
@@ -2815,6 +2913,16 @@ class QuestService:
         if isinstance(contract.get("benchstore_context"), dict) or isinstance(contract.get("start_setup_session"), dict):
             return "benchstore"
         return "research"
+
+    @staticmethod
+    def _normalize_startup_contract_modes(startup_contract: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not isinstance(startup_contract, dict):
+            return None
+        normalized = dict(startup_contract)
+        workspace_mode = str(normalized.get("workspace_mode") or "").strip().lower()
+        if workspace_mode == "copilot":
+            normalized["decision_policy"] = "user_gated"
+        return normalized
 
     @contextmanager
     def _quest_id_state_lock(self):
@@ -3219,6 +3327,7 @@ class QuestService:
         payload = {
             "quest_id": quest_yaml.get("quest_id", quest_id),
             "title": quest_yaml.get("title", quest_id),
+            "goal": quest_yaml.get("goal"),
             "quest_root": str(quest_root.resolve()),
             "status": runtime_state.get("display_status") or runtime_state.get("status") or quest_yaml.get("status", "idle"),
             "runtime_status": runtime_state.get("status") or quest_yaml.get("status", "idle"),
@@ -3245,6 +3354,7 @@ class QuestService:
             "continuation_anchor": runtime_state.get("continuation_anchor"),
             "continuation_reason": runtime_state.get("continuation_reason"),
             "continuation_updated_at": runtime_state.get("continuation_updated_at"),
+            "waiting_notice": runtime_state.get("waiting_notice"),
             "last_resume_source": runtime_state.get("last_resume_source"),
             "last_resume_at": runtime_state.get("last_resume_at"),
             "last_recovery_abandoned_run_id": runtime_state.get("last_recovery_abandoned_run_id"),
@@ -3735,6 +3845,7 @@ class QuestService:
         payload = {
             "quest_id": quest_yaml.get("quest_id", quest_id),
             "title": quest_yaml.get("title", quest_id),
+            "goal": quest_yaml.get("goal"),
             "quest_root": str(quest_root.resolve()),
             "status": runtime_state.get("display_status") or runtime_state.get("status") or quest_yaml.get("status", "idle"),
             "runtime_status": runtime_state.get("status") or quest_yaml.get("status", "idle"),
@@ -3773,6 +3884,7 @@ class QuestService:
             "continuation_anchor": runtime_state.get("continuation_anchor"),
             "continuation_reason": runtime_state.get("continuation_reason"),
             "continuation_updated_at": runtime_state.get("continuation_updated_at"),
+            "waiting_notice": runtime_state.get("waiting_notice"),
             "last_resume_source": runtime_state.get("last_resume_source"),
             "last_resume_at": runtime_state.get("last_resume_at"),
             "last_recovery_abandoned_run_id": runtime_state.get("last_recovery_abandoned_run_id"),
@@ -4135,6 +4247,7 @@ class QuestService:
         active_anchor: str | None = None,
         default_runner: str | None = None,
         workspace_mode: str | None = None,
+        decision_policy: str | None = None,
     ) -> dict:
         quest_root = self._quest_root(quest_id)
         quest_yaml_path = self._quest_yaml_path(quest_root)
@@ -4200,8 +4313,11 @@ class QuestService:
             )
             if str(startup_contract.get("workspace_mode") or "").strip().lower() != normalized_workspace_mode:
                 startup_contract["workspace_mode"] = normalized_workspace_mode
-                quest_data["startup_contract"] = startup_contract
                 changed = True
+            if normalized_workspace_mode == "copilot" and startup_contract.get("decision_policy") != "user_gated":
+                startup_contract["decision_policy"] = "user_gated"
+                changed = True
+            quest_data["startup_contract"] = startup_contract
             if str(self.read_research_state(quest_root).get("workspace_mode") or "").strip().lower() != normalized_workspace_mode:
                 research_state_updates["workspace_mode"] = normalized_workspace_mode
             runtime_state_updates["continuation_policy"] = (
@@ -4210,6 +4326,37 @@ class QuestService:
             runtime_state_updates["continuation_reason"] = (
                 "copilot_mode" if normalized_workspace_mode == "copilot" else "autonomous_mode"
             )
+
+        if decision_policy is not None:
+            normalized_decision_policy = str(decision_policy).strip().lower()
+            if normalized_decision_policy not in {"autonomous", "user_gated"}:
+                raise ValueError("Unsupported decision policy. Allowed values: autonomous, user_gated.")
+            startup_contract = (
+                dict(quest_data.get("startup_contract") or {})
+                if isinstance(quest_data.get("startup_contract"), dict)
+                else {}
+            )
+            effective_workspace_mode = str(
+                research_state_updates.get("workspace_mode")
+                or self.read_research_state(quest_root).get("workspace_mode")
+                or startup_contract.get("workspace_mode")
+                or ""
+            ).strip().lower()
+            if effective_workspace_mode == "copilot":
+                normalized_decision_policy = "user_gated"
+                runtime_state_updates["continuation_policy"] = "wait_for_user_or_resume"
+                runtime_state_updates["continuation_reason"] = "copilot_mode"
+            if str(startup_contract.get("decision_policy") or "").strip().lower() != normalized_decision_policy:
+                startup_contract["decision_policy"] = normalized_decision_policy
+                quest_data["startup_contract"] = startup_contract
+                changed = True
+            if normalized_decision_policy == "autonomous" and effective_workspace_mode == "autonomous":
+                runtime_state = self._read_runtime_state(quest_root)
+                current_policy = str(runtime_state.get("continuation_policy") or "").strip().lower()
+                current_reason = str(runtime_state.get("continuation_reason") or "").strip()
+                if current_policy == "wait_for_user_or_resume" and current_reason not in AUTONOMOUS_BLOCKING_WAIT_REASONS:
+                    runtime_state_updates["continuation_policy"] = "auto"
+                    runtime_state_updates["continuation_reason"] = "autonomous_decision_policy"
 
         if changed:
             quest_data["updated_at"] = utc_now()
@@ -4504,8 +4651,15 @@ class QuestService:
 
     def node_traces(self, quest_id: str, *, selection_type: str | None = None) -> dict:
         quest_root = self._quest_root(quest_id)
-        workflow = self.workflow(quest_id)
         snapshot = self.snapshot(quest_id)
+        try:
+            workflow = self._build_details_projection_payload(
+                quest_root,
+                source_signature=self._projection_source_signature(quest_root, "details"),
+                update_progress=lambda *_args, **_kwargs: None,
+            )
+        except Exception:
+            workflow = self.workflow(quest_id)
         payload = QuestNodeTraceManager(quest_root).materialize(
             quest_id=quest_id,
             workflow=workflow,
@@ -4746,6 +4900,7 @@ class QuestService:
         mode: str | None = None,
         profile: str | None = None,
     ) -> dict:
+        profile = str(profile or "").strip().lower() or None
         if revision:
             return self._revision_explorer(quest_id, revision=revision, mode=mode or "ref")
 
@@ -4776,7 +4931,7 @@ class QuestService:
         }
 
     def search_files(self, quest_id: str, term: str, limit: int = 50) -> dict[str, Any]:
-        query = term.strip()
+        query = self._normalize_explorer_search_query(term)
         normalized_query = query.casefold()
         workspace_root = self.active_workspace_root(self._require_initialized_quest_root(quest_id))
         resolved_limit = max(1, min(limit, 200))
@@ -4802,6 +4957,41 @@ class QuestService:
             except OSError:
                 continue
 
+            relative = path.relative_to(workspace_root).as_posix()
+            scope, writable = self._classify_path_scope(workspace_root, path)
+            path_haystack = relative.casefold()
+            name_haystack = path.name.casefold()
+            if normalized_query in path_haystack or normalized_query in name_haystack:
+                haystack = path_haystack
+                match_spans: list[dict[str, int]] = []
+                start = 0
+                while True:
+                    found = haystack.find(normalized_query, start)
+                    if found < 0:
+                        break
+                    match_spans.append({"start": found, "end": found + len(query)})
+                    start = found + max(1, len(query))
+                renderer_hint, mime_type = self._renderer_hint_for(path)
+                items.append(
+                    {
+                        "id": f"{relative}:path",
+                        "document_id": f"path::{relative}",
+                        "title": path.name,
+                        "path": relative,
+                        "scope": scope,
+                        "writable": writable,
+                        "line_number": 0,
+                        "line_text": relative,
+                        "snippet": relative[:320],
+                        "match_spans": match_spans,
+                        "open_kind": renderer_hint,
+                        "mime_type": mime_type,
+                    }
+                )
+                if len(items) >= resolved_limit:
+                    truncated = True
+                    break
+
             renderer_hint, mime_type = self._renderer_hint_for(path)
             if not self._is_text_document(path, mime_type, renderer_hint):
                 continue
@@ -4824,8 +5014,6 @@ class QuestService:
                 continue
 
             files_scanned += 1
-            relative = path.relative_to(workspace_root).as_posix()
-            scope, writable = self._classify_path_scope(workspace_root, path)
 
             for line_index, line in enumerate(content.splitlines(), start=1):
                 haystack = line.casefold()
@@ -4871,6 +5059,15 @@ class QuestService:
             "truncated": truncated,
             "files_scanned": files_scanned,
         }
+
+    @staticmethod
+    def _normalize_explorer_search_query(term: str) -> str:
+        query = str(term or "").strip()
+        if len(query) >= 2 and query.startswith("*") and query.endswith("*"):
+            inner = query.strip("*").strip()
+            if inner and not any(marker in inner for marker in "*?[]"):
+                return inner
+        return query
 
     def open_document(self, quest_id: str, document_id: str) -> dict:
         quest_root = self._require_initialized_quest_root(quest_id)
@@ -5244,6 +5441,52 @@ class QuestService:
             "status": "deleted",
             "quest_id": quest_id,
             "draft_id": normalized_draft_id,
+        }
+
+    def import_chat_attachment_drafts(
+        self,
+        target_quest_id: str,
+        *,
+        source_quest_id: str,
+        attachments: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        target_quest_root = self._quest_root(target_quest_id)
+        source_quest_root = self._quest_root(source_quest_id)
+        imported: list[dict[str, Any]] = []
+        for index, raw_attachment in enumerate(attachments, start=1):
+            if not isinstance(raw_attachment, dict):
+                continue
+            quest_relative_path = str(raw_attachment.get("quest_relative_path") or "").strip()
+            absolute_path = str(raw_attachment.get("path") or "").strip()
+            source_path: Path | None = None
+            if quest_relative_path:
+                source_path = resolve_within(source_quest_root, quest_relative_path)
+            elif absolute_path:
+                candidate = Path(absolute_path).resolve()
+                if candidate == source_quest_root or source_quest_root in candidate.parents:
+                    source_path = candidate
+            if source_path is None or not source_path.exists() or not source_path.is_file():
+                continue
+            file_name = str(
+                raw_attachment.get("name")
+                or raw_attachment.get("file_name")
+                or source_path.name
+                or f"attachment-{index:03d}"
+            ).strip() or f"attachment-{index:03d}"
+            mime_type = str(raw_attachment.get("content_type") or raw_attachment.get("mime_type") or "").strip() or None
+            created = self.save_chat_attachment_draft(
+                target_quest_root.name,
+                file_name=file_name,
+                mime_type=mime_type,
+                content=source_path.read_bytes(),
+            )
+            imported.append(created)
+        return {
+            "ok": True,
+            "quest_id": target_quest_id,
+            "source_quest_id": source_quest_id,
+            "imported_count": len(imported),
+            "attachments": imported,
         }
 
     def finalize_chat_attachment_drafts(
@@ -5796,6 +6039,9 @@ class QuestService:
         pending_count = len((queue_payload or {}).get("pending") or [])
         timestamp = quest_yaml.get("updated_at") or quest_yaml.get("created_at") or utc_now()
         status = str(quest_yaml.get("status") or "idle")
+        startup_contract = quest_yaml.get("startup_contract") if isinstance(quest_yaml.get("startup_contract"), dict) else {}
+        workspace_mode = str(startup_contract.get("workspace_mode") or "").strip().lower()
+        copilot_mode = workspace_mode == "copilot"
         return {
             "quest_id": str(quest_yaml.get("quest_id") or quest_root.name),
             "status": status,
@@ -5808,10 +6054,11 @@ class QuestService:
             "last_tool_activity_at": None,
             "last_tool_activity_name": None,
             "tool_calls_since_last_artifact_interact": 0,
-            "continuation_policy": "auto",
-            "continuation_anchor": None,
-            "continuation_reason": None,
-            "continuation_updated_at": None,
+            "continuation_policy": "wait_for_user_or_resume" if copilot_mode else "auto",
+            "continuation_anchor": "decision" if copilot_mode else None,
+            "continuation_reason": "copilot_mode" if copilot_mode else None,
+            "continuation_updated_at": timestamp if copilot_mode else None,
+            "waiting_notice": None,
             "last_resume_source": None,
             "last_resume_at": None,
             "last_recovery_abandoned_run_id": None,
@@ -5896,6 +6143,7 @@ class QuestService:
         merged["continuation_anchor"] = str(merged.get("continuation_anchor") or "").strip() or None
         merged["continuation_reason"] = str(merged.get("continuation_reason") or "").strip() or None
         merged["continuation_updated_at"] = str(merged.get("continuation_updated_at") or "").strip() or None
+        merged["waiting_notice"] = dict(merged.get("waiting_notice") or {}) if isinstance(merged.get("waiting_notice"), dict) else None
         merged["last_resume_source"] = str(merged.get("last_resume_source") or "").strip() or None
         merged["last_resume_at"] = str(merged.get("last_resume_at") or "").strip() or None
         merged["last_recovery_abandoned_run_id"] = str(merged.get("last_recovery_abandoned_run_id") or "").strip() or None
@@ -5931,6 +6179,7 @@ class QuestService:
         continuation_anchor: str | None | object = _UNSET,
         continuation_reason: str | None | object = _UNSET,
         continuation_updated_at: str | None | object = _UNSET,
+        waiting_notice: dict[str, Any] | None | object = _UNSET,
         last_resume_source: str | None | object = _UNSET,
         last_resume_at: str | None | object = _UNSET,
         last_recovery_abandoned_run_id: str | None | object = _UNSET,
@@ -6001,6 +6250,8 @@ class QuestService:
                 state["continuation_updated_at"] = str(continuation_updated_at or "").strip() or None
             elif continuation_changed:
                 state["continuation_updated_at"] = now
+            if waiting_notice is not _UNSET:
+                state["waiting_notice"] = dict(waiting_notice) if isinstance(waiting_notice, dict) else None
             if last_resume_source is not _UNSET:
                 state["last_resume_source"] = str(last_resume_source or "").strip() or None
             if last_resume_at is not _UNSET:
@@ -6857,6 +7108,7 @@ class QuestService:
         pending = [dict(item) for item in (queue_payload.get("pending") or [])]
         recent_records = self.latest_artifact_interaction_records(quest_root, limit=max(limit, 10))
         delivered_messages: list[dict[str, Any]] = []
+        delivered_state_records: list[dict[str, Any]] = []
         delivery_batch = None
         now = utc_now()
 
@@ -6894,6 +7146,8 @@ class QuestService:
                     read_reason=str((state_record or {}).get("read_reason") or delivery_reason),
                     read_at=str((state_record or {}).get("read_at") or now),
                 )
+                if state_record:
+                    delivered_state_records.append(dict(state_record))
             self._write_message_queue(quest_root, queue_payload)
             append_jsonl(
                 self._interaction_journal_path(quest_root),
@@ -6916,6 +7170,8 @@ class QuestService:
             delivery_batch = {
                 "batch_id": batch_id,
                 "message_ids": [item.get("message_id") for item in delivered_messages],
+                "client_message_ids": [item.get("client_message_id") for item in delivered_messages],
+                "delivered_at": now,
             }
         else:
             self.update_runtime_state(
@@ -6923,13 +7179,39 @@ class QuestService:
                 pending_user_message_count=0,
             )
 
+        state_by_message_id = {
+            str(item.get("message_id") or "").strip(): dict(item)
+            for item in delivered_state_records
+            if str(item.get("message_id") or "").strip()
+        }
+        state_by_client_message_id = {
+            str(item.get("client_message_id") or "").strip(): dict(item)
+            for item in delivered_state_records
+            if str(item.get("client_message_id") or "").strip()
+        }
         recent_inbound_messages = [
             {
                 "message_id": item.get("message_id"),
+                "client_message_id": item.get("client_message_id"),
                 "source": str(item.get("conversation_id") or item.get("source") or "local").split(":", 1)[0],
                 "conversation_id": item.get("conversation_id") or self._normalize_binding_source(str(item.get("source") or "local")),
                 "sender": "user",
                 "created_at": item.get("created_at"),
+                "read_state": (
+                    state_by_message_id.get(str(item.get("message_id") or "").strip())
+                    or state_by_client_message_id.get(str(item.get("client_message_id") or "").strip())
+                    or {}
+                ).get("read_state") or "read",
+                "read_reason": (
+                    state_by_message_id.get(str(item.get("message_id") or "").strip())
+                    or state_by_client_message_id.get(str(item.get("client_message_id") or "").strip())
+                    or {}
+                ).get("read_reason") or delivery_reason,
+                "read_at": (
+                    state_by_message_id.get(str(item.get("message_id") or "").strip())
+                    or state_by_client_message_id.get(str(item.get("client_message_id") or "").strip())
+                    or {}
+                ).get("read_at") or now,
                 "text": item.get("content") or "",
                 "content": self._agent_visible_user_message_content(
                     quest_root,
@@ -7029,6 +7311,7 @@ class QuestService:
         return {
             "delivery_batch": delivery_batch,
             "recent_inbound_messages": recent_inbound_messages,
+            "message_states": delivered_state_records,
             "recent_interaction_records": recent_records[-10:],
             "agent_instruction": agent_instruction,
             "queued_message_count_before_delivery": len(pending),
@@ -7443,19 +7726,36 @@ class QuestService:
             return True
         if relative.startswith(".ds/worktrees/"):
             return True
+        heavy_runtime_roots = {
+            ".ds/bash_exec",
+            ".ds/runs",
+            ".ds/codex_history",
+            ".ds/codex_homes",
+            ".ds/claude-home",
+            ".ds/opencode-home",
+            ".ds/evidence_packets",
+            ".ds/slim_backups",
+            ".ds/cold_archive",
+        }
+        normalized = relative.strip("/")
+        if any(normalized == root or normalized.startswith(f"{root}/") for root in heavy_runtime_roots):
+            return True
         parts = PurePosixPath(relative).parts
         return "__pycache__" in parts or ".pytest_cache" in parts
 
     @staticmethod
     def _skip_explorer_profile_relative(relative: str, profile: str | None) -> bool:
-        if profile != "mobile":
+        profile = str(profile or "").strip().lower()
+        if profile not in {"mobile", "workspace"}:
             return False
         normalized = relative.strip("/")
         if not normalized:
             return False
         parts = PurePosixPath(normalized).parts
         top = parts[0] if parts else normalized
-        if top in {".codex", ".claude", ".kimi", ".opencode", ".ds", "tmp", "userfiles", "artifacts"}:
+        if top in {".codex", ".claude", ".kimi", ".opencode", ".ds", "tmp", "userfiles"}:
+            return True
+        if profile == "mobile" and top == "artifacts":
             return True
         if top.startswith(".") and normalized not in {".gitignore"}:
             return True
@@ -7463,7 +7763,8 @@ class QuestService:
 
     @staticmethod
     def _truncate_explorer_directory(relative: str, *, profile: str | None, depth: int) -> bool:
-        if profile != "mobile":
+        profile = str(profile or "").strip().lower()
+        if profile not in {"mobile", "workspace"}:
             return False
         normalized = relative.strip("/")
         if not normalized:
@@ -7472,11 +7773,19 @@ class QuestService:
         top = parts[0] if parts else normalized
         if top == "memory":
             return False
+        if profile == "mobile":
+            if top == "baselines":
+                return depth >= 1
+            if top in {"literature", "paper", "experiments", "handoffs"}:
+                return depth >= 2
+            return depth >= 1
         if top == "baselines":
+            return depth >= 2
+        if top == "artifacts":
             return depth >= 1
         if top in {"literature", "paper", "experiments", "handoffs"}:
-            return depth >= 2
-        return depth >= 1
+            return depth >= 3
+        return depth >= 2
 
     @staticmethod
     def _classify_path_scope(quest_root: Path, path: Path) -> tuple[str, bool]:

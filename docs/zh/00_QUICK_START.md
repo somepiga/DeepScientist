@@ -49,7 +49,7 @@
 
 如果你还在选择合适的 Coding Plan / 订阅方案，可以先看这些官方页面：
 
-- 如果你只是想先有一个简单直接的推荐起点，优先从 GPT-5.4 + `xhigh` reasoning effort 开始；如果你更偏向 Google 路线，可以使用 Gemini 3 Pro，对应模型名 `gemini-3-pro-preview`。
+- 如果你只是想先有一个简单直接的推荐起点，优先从 Codex + OpenAI 登录路径开始。想用 Gemini 时，不要直接在 DeepScientist 里填一个模型名就开始试；先按 [25 OpenCode 配置指南](./25_OPENCODE_PROVIDER_SETUP.md) 把 OpenCode + Gemini 跑通。
 - ChatGPT 定价：https://openai.com/chatgpt/pricing/
 - ChatGPT Plus 帮助页：https://help.openai.com/en/articles/6950777-what-is-chatgpt-plus%3F.eps
 - MiniMax Coding Plan：https://platform.minimaxi.com/docs/guides/pricing-codingplan
@@ -65,6 +65,7 @@
 
 - [15 Codex Provider 配置](./15_CODEX_PROVIDER_SETUP.md)
 - [24 Claude Code 配置指南](./24_CLAUDE_CODE_PROVIDER_SETUP.md)
+- [27 Kimi Code 配置指南](./27_KIMI_CODE_PROVIDER_SETUP.md)
 - [25 OpenCode 配置指南](./25_OPENCODE_PROVIDER_SETUP.md)
 
 ## 1. 先安装 Node.js，再安装 DeepScientist
@@ -97,8 +98,8 @@ DeepScientist 现在内建四条 runner 路径：
 
 安装相关有一个很重要的差异：
 
-- 对 `codex`，DeepScientist 会优先使用你机器上已有的 `codex`，本机找不到时才回退到 npm 包里 bundled 的依赖。
-- 对 `claude` 和 `opencode`，DeepScientist 不会替你完成安装和认证；这两条路径都应该先让 CLI 本身跑通，再交给 DeepScientist 复用。
+- DeepScientist 会优先使用你机器上已有的 runner CLI；只有存在兼容的 package-local binary 时，才回退到 npm 包里的 helper。
+- 对 `claude`、`kimi` 和 `opencode`，DeepScientist 不会替你完成认证；这些路径都应该先让 CLI 本身跑通，再交给 DeepScientist 复用。
 
 如果安装完成后 `codex` 仍然不可用，请显式修复：
 
@@ -203,7 +204,7 @@ MiniMax 额外说明：
 
 ```bash
 claude --version
-claude -p --output-format json --tools "" "Reply with exactly HELLO."
+claude -p "Reply with exactly HELLO." --output-format json --tools ""
 ds doctor --runner claude
 ```
 

@@ -180,6 +180,7 @@ class PromptBuilder:
         connector_contract_block = self._connector_contract_block(quest_id=quest_id, snapshot=snapshot)
         hardware_block = self._local_runtime_hardware_block(runtime_config=runtime_config)
         deepxiv_block = self._deepxiv_capability_block(runtime_config=runtime_config)
+        cross_quest_recall_block = self._cross_quest_recall_policy_block(runtime_config)
         sections = [
             system_block,
             "",
@@ -271,6 +272,8 @@ class PromptBuilder:
                 ),
             ]
         )
+        if cross_quest_recall_block:
+            sections.extend(["", "## Cross-Quest Recall Policy", cross_quest_recall_block])
         if hardware_block:
             sections.extend(["", "## Local Runtime Hardware", hardware_block])
         if deepxiv_block:
@@ -635,38 +638,6 @@ class PromptBuilder:
             lines.append("- gpu_inventory: none detected")
         return "\n".join(lines)
 
-    def _deepxiv_capability_block(self, *, runtime_config: dict) -> str:
-        literature = runtime_config.get("literature") if isinstance(runtime_config.get("literature"), dict) else {}
-        deepxiv = literature.get("deepxiv") if isinstance(literature.get("deepxiv"), dict) else {}
-        enabled = bool(deepxiv.get("enabled"))
-        direct_token = str(deepxiv.get("token") or "").strip()
-        token_env_name = str(deepxiv.get("token_env") or "").strip()
-        env_token = str(__import__("os").environ.get(token_env_name) or "").strip() if token_env_name else ""
-        configured = enabled and bool(direct_token or env_token)
-        lines = [
-            f"- deepxiv_available: {configured}",
-            f"- deepxiv_enabled: {enabled}",
-            f"- deepxiv_base_url: {str(deepxiv.get('base_url') or 'https://data.rag.ac.cn').strip() or 'https://data.rag.ac.cn'}",
-            f"- deepxiv_default_result_size: {int(deepxiv.get('default_result_size') or 20)}",
-            f"- deepxiv_preview_characters: {int(deepxiv.get('preview_characters') or 5000)}",
-        ]
-        if configured:
-            lines.extend(
-                [
-                    "- deepxiv_rule: DeepXiv is configured in this runtime. For paper-centric literature discovery and shortlist paper triage, prefer the DeepXiv route before broad open-web search when it can answer the question more directly.",
-                    "- deepxiv_preferred_path: use `artifact.deepxiv(...)` for paper retrieval and structured DeepXiv reads when that tool is available in this runtime.",
-                    "- deepxiv_fallback_rule: if the runtime does not expose a DeepXiv tool, or if DeepXiv is insufficient for the needed paper detail, fall back to the legacy route: memory reuse, web discovery, and `artifact.arxiv(...)`.",
-                ]
-            )
-        else:
-            lines.extend(
-                [
-                    "- deepxiv_forbidden_rule: DeepXiv is not configured in this runtime. Do not rely on DeepXiv or assume its token exists.",
-                    "- deepxiv_required_fallback: use the legacy route only: memory reuse, web discovery, and `artifact.arxiv(...)`.",
-                ]
-            )
-        return "\n".join(lines)
-
     def _local_daemon_api_block(self, *, include_benchstore: bool = False, include_admin: bool = False) -> str:
         runtime_config = self.config_manager.load_named("config")
         ui_config = runtime_config.get("ui") if isinstance(runtime_config.get("ui"), dict) else {}
@@ -789,14 +760,14 @@ class PromptBuilder:
         text = read_text(path).strip()
         if not text:
             return "- none"
-        return "\n".join(
-            [
-                f"- path: {path}",
-                "- rule: treat this file as the highest-priority durable summary of the user's current requirements and constraints",
-                "",
-                text,
-            ]
-        )
+        lines = [
+            f"- path: {path}",
+            "- rule: treat this file as the highest-priority durable summary of the user's current requirements and constraints",
+            "- manuscript_boundary_rule: user requirements are planning constraints and acceptance criteria, not paper-ready source text",
+            "- manuscript_transduction_rule: when writing papers, convert only scientifically relevant requirements into neutral protocol language and keep operator/user/restart/provenance wording out of manuscript prose",
+        ]
+        lines.extend(["", text])
+        return "\n".join(lines)
 
     def _continuation_guard_block(
         self,
@@ -1323,23 +1294,36 @@ class PromptBuilder:
             "- mission: help the user complete the autonomous start form and stop there; do not begin the real research workflow",
             "- context_first_rule: before asking the user for missing information, first read the current setup state and use the information already present in the form or benchmark context",
             "- start_setup_prepare_tool_rule: when you want to update the left-side form, prefer `artifact.prepare_start_setup_form(form_patch={...})` so the browser can patch the form automatically",
-            "- start_setup_prepare_signature_rule: `form_patch` is the required top-level argument for `artifact.prepare_start_setup_form(...)`; do not hide the patch JSON inside `message`.",
+            "- start_setup_prepare_signature_rule: use `form_patch={...}` when the launch form itself changes, `session_patch={...}` when fit judgment or preview-plan state changes, and make sure at least one of them is non-empty; do not hide patch JSON inside `message`.",
+            "- start_setup_session_patch_rule: when you learn or revise launch-fit judgment, missing confirmations, or the launch preview plan, write them back through the optional `session_patch={...}` argument on `artifact.prepare_start_setup_form(...)` so the browser can show them durably.",
+            "- start_setup_session_shape_rule: keep `fit_assessment`, `preview_plan.markdown`, phases/risks, `copilot_handoff`, `science_task`, `science_task_brief`, and `science_package_cards` under `session_patch` when they become clear.",
             "- start_setup_tool_discovery_rule: before claiming the form writeback tool is unavailable, first try the runner-exposed tool name if it is shown (for example `mcp__artifact__prepare_start_setup_form`).",
             "- start_setup_context_rule: the current suggested form and benchmark context are already injected into this prompt; do not assume `memory.*` or other `artifact.*` helpers are available here",
+            "- mode_fit_rule: explicitly judge whether the task is a good fit for autonomous mode, a provisional fit that still needs key confirmations, or should instead move to copilot / collaboration mode.",
+            "- copilot_recommendation_rule: recommend copilot mode when the work cannot mainly run inside the computer system for long horizons, depends heavily on repeated human judgment, or is not primarily a method-optimization research loop.",
+            "- copilot_handoff_rule: for ordinary/bounded Copilot routing, write `session_patch.copilot_handoff` with title, complete `startup_message`, `workspace_mode='copilot'`, `create_and_send=true`, and reason.",
+            "- science_startup_rule: for natural science/engineering work, add `session_patch.science_task` and optionally `science_task_brief`; use the unified `science` skill catalog and FermiLink-style goal headings as a brief format, not as a required `goal.md` file.",
+            "- science_package_card_rule: put known `science/references/packages/<package_id>.md` paths in `science_package_cards`; cards do not prove solver installation.",
+            "- science_solver_rule: a science skill or knowledge pack does not prove the solver is installed; mark availability unknown unless import/executable/version/smoke-test evidence is explicit.",
+            "- preview_plan_rule: before you treat the setup as complete, submit a structured Markdown launch preview plan through `session_patch.preview_plan`; do not print that plan in the normal visible reply.",
+            "- preview_plan_template_rule: when enough information exists, structure the plan like a Deep Research plan: conclusion and mode recommendation, key questions the main agent should verify, materials/sources table, future execution steps, risks/confirmations, and conditions that should switch the user to copilot mode.",
+            "- preview_plan_reviewability_rule: keep the Markdown preview compact enough for the user to review before launch; it is a confirmation artifact, not a hidden scheduler trace.",
+            "- no_self_execution_rule: the preview plan is explanatory only. Do not start baseline work, experiments, analysis campaigns, or paper drafting from this setup session.",
             "- research_mainline_rule: when the user wants a real research project rather than a baseline-only task, the launch form should make the mainline explicit: baseline is only the starting point, then autonomous optimization and repeated performance improvement, then robust surpassing of strong baselines / SoTA with novelty, then analysis experiments, then literature / figures / paper-writing collaboration.",
             "- baseline_not_endpoint_rule: do not frame the mission as 'reproduce a baseline and stop' unless the user explicitly wants a baseline-only task.",
             "- novelty_confirmation_rule: if the user expects paper-level research or method contribution, explicitly confirm that the goal is not only to beat the baseline but to do so with a sufficiently novel and defensible method direction.",
             "- sequencing_confirmation_rule: if the long-term plan is still unclear, ask the user to confirm the intended sequence among baseline, optimization beyond SoTA, analysis experiments, and later literature / figure / writing work.",
             "- benchmark_context_source_rule: if `benchmark_context.raw_payload` exists, treat it as the full benchmark description file for this setup session rather than relying only on the shorter summary fields.",
-            "- start_setup_message_injection_rule: the recent conversation for this setup session is expanded explicitly below; use that full message history before asking the user to repeat requirements.",
+            "- start_setup_context_injection_rule: the current setup session state is injected below by the system; use it as hidden planning context and never ask the user to paste or repeat this context.",
+            "- start_setup_user_message_rule: treat the latest user message as the user's literal text only. Do not expect hidden planning XML or JSON to be embedded in the user message.",
             "- aisb_selection_rule: when the user asks you to choose or recommend a task, prefer the existing AISB / BenchStore catalog first instead of asking the user to invent a task from scratch.",
             "- aisb_selection_path: use `bash_exec(...)` against the injected local daemon BenchStore endpoints to inspect current catalog entries, then recommend the best fit based on both the user's stated needs and the current device boundary.",
             "- aisb_selection_truncation_rule: if you inspect BenchStore output through `head`, `tail`, `sed -n`, or another clipped shell window, explicitly treat it as truncated / partial output and never infer the global entry count from that preview alone.",
             "- aisb_selection_count_rule: before claiming how many BenchStore entries exist, read an explicit count such as `total`, `count`, or `items | length` from the daemon API result.",
             "- aisb_selection_output_rule: when multiple AISB candidates fit, summarize the top 1 to 3 options briefly, recommend one first, and then patch the form toward that recommendation.",
             "- performance_fit_rule: combine the user's requested task shape with the current machine boundary; if the machine is weak, prefer API-only, low-compute, short-cycle, and benchmark-faithful routes.",
-            "- output_rule: if the prepare tool is unavailable, fall back to one fenced block named `start_setup_patch` containing a JSON object with only the fields that should change",
-            "- no_tool_access_complaint_rule: if you use the fenced `start_setup_patch` fallback, do not complain about missing internal tools in the user-facing prose; just explain the draft briefly and provide the patch block.",
+            "- output_rule: do not emit fenced `start_setup_patch` or JSON patch blocks in the visible reply. If the prepare tool is unavailable, ask a short plain-language question or say the setup tool is temporarily unavailable instead of printing structured data.",
+            "- tool_submission_rule: submit structured form/session data through `artifact.prepare_start_setup_form(...)`; never put JSON patches or structured drafts in the visible assistant message.",
             "- start_setup_prepare_schema_summary:",
             "```json",
             json.dumps(
@@ -1348,11 +1332,14 @@ class PromptBuilder:
                     "runner_namespaced_tool": "mcp__artifact__prepare_start_setup_form",
                     "input_schema": {
                         "type": "object",
-                        "required": ["form_patch"],
                         "properties": {
                             "form_patch": {
                                 "type": "object",
-                                "description": "Required top-level patch object containing only the fields that should change.",
+                                "description": "Optional top-level form patch containing only the launch-form fields that should change.",
+                            },
+                            "session_patch": {
+                                "type": "object",
+                                "description": "Optional durable setup-session metadata such as fit assessment, recommended workspace mode, missing confirmations, preview plan, and materials summary.",
                             },
                             "message": {
                                 "type": "string",
@@ -1369,11 +1356,8 @@ class PromptBuilder:
                 indent=2,
             ),
             "```",
-            "- patch_fallback_example:",
-            "```start_setup_patch",
-            '{"title":"Example Project","goal":"Example goal","runtime_constraints":"- One key limit"}',
-            "```",
-            "- patch_rule: keep the patch small; only include fields that truly need to change",
+            "- patch_rule: keep the patch small; only include fields that truly need to change, and do not emit an empty `form_patch` + empty `session_patch` pair",
+            "- session_patch_fields_rule: persist clear setup state in `fit_assessment`, mode/readiness, confirmations, `preview_plan`, materials, `copilot_handoff`, and science fields.",
             "- no_black_talk_rule: use natural user-facing language and avoid internal words like route, taxonomy, stage, slice, trace, checkpoint, or contract unless the user explicitly asks for them",
             "- no_research_execution_rule: do not start baseline work, experiments, analysis campaigns, or paper drafting in this setup session",
             "- user_choice_rule: if the user already filled the form clearly enough, say so and avoid unnecessary follow-up questions",
@@ -1381,7 +1365,7 @@ class PromptBuilder:
             "- mandatory_confirmation_rule: do not guess critical operator-controlled resources. If GPU scope, GPU count, explicit GPU ids, external LLM/API usage, API keys, tokens, paid-call permission, large-download permission, or privacy boundaries would change the launch plan, you must ask the user to confirm them before treating the form as launch-ready.",
             "- credential_confirmation_rule: if the task or benchmark would rely on an external API key, token, or account and that credential is not already explicitly available in context, proactively ask the user whether they want to provide it or switch to a different route.",
             "- gpu_confirmation_rule: do not assume every detected GPU is available. If the allowed GPU scope is unclear and local GPU usage matters, ask the user how many GPUs or which GPU ids may be used.",
-            "- gated_patch_rule: if critical resource confirmations are still missing, you may patch a provisional draft but you must mark the remaining uncertainty clearly in user-facing language instead of presenting the setup as fully ready to launch.",
+            "- gated_patch_rule: if critical resource confirmations are still missing, patch only safe partial fields through the tool, set `launch_readiness=needs_confirmation`, and ask questions only; do not show a provisional draft in prose.",
             "- question_categories: when user input is incomplete, ask at most for these practical categories: task goal, current materials, runtime limits, whether they prefer paper-facing delivery or result-first delivery, and whether the real target is baseline-only or iterative performance improvement beyond SoTA with novelty.",
             "- field_mapping_rule: treat title as a short project name, goal as the real mission, baseline_urls as baseline/code/data inputs, paper_urls as paper or benchmark references, runtime_constraints as hard limits, objectives as the first 2-4 near-term outcomes, and custom_brief as extra preferences",
         ]
@@ -1407,6 +1391,26 @@ class PromptBuilder:
             )
         else:
             lines.append("- current_suggested_form_json: {}")
+        setup_state = {
+            "recommended_workspace_mode": payload.get("recommended_workspace_mode") or "unknown",
+            "launch_readiness": payload.get("launch_readiness") or "unknown",
+            "fit_assessment": payload.get("fit_assessment") if isinstance(payload.get("fit_assessment"), dict) else None,
+            "missing_confirmations": payload.get("missing_confirmations") if isinstance(payload.get("missing_confirmations"), list) else [],
+            "materials_summary": payload.get("materials_summary") if isinstance(payload.get("materials_summary"), list) else [],
+            "preview_plan": payload.get("preview_plan") if isinstance(payload.get("preview_plan"), dict) else None,
+            "copilot_handoff": payload.get("copilot_handoff") if isinstance(payload.get("copilot_handoff"), dict) else None,
+            "science_task": payload.get("science_task") if isinstance(payload.get("science_task"), dict) else None,
+            "science_task_brief": payload.get("science_task_brief") if isinstance(payload.get("science_task_brief"), dict) else None,
+            "science_package_cards": payload.get("science_package_cards") if isinstance(payload.get("science_package_cards"), list) else [],
+        }
+        lines.extend(
+            [
+                "- current_start_setup_state_json:",
+                "```json",
+                json.dumps(setup_state, ensure_ascii=False, indent=2),
+                "```",
+            ]
+        )
         return "\n".join(lines)
 
     @staticmethod
@@ -1495,6 +1499,7 @@ class PromptBuilder:
                             "user_notes": {"type": "string"},
                             "include_doctor": {"type": "boolean"},
                             "include_logs": {"type": "boolean"},
+                            "include_system_quirks": {"type": "boolean"},
                             "open_settings_page": {"type": "boolean"},
                             "comment": {"type": ["string", "object", "null"]},
                         },
@@ -1507,6 +1512,30 @@ class PromptBuilder:
         ]
         return "\n".join(lines)
 
+    def _cross_quest_recall_policy_block(self, runtime_config: dict) -> str:
+        memory_config = runtime_config.get("memory") if isinstance(runtime_config.get("memory"), dict) else {}
+        read_visibility_mode = str(memory_config.get("read_visibility_mode") or "independent").strip().lower()
+        shared_enabled = read_visibility_mode == "shared_across_quests"
+        if not shared_enabled:
+            return ""
+        lines = [
+            f"- memory_read_visibility_mode: {read_visibility_mode or 'independent'}",
+            f"- cross_quest_recall_enabled: {str(shared_enabled).lower()}",
+        ]
+        lines.extend(
+            [
+                f"- framework_quirks_path: {(self.home / 'framework_quirks.md').resolve()}",
+                f"- system_quirks_path: {(self.home / 'system_quirks.md').resolve()}",
+                f"- sibling_quest_brief_glob: {(self.home / 'quests' / '*' / 'brief.md')}",
+                "- cross_quest_recall_rule: you may use `bash_exec(...)` to scan sibling quest briefs and deep-read materially relevant sibling quest papers, especially Conclusion and Limitations / Discussion.",
+                "- framework_quirks_rule: read or append `framework_quirks.md` only for durable framework-layer pitfalls and workarounds that future quests should know before touching the same surface.",
+                "- system_quirks_rule: read or append `system_quirks.md` only for confirmed DeepScientist runtime/system bugs, with expected behavior, actual behavior, reproduction, impact, workaround, suggested fix, evidence paths, and status.",
+                "- privacy_rule: do not write secrets, tokens, private hostnames, private paths, or raw logs to either quirks file; redact before recording.",
+                "- fix_first_rule: prefer fixing code over recording permanent quirks; use quirks for confirmed behavior that cannot be fixed immediately or for short-lived workaround memory while the fix lands.",
+            ]
+        )
+        return "\n".join(lines)
+
     def _research_delivery_policy_block(self, snapshot: dict) -> str:
         start_setup_session = self._start_setup_session(snapshot)
         if start_setup_session:
@@ -1516,7 +1545,9 @@ class PromptBuilder:
                 "- delivery_goal: fill the autonomous start form well enough that the user can launch confidently",
                 "- hard_boundary: this is a setup session, not the real research session",
                 "- start_setup_rule: organize the user's task, materials, and runtime limits into a clean launch-ready form",
-                "- patch_protocol: prefer `artifact.prepare_start_setup_form(form_patch={...})`; only use a fenced `start_setup_patch` block as fallback when the tool path is unavailable",
+                "- mode_recommendation_rule: explicitly judge whether autonomous mode is truly the right fit or whether copilot / collaboration mode is safer.",
+                "- launch_preview_rule: only submit the preview through `session_patch.preview_plan` after launch readiness is `ready`; do not print it in the normal reply.",
+                "- patch_protocol: use `artifact.prepare_start_setup_form(form_patch={...}, session_patch={...})` for all structured form/session updates; do not use fenced `start_setup_patch` blocks in the visible reply",
                 "- completion_rule: once the form is good enough to launch, say so clearly and stop asking for more unless the user requests changes",
                 "- directness_rule: if the current information is already sufficient, tell the user they can launch now",
                 "- ask_rule: only ask short practical questions that directly affect what gets submitted",
@@ -1525,13 +1556,13 @@ class PromptBuilder:
             if locale.startswith("zh"):
                 lines.extend(
                     [
-                        "- example_hint: 可以自然说“我已经先帮你整理出一版草案”“现在还差 2 件事就可以直接启动”。",
+                        "- example_hint: 可以自然说“还差 2 件事就可以判断是否启动”；不要说“整理出草案”，也不要在正文展示草案。",
                     ]
                 )
             else:
                 lines.extend(
                     [
-                        "- example_hint: natural lines like 'I already drafted a starting version for you' and 'Two details remain before launch' are preferred.",
+                        "- example_hint: natural lines like 'Two details remain before launch' are preferred; do not say you drafted a version or show draft content in prose.",
                     ]
                 )
             return "\n".join(lines)
@@ -2050,19 +2081,47 @@ class PromptBuilder:
             ).strip() or "none"
             lines.extend(
                 [
-                    f"- paper_contract_health: {'ready' if bool(paper_contract_health.get('writing_ready')) else 'blocked'}",
+                    (
+                        "- paper_contract_health: "
+                        f"evidence_ready={bool(paper_contract_health.get('evidence_ready', paper_contract_health.get('writing_ready')))}, "
+                        f"analysis_ready={bool(paper_contract_health.get('analysis_ready', paper_contract_health.get('writing_ready')))}, "
+                        f"academic_outline_ready={bool(paper_contract_health.get('academic_outline_ready'))}, "
+                        f"analysis_plan_ready={bool(paper_contract_health.get('analysis_plan_ready'))}, "
+                        f"language_firewall_ok={bool(paper_contract_health.get('language_firewall_ok', True))}, "
+                        f"draft_checkpoint_ready={bool(paper_contract_health.get('draft_checkpoint_ready'))}, "
+                        f"manuscript_ready={bool(paper_contract_health.get('manuscript_ready'))}, "
+                        f"submission_ready={bool(paper_contract_health.get('submission_ready'))}"
+                    ),
                     f"- paper_health_counts: unresolved_required={int(paper_contract_health.get('unresolved_required_count') or 0)}, unmapped_completed={int(paper_contract_health.get('unmapped_completed_count') or 0)}, blocking_pending={int(paper_contract_health.get('blocking_open_supplementary_count') or 0)}",
+                    f"- paper_quality_warning_count: {len(paper_contract_health.get('manuscript_warning_reasons') or []) + len(paper_contract_health.get('submission_warning_reasons') or [])}",
+                    f"- paper_package_type: {str(paper_contract_health.get('package_type') or 'draft_checkpoint')}",
                     f"- paper_recommended_next_stage: {str(paper_contract_health.get('recommended_next_stage') or 'none')}",
                     f"- paper_recommended_action: {str(paper_contract_health.get('recommended_action') or 'none')}",
                     f"- paper_primary_blocker: {primary_blocker}",
-                    "- paper_contract_tool: call artifact.get_paper_contract(detail='full') before writing sections, tables, or analysis prose that depend on concrete experiment or analysis results.",
-                    "- paper_health_tool: call artifact.get_paper_contract_health(detail='full') before paper-facing write/finalize work when the exact blocking items matter.",
+                    "- paper_contract_tool: call artifact.get_paper_contract(detail='full') before evidence-grounded paper prose.",
+                    "- paper_health_tool: call artifact.get_paper_contract_health(detail='full') before write/finalize routing.",
+                    "- paper_coverage_tool: call artifact.validate_manuscript_coverage(detail='full') before full-manuscript or submission claims.",
+                    "- paper_academic_outline_tool: call artifact.validate_academic_outline(detail='full') before writing from an outline.",
+                    "- paper_language_tool: call artifact.validate_manuscript_language(detail='full') before submission or after major prose edits.",
+                    "- paper_writing_plan_tool: call artifact.compile_outline_to_writing_plan(detail='full') after the academic outline passes and before drafting.",
                     "- paper_outline_tool: call artifact.list_paper_outlines(...) when outline inventory or a valid outline_id is needed.",
                     "- paper_campaign_tool: call artifact.get_analysis_campaign(campaign_id='active') when exact supplementary slice status matters.",
                 ]
             )
             lines.append(
-                "- paper_contract_rule: if the paper state is blocked, do not stabilize draft prose as if the paper were settled; follow the recommended paper action first."
+                "- paper_contract_rule: do not finalize unless submission_ready is true."
+            )
+            lines.append(
+                "- paper_quality_warning_rule: paper quality and analysis-count warnings are reminders, not automatic blockers; surface them before claiming the draft is strong or final."
+            )
+            lines.append(
+                "- paper_view_rule: a selected outline must separate `paper_view` (paper idea, claims, method, analyses) from `evidence_view` (result rows, run ids, paths, reproducibility details)."
+            )
+            lines.append(
+                "- paper_language_rule: keep quest/worktree/port/batch/route wording out of main manuscript text; turn it into benchmark, baseline, budget, method, or appendix wording."
+            )
+            lines.append(
+                "- paper_story_rule: write the paper around one defensible idea and what the reader learns from the results, not around the order in which the agent ran experiments."
             )
         return "\n".join(lines)
 

@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 
-export const MOBILE_VIEWPORT_MAX_WIDTH = 1023
+export const MOBILE_VIEWPORT_MAX_WIDTH = 767
+export const COMPACT_VIEWPORT_MAX_WIDTH = 1023
 export const MOBILE_VIEWPORT_MAX_ASPECT_RATIO = 1
 export const ONBOARDING_MOBILE_VIEWPORT_MAX_WIDTH = 767
 

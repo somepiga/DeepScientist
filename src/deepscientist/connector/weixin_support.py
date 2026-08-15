@@ -11,6 +11,8 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urlparse
 from urllib.request import Request
 
+import httpx
+
 from .. import __version__ as DEEPSCIENTIST_VERSION
 from ..network import urlopen_with_proxy as urlopen
 from ..shared import ensure_dir, read_json, utc_now, write_json
@@ -52,6 +54,25 @@ def _random_wechat_uin() -> str:
     return base64.b64encode(str(value).encode("utf-8")).decode("ascii")
 
 
+def _build_weixin_headers(
+    *,
+    body_present: bool,
+    token: str | None,
+    extra: dict[str, str] | None,
+) -> dict[str, str]:
+    out: dict[str, str] = {"iLink-App-ClientVersion": "1"}
+    if body_present:
+        out["Content-Type"] = "application/json"
+        out["AuthorizationType"] = "ilink_bot_token"
+        out["X-WECHAT-UIN"] = _random_wechat_uin()
+    if token:
+        out["Authorization"] = f"Bearer {token}"
+    for key, value in (extra or {}).items():
+        if value:
+            out[key] = value
+    return out
+
+
 def _json_request(
     url: str,
     *,
@@ -62,24 +83,34 @@ def _json_request(
     headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     raw = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
-    request = Request(url, data=raw, method=method)
-    request.add_header("iLink-App-ClientVersion", "1")
-    if raw is not None:
-        request.add_header("Content-Type", "application/json")
-        request.add_header("Content-Length", str(len(raw)))
-        request.add_header("AuthorizationType", "ilink_bot_token")
-        request.add_header("X-WECHAT-UIN", _random_wechat_uin())
-    if token:
-        request.add_header("Authorization", f"Bearer {token}")
-    for key, value in (headers or {}).items():
-        if value:
-            request.add_header(key, value)
+    request_headers = _build_weixin_headers(body_present=raw is not None, token=token, extra=headers)
+    # httpx.Timeout exposes per-phase timeouts; `read` is the inactivity
+    # timeout — the critical defense against stalled SSL reads behind an
+    # HTTP CONNECT proxy tunnel, which urllib's urlopen does not reliably
+    # honour and which has been observed to hang the polling thread (and
+    # therefore the daemon scheduler) indefinitely.
+    total_timeout = max(float(timeout), 1.0)
+    timeout_obj = httpx.Timeout(
+        connect=min(total_timeout, 10.0),
+        read=total_timeout,
+        write=min(total_timeout, 10.0),
+        pool=min(total_timeout, 10.0),
+    )
     try:
-        with urlopen(request, timeout=timeout) as response:  # noqa: S310
-            payload = response.read().decode("utf-8", errors="replace")
-    except HTTPError as exc:
-        body_text = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Weixin HTTP {exc.code}: {body_text or exc.reason}") from exc
+        with httpx.Client(timeout=timeout_obj, trust_env=True, follow_redirects=False) as client:
+            response = client.request(
+                method.upper(),
+                url,
+                content=raw,
+                headers=request_headers,
+            )
+    except httpx.TimeoutException as exc:
+        # Translate to TimeoutError so existing _is_weixin_timeout_error keeps working.
+        raise TimeoutError(f"Weixin request timed out: {exc}") from exc
+    if response.status_code >= 400:
+        body_text = response.text or ""
+        raise RuntimeError(f"Weixin HTTP {response.status_code}: {body_text or response.reason_phrase}")
+    payload = response.text
     if not payload.strip():
         return {}
     try:

@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, useRef, useState } from 'react'
-import { Box, Static, Text, useInput } from 'ink'
+import { Box, Static, Text } from 'ink'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
+import { useSafeInput } from '../hooks/useSafeInput.js'
 import {
   Scrollable,
   type ScrollableHandle,
@@ -10,6 +11,7 @@ import { MessageList } from './MessageList.js'
 import { ConfigScreen, type ConfigPanel } from './ConfigScreen.js'
 import { HistoryItemDisplay } from './HistoryItemDisplay.js'
 import { QuestScreen } from './QuestScreen.js'
+import { UtilityScreen, type UtilityPanel } from './UtilityScreen.js'
 import { WelcomePanel } from './WelcomePanel.js'
 import type { ConnectorSnapshot, FeedItem, QuestSummary, SessionPayload } from '../types.js'
 import { theme } from '../semantic-colors.js'
@@ -20,6 +22,7 @@ type MainContentProps = {
   browseQuestId: string | null
   configMode: 'browse' | 'edit' | null
   configPanel: ConfigPanel | null
+  utilityPanel: UtilityPanel | null
   questPanelMode: 'projects' | 'pause' | 'stop' | 'resume' | null
   questPanelQuests: QuestSummary[]
   questPanelIndex: number
@@ -41,6 +44,7 @@ const MainContentComponent: React.FC<MainContentProps> = ({
   browseQuestId,
   configMode,
   configPanel,
+  utilityPanel,
   questPanelMode,
   questPanelQuests,
   questPanelIndex,
@@ -152,7 +156,7 @@ const MainContentComponent: React.FC<MainContentProps> = ({
     [baseUrl, columns, emptyQuestNote, history, latestBashOperationId, selectedQuestId]
   )
 
-  useInput((_input, key) => {
+  useSafeInput((_input, key) => {
     if (!viewportHeight) return
     if (key.pageUp) {
       scrollRef.current?.scrollBy(-viewportHeight)
@@ -186,6 +190,25 @@ const MainContentComponent: React.FC<MainContentProps> = ({
         {node}
       </Scrollable>
     )
+  }
+
+  const renderUtilityPanel = () => {
+    if (!utilityPanel) {
+      return null
+    }
+    const node = <UtilityScreen panel={utilityPanel} />
+    if (!viewportHeight) {
+      return node
+    }
+    return (
+      <Scrollable ref={scrollRef} height={viewportHeight} width={columns} onScrollState={handleScrollState}>
+        {node}
+      </Scrollable>
+    )
+  }
+
+  if (utilityPanel) {
+    return renderUtilityPanel()
   }
 
   if (showWelcome) {

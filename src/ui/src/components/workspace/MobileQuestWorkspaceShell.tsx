@@ -15,6 +15,7 @@ import {
   FileText,
   FolderOpen,
   GitBranch,
+  GraduationCap,
   Info,
   MessageSquareText,
   Settings,
@@ -40,6 +41,7 @@ import { SegmentedControl, type SegmentedItem } from '@/components/ui/segmented-
 import { client } from '@/lib/api'
 import { flattenQuestExplorerPayload, openQuestDocumentAsFileNode } from '@/lib/api/quest-files'
 import { useI18n } from '@/lib/i18n/useI18n'
+import { useOnboardingStore } from '@/lib/stores/onboarding'
 import { useTabsStore } from '@/lib/stores/tabs'
 import { buildFileTree, type FileAPIResponse, type FileNode } from '@/lib/types/file'
 import type { Tab } from '@/lib/types/tab'
@@ -392,7 +394,7 @@ function MobilePanelDialog({
               </Button>
             </div>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+          <div className="feed-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
         </div>
       </DialogContent>
     </Dialog>
@@ -692,7 +694,8 @@ export function MobileQuestWorkspaceShell({
   workspace: QuestWorkspaceState
 }) {
   const navigate = useNavigate()
-  const { t } = useI18n('workspace')
+  const { language, t } = useI18n('workspace')
+  const restartTutorial = useOnboardingStore((state) => state.restartTutorial)
   const { openFileInTab } = useOpenFile()
   const tabs = useTabsStore((state) => state.tabs)
   const activeTabId = useTabsStore((state) => state.activeTabId)
@@ -700,6 +703,7 @@ export function MobileQuestWorkspaceShell({
   const [primaryTab, setPrimaryTab] = React.useState<MobilePrimaryTab>('chat')
   const [chatMode, setChatMode] = React.useState<MobileChatMode>('studio')
   const [overlay, setOverlay] = React.useState<MobileOverlay>(null)
+  const [moreMenuOpen, setMoreMenuOpen] = React.useState(false)
   const [stageSelection, setStageSelection] = React.useState<QuestStageSelection | null>(null)
   const [viewerTabId, setViewerTabId] = React.useState<string | null>(null)
   const [explorerNodes, setExplorerNodes] = React.useState<FileNode[]>([])
@@ -802,6 +806,12 @@ export function MobileQuestWorkspaceShell({
   React.useEffect(() => {
     setChatMode('studio')
   }, [projectId])
+
+  React.useEffect(() => {
+    const openMoreMenu = () => setMoreMenuOpen(true)
+    window.addEventListener('ds:mobile-quest-more-menu:open', openMoreMenu)
+    return () => window.removeEventListener('ds:mobile-quest-more-menu:open', openMoreMenu)
+  }, [])
 
   const handleQuestViewChange = React.useCallback(
     (view: QuestWorkspaceView, nextStageSelection?: QuestStageSelection | null) => {
@@ -1003,7 +1013,7 @@ export function MobileQuestWorkspaceShell({
               <Info className="h-[18px] w-[18px]" />
             </Button>
 
-            <DropdownMenu>
+            <DropdownMenu open={moreMenuOpen} onOpenChange={setMoreMenuOpen} modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
@@ -1011,12 +1021,14 @@ export function MobileQuestWorkspaceShell({
                   size="icon"
                   className="h-11 w-11 rounded-full bg-white/[0.62] text-[rgba(38,36,33,0.95)] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] hover:bg-white/[0.82] dark:bg-white/[0.06] dark:text-white dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] dark:hover:bg-white/[0.10]"
                   aria-label="More"
+                  data-onboarding-id="mobile-quest-more-menu"
                 >
                   <Ellipsis className="h-[18px] w-[18px]" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
+                data-onboarding-id="mobile-quest-more-menu-content"
                 className="w-48 rounded-[22px] border-0 bg-[rgba(255,255,255,0.88)] p-2 shadow-[0_18px_48px_-28px_rgba(23,19,13,0.32)] backdrop-blur-xl dark:bg-[rgba(22,24,28,0.92)]"
               >
                 <DropdownMenuItem className="rounded-2xl" onClick={() => setOverlay('memory')}>
@@ -1030,6 +1042,13 @@ export function MobileQuestWorkspaceShell({
                 <DropdownMenuItem className="rounded-2xl" onClick={() => setOverlay('settings')}>
                   <Settings className="mr-2 h-4 w-4" />
                   {t('quest_workspace_settings')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="rounded-2xl"
+                  onClick={() => restartTutorial(`/projects/${projectId}`, language === 'zh' ? 'zh' : 'en')}
+                >
+                  <GraduationCap className="mr-2 h-4 w-4" />
+                  {language === 'zh' ? '教程' : 'Tutorial'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1173,6 +1192,7 @@ export function MobileQuestWorkspaceShell({
                 key={item.key}
                 type="button"
                 onClick={() => setPrimaryTab(item.key as MobilePrimaryTab)}
+                data-onboarding-id={`mobile-quest-tab-${item.key}`}
                 className={cn(
                   'flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[22px] px-3 py-2 text-center transition',
                   active

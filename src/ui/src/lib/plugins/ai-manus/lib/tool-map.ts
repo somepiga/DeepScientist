@@ -237,6 +237,48 @@ function normalizeActorLabel(raw: unknown): string {
   return label.startsWith('@') ? label : `@${label}`
 }
 
+function normalizeToolFunctionName(raw: unknown): string {
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  if (!value) return ''
+  if (!value.startsWith('mcp__')) return value
+  const parts = value.split('__').filter(Boolean)
+  return parts[parts.length - 1] || value
+}
+
+function extractMcpServerName(tool: ToolEventData): string {
+  const metadata = tool.metadata ?? {}
+  const fromMetadata =
+    (typeof metadata.mcp_server === 'string' && metadata.mcp_server) ||
+    (typeof metadata.server === 'string' && metadata.server) ||
+    ''
+  if (fromMetadata.trim()) return fromMetadata.trim().toLowerCase()
+
+  const raw = (tool.function || tool.name || '').toLowerCase()
+  const parts = raw.split('__').filter(Boolean)
+  if (parts[0] === 'mcp' && parts[1]) return parts[1]
+  return ''
+}
+
+function formatPaperProviderName(server: string): string {
+  if (!server) return ''
+  if (server.includes('deepxiv')) return 'DeepXiv'
+  if (server === 'pasa' || server.includes('pasa')) return 'PASA'
+  return server
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function resolvePaperToolName(category: ToolCategory, tool: ToolEventData): string {
+  if (category !== 'paper_search' && category !== 'read_paper') {
+    return TOOL_NAME_MAP[category] ?? tool.name
+  }
+  const provider = formatPaperProviderName(extractMcpServerName(tool))
+  const base = category === 'paper_search' ? 'Paper Search' : 'Read Paper'
+  return provider ? `${provider} ${base}` : base
+}
+
 export function resolveToolActorLabel(tool: ToolEventData): string {
   const metadata = tool.metadata ?? {}
   const raw =
@@ -264,17 +306,18 @@ function extractArgValue(
 export function resolveToolCategory(tool: ToolEventData): ToolCategory {
   const toolName = (tool.name || '').toLowerCase()
   const functionName = (tool.function || '').toLowerCase()
+  const functionLeaf = normalizeToolFunctionName(tool.function)
 
   if (functionName === 'bash_exec' || toolName.includes('bash')) return 'bash'
-  if (toolName.includes('mcp') || functionName.startsWith('mcp_')) return 'mcp'
   if (toolName.includes('message')) return 'message'
   // paper_search must be checked before generic search
-  if (functionName === 'paper_search' || toolName.includes('paper_search')) {
+  if (functionLeaf === 'paper_search' || toolName.includes('paper_search')) {
     return 'paper_search'
   }
-  if (functionName === 'read_paper' || toolName.includes('read_paper')) {
+  if (functionLeaf === 'read_paper' || toolName.includes('read_paper')) {
     return 'read_paper'
   }
+  if (toolName.includes('mcp') || functionName.startsWith('mcp_')) return 'mcp'
   if (
     functionName === 'grep' ||
     functionName === 'glob' ||
@@ -321,9 +364,13 @@ export function resolveToolCategory(tool: ToolEventData): ToolCategory {
 
 export function getToolInfo(tool: ToolEventData): ToolInfo {
   const category = resolveToolCategory(tool)
-  const functionKey = (tool.function || '').toLowerCase()
+  const rawFunctionKey = (tool.function || '').toLowerCase()
+  const functionKey = normalizeToolFunctionName(tool.function)
   const functionLabel =
-    TOOL_FUNCTION_MAP[tool.function] ?? TOOL_FUNCTION_MAP[functionKey] ?? tool.function
+    TOOL_FUNCTION_MAP[tool.function] ??
+    TOOL_FUNCTION_MAP[rawFunctionKey] ??
+    TOOL_FUNCTION_MAP[functionKey] ??
+    tool.function
   const args =
     tool.args && typeof tool.args === 'object' && !Array.isArray(tool.args)
       ? (tool.args as Record<string, unknown>)
@@ -332,7 +379,7 @@ export function getToolInfo(tool: ToolEventData): ToolInfo {
     tool.content && typeof tool.content === 'object' && !Array.isArray(tool.content)
       ? (tool.content as Record<string, unknown>)
       : {}
-  const functionName = (tool.function || '').toLowerCase()
+  const functionName = rawFunctionKey
   let functionArg = ''
   if (functionName.startsWith('file_') || functionName.startsWith('ds_system_')) {
     functionArg = extractArgValue(args, ['file', 'file_path', 'path', 'filePath'])
@@ -341,10 +388,13 @@ export function getToolInfo(tool: ToolEventData): ToolInfo {
     }
   }
   if (!functionArg) {
-    const argKey = TOOL_FUNCTION_ARG_MAP[tool.function] ?? TOOL_FUNCTION_ARG_MAP[functionKey]
+    const argKey =
+      TOOL_FUNCTION_ARG_MAP[tool.function] ??
+      TOOL_FUNCTION_ARG_MAP[rawFunctionKey] ??
+      TOOL_FUNCTION_ARG_MAP[functionKey]
     functionArg = argKey ? normalizeValue(args[argKey]) : ''
   }
-  const name = TOOL_NAME_MAP[category] ?? tool.name
+  const name = resolvePaperToolName(category, tool)
   const icon = TOOL_ICON_MAP[category] ?? MessageSquare
   let view = TOOL_VIEW_MAP[category]
   if (category === 'mcp') {

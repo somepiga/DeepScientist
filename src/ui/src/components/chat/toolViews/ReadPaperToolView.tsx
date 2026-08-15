@@ -3,8 +3,15 @@
 import { AlertTriangle, BookOpen, FileText, GraduationCap } from 'lucide-react'
 import { useI18n } from '@/lib/i18n/useI18n'
 import type { ToolViewProps } from './types'
-
-type UnknownRecord = Record<string, unknown>
+import {
+  asRecord,
+  formatPaperProviderLabel,
+  normalizeArxivId,
+  pickString,
+  resolvePaperProviderServer,
+  toInt,
+  unwrapToolContent,
+} from './paper-tool-utils'
 
 interface NormalizedUsage {
   inputTokens: number
@@ -29,31 +36,6 @@ interface NormalizedReadPaperItem {
   usage: NormalizedUsage
 }
 
-function asRecord(value: unknown): UnknownRecord {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as UnknownRecord
-  }
-  return {}
-}
-
-function pickString(...values: unknown[]): string {
-  for (const value of values) {
-    if (typeof value !== 'string') continue
-    const trimmed = value.trim()
-    if (trimmed) return trimmed
-  }
-  return ''
-}
-
-function toInt(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value))
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed))
-  }
-  return 0
-}
-
 function normalizeUsage(value: unknown): NormalizedUsage {
   const usage = asRecord(value)
   const inputTokens = toInt(usage.input_tokens)
@@ -64,18 +46,27 @@ function normalizeUsage(value: unknown): NormalizedUsage {
 
 function normalizeArxiv(value: unknown, fallbackId = ''): NormalizedArxiv {
   const arxiv = asRecord(value)
-  const arxivId = pickString(arxiv.arxiv_id, fallbackId)
-  const absUrl = pickString(arxiv.abs_url, arxivId ? `https://arxiv.org/abs/${arxivId}` : '')
-  const pdfUrl = pickString(arxiv.pdf_url, arxivId ? `https://arxiv.org/pdf/${arxivId}.pdf` : '')
+  const arxivId = normalizeArxivId(pickString(arxiv.arxiv_id, arxiv.paper_id, arxiv.arxivId, fallbackId))
+  const absUrl = pickString(
+    arxiv.abs_url,
+    arxiv.absUrl,
+    arxiv.arxiv_url,
+    arxivId ? `https://arxiv.org/abs/${arxivId}` : ''
+  )
+  const pdfUrl = pickString(
+    arxiv.pdf_url,
+    arxiv.pdfUrl,
+    arxivId ? `https://arxiv.org/pdf/${arxivId}.pdf` : ''
+  )
   return { arxivId, absUrl, pdfUrl }
 }
 
 function normalizeItem(value: unknown): NormalizedReadPaperItem | null {
   const row = asRecord(value)
-  const id = pickString(row.id)
-  const question = pickString(row.question)
+  const id = pickString(row.id, row.paper_id, row.arxiv_id)
+  const question = pickString(row.question, row.query)
   const status = pickString(row.status).toLowerCase() || 'failed'
-  const answer = pickString(row.answer)
+  const answer = pickString(row.answer, row.summary, row.text, row.content)
   const error = pickString(row.error) || undefined
   const nextSteps = Array.isArray(row.next_steps)
     ? row.next_steps
@@ -101,11 +92,20 @@ export function ReadPaperToolView({ toolContent, panelMode }: ToolViewProps) {
   const { t } = useI18n('workspace')
   const showHeader = panelMode == null
   const toolRecord = asRecord(toolContent)
+  const providerLabel = formatPaperProviderLabel(resolvePaperProviderServer(toolRecord))
   const rawContent = asRecord(toolContent.content)
-  const fallbackContent = asRecord(rawContent.result)
-  const content = Object.keys(fallbackContent).length > 0 ? fallbackContent : rawContent
+  const unwrappedContent = unwrapToolContent(toolContent)
+  const content = Array.isArray(unwrappedContent) ? { results: unwrappedContent } : asRecord(unwrappedContent)
 
-  const results = (Array.isArray(content.results) ? content.results : [])
+  const resultRows =
+    Array.isArray(content.results)
+      ? content.results
+      : Array.isArray(content.items)
+        ? content.items
+        : Array.isArray(content.result)
+          ? content.result
+          : []
+  const results = resultRows
     .map(normalizeItem)
     .filter((item): item is NormalizedReadPaperItem => item != null)
 
@@ -134,7 +134,7 @@ export function ReadPaperToolView({ toolContent, panelMode }: ToolViewProps) {
         <div className="flex h-[36px] items-center border-b border-[var(--border-main)] bg-[var(--background-gray-main)] px-3 shadow-[inset_0px_1px_0px_0px_#FFFFFF]">
           <GraduationCap className="mr-2 h-4 w-4 text-[var(--text-tertiary)]" />
           <div className="flex-1 text-center text-xs font-medium text-[var(--text-tertiary)]">
-            {t('tool_read_paper_title', {}, 'Read Paper')}
+            {providerLabel ? `${providerLabel} Read Paper` : t('tool_read_paper_title', {}, 'Read Paper')}
           </div>
         </div>
       ) : null}
@@ -150,6 +150,7 @@ export function ReadPaperToolView({ toolContent, panelMode }: ToolViewProps) {
           {!isRunning ? (
             <div className="text-xs text-[var(--text-tertiary)]">
               {summary}
+              {providerLabel ? ` · ${providerLabel}` : ''}
               {usage.totalTokens > 0
                 ? ` · ${t(
                     'tool_read_paper_usage',

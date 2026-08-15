@@ -259,9 +259,10 @@ Then inspect:
 ```text
 bash_exec.bash_exec(mode="list", status="running")
 bash_exec.bash_exec(mode="read", id="<bash_id>")
+bash_exec.bash_exec(mode="await", id="<bash_id>", wait_timeout_seconds=1800)
 ```
 
-Use `kill` only when the quest truly needs to stop the session.
+If that bounded `await` returns while the session is still `running`, the process keeps going in the background. Read the saved log, judge real forward progress, and then decide whether another `1800s` wait is warranted. Use `kill` only when the quest truly needs to stop the session.
 
 ## 6. Prompt-level expectations
 
@@ -274,7 +275,42 @@ The agent should normally follow this discipline:
 5. `bash_exec` for durable shell work
 6. `memory.write(...)` only after a real durable finding appears
 
-## 7. UI expectation
+## 7. Cross-quest recall via the file system
+
+Cards are quest-scoped by default and `memory.search` is substring-only, so the durable cross-quest channel is the file system rather than the card index. This channel is available only when the runtime prompt says `cross_quest_recall_enabled: true`, which corresponds to `memory.read_visibility_mode = shared_across_quests`.
+
+When enabled, `idea` and any other stage that benefits from prior-quest context may:
+
+1. enumerate sibling quests with `bash_exec ls -t ~/DeepScientist/quests/*/brief.md`
+2. read briefs to find same-domain prior quests
+3. for any material overlap, deep-read the source quest's `~/DeepScientist/quests/<id>/paper/latex/main.tex`, especially its `Conclusion` and `Limitations / Discussion` sections — that is where prescriptive guidance for follow-up quests is recorded (the `write` checklist now requires it)
+4. read `~/DeepScientist/framework_quirks.md` if it exists for known framework-layer pitfalls before committing to a route that would touch the same surfaces
+
+When disabled, agents must not scan sibling quests or read/write global quirk files unless the user explicitly provides those files in the current task.
+
+## 8. Framework quirks
+
+`~/DeepScientist/framework_quirks.md` is a runtime-wide append-only document for framework-layer pitfalls (validator path quirks, closure-protocol gotchas, anything that cannot or will not be fixed in code and that future quests should know about before exercising the same surfaces). The file is scaffolded by `ensure_home_layout` with a usage header, but agents should use it only when cross-quest recall is enabled by the runtime prompt.
+
+Add an entry only when:
+
+- the surface cannot be fixed at the framework level, or
+- a fix is in flight but the workaround is durable enough to record while the fix lands.
+
+If a quirk should be fixed in code, file an issue and fix it; do not let the file accumulate permanent shims.
+
+## 9. System quirks
+
+`~/DeepScientist/system_quirks.md` is a runtime-wide append-only document for confirmed DeepScientist runtime or system bugs. It is separate from `framework_quirks.md`:
+
+- `framework_quirks.md` is for framework-layer pitfalls that may shape future idea, decision, or finalize behavior.
+- `system_quirks.md` is for confirmed system bugs that may help admin/debug issue reports.
+
+Each `system_quirks.md` entry should include expected behavior, actual behavior, reproduction, impact, workaround, suggested fix, evidence paths, and status. Do not store secrets, tokens, private hostnames, private paths, or raw logs. The settings Issue Report page may include this file in a GitHub issue draft only when the operator explicitly enables that option.
+
+Agents should read or append `system_quirks.md` only when the runtime prompt enables cross-quest recall. The Settings Issue Report checkbox is separate: it only controls whether the current file contents are copied into the issue draft for operator review.
+
+## 10. UI expectation
 
 In `/projects/{id}` Studio trace:
 

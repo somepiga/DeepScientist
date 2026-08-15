@@ -293,6 +293,12 @@ function ChatMessageBase({
   const rawToolFunction =
     isToolMessage && typeof toolContent.function === 'string' ? toolContent.function : ''
   const normalizedToolFunction = rawToolFunction.toLowerCase()
+  const normalizedToolFunctionLeaf = normalizedToolFunction.startsWith('mcp__')
+    ? (() => {
+        const parts = normalizedToolFunction.split('__').filter(Boolean)
+        return parts[parts.length - 1] || normalizedToolFunction
+      })()
+    : normalizedToolFunction
   const toolArgs =
     isToolMessage && toolContent.args && typeof toolContent.args === 'object' && !Array.isArray(toolContent.args)
       ? (toolContent.args as Record<string, unknown>)
@@ -305,8 +311,8 @@ function ChatMessageBase({
     isToolMessage &&
     (getMcpToolKind(rawToolFunction) === 'bash_exec' ||
       normalizedToolFunction === 'bash_exec' ||
-      normalizedToolFunction === 'paper_search' ||
-      normalizedToolFunction === 'read_paper')
+      normalizedToolFunctionLeaf === 'paper_search' ||
+      normalizedToolFunctionLeaf === 'read_paper')
   const [expanded, setExpanded] = useState(true)
   const [toolInlineOpenState, setToolInlineOpenState] = useState(shouldAutoOpenInline)
   const prefersReducedMotion = useReducedMotion()

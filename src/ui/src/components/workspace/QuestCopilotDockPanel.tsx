@@ -21,6 +21,8 @@ type QuestCopilotDockPanelProps = {
   readOnly?: boolean
   prefill?: CopilotPrefill | null
   workspace?: QuestWorkspaceState
+  transformSubmitMessage?: (message: string) => string
+  beforeFeed?: React.ReactNode
 }
 
 type QuestCopilotMode = 'chat' | 'studio'
@@ -90,6 +92,8 @@ export function QuestCopilotDockPanel({
   readOnly: _readOnly,
   prefill,
   workspace: providedWorkspace,
+  transformSubmitMessage,
+  beforeFeed = null,
 }: QuestCopilotDockPanelProps) {
   const { t } = useI18n('workspace')
   const dockCallbacks = useCopilotDockCallbacks()
@@ -125,6 +129,10 @@ export function QuestCopilotDockPanel({
   }, [dockCallbacks, mode])
 
   const parkedCopilot = React.useMemo(() => isParkedCopilotWorkspace(workspace), [workspace])
+  const waitingNotice = workspace.snapshot?.waiting_notice
+  const waitingNoticeStatus = String(waitingNotice?.status || '').trim().toLowerCase()
+  const waitingNoticeLabel = String(waitingNotice?.label || '').trim()
+  const waitingNoticeReason = String(waitingNotice?.reason || workspace.snapshot?.continuation_reason || '').trim()
   const effectiveHasLiveRun = parkedCopilot ? false : workspace.hasLiveRun
   const effectiveStreaming = parkedCopilot ? false : workspace.streaming
   const effectiveActiveToolCount = parkedCopilot ? 0 : workspace.activeToolCount
@@ -150,8 +158,23 @@ export function QuestCopilotDockPanel({
     ]
   )
 
+  const handleSubmit = React.useCallback(
+    async (message: string, attachments = []) => {
+      const nextMessage = transformSubmitMessage ? transformSubmitMessage(message) : message
+      await workspace.submit(nextMessage, attachments, { displayValue: message })
+    },
+    [transformSubmitMessage, workspace]
+  )
+
   const statusText = React.useMemo(
-    () =>
+    () => {
+      if (waitingNoticeStatus === 'waiting') {
+        return waitingNoticeLabel || t('copilot_waiting_feedback', undefined, 'Waiting for feedback')
+      }
+      if (waitingNoticeStatus === 'auto_resumed') {
+        return waitingNoticeLabel || t('copilot_auto_resumed', undefined, 'Auto-resumed')
+      }
+      return (
       resolveStatusText({
         loading: workspace.loading,
         restoring: workspace.restoring,
@@ -166,7 +189,9 @@ export function QuestCopilotDockPanel({
             ? t('copilot_trace_ready', undefined, 'Studio trace ready')
             : t('copilot_quest_status_ready'),
         t,
-      }),
+      })
+      )
+    },
     [
       stopping,
       effectiveActiveToolCount,
@@ -178,6 +203,9 @@ export function QuestCopilotDockPanel({
       workspace.loading,
       workspace.restoring,
       workspace.snapshot?.summary?.status_line,
+      waitingNoticeLabel,
+      waitingNoticeReason,
+      waitingNoticeStatus,
       t,
     ]
   )
@@ -296,7 +324,7 @@ export function QuestCopilotDockPanel({
           hasOlderHistory={workspace.hasOlderHistory}
           loadingOlderHistory={workspace.loadingOlderHistory}
           onLoadOlderHistory={workspace.loadOlderHistory}
-          onSubmit={workspace.submit}
+          onSubmit={handleSubmit}
           onReadNow={workspace.readNow}
           onWithdraw={workspace.withdraw}
           onStopRun={handleStopRun}
@@ -319,11 +347,12 @@ export function QuestCopilotDockPanel({
           hasOlderHistory={workspace.hasOlderHistory}
           loadingOlderHistory={workspace.loadingOlderHistory}
           onLoadOlderHistory={workspace.loadOlderHistory}
-          onSubmit={workspace.submit}
+          onSubmit={handleSubmit}
           onReadNow={workspace.readNow}
           onWithdraw={workspace.withdraw}
           onStopRun={handleStopRun}
           prefill={prefill}
+          beforeFeed={beforeFeed}
         />
       )}
     </div>

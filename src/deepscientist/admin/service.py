@@ -967,6 +967,28 @@ class AdminService:
             return ["- Hardware summary unavailable."]
         return lines
 
+    def _system_quirks_issue_snapshot(self) -> list[str]:
+        path = self.home / "system_quirks.md"
+        if not path.exists():
+            return ["_No system quirks file exists yet._"]
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return [f"_Unable to read system quirks: {exc}_"]
+
+        lines = [line.rstrip() for line in content.splitlines()]
+        has_entry = any(
+            line.lstrip().startswith("## ")
+            or line.lstrip().startswith("- Expected behavior:")
+            or line.lstrip().startswith("- Actual behavior:")
+            for line in lines
+        )
+        if not has_entry:
+            return ["_No system quirks have been recorded yet._"]
+        if len(lines) > 200:
+            lines = lines[:200] + ["", "_Truncated to the first 200 lines. Review and redact before submitting._"]
+        return lines
+
     def issue_draft(
         self,
         *,
@@ -974,6 +996,8 @@ class AdminService:
         user_notes: str | None = None,
         include_doctor: bool = True,
         include_logs: bool = True,
+        include_system_settings: bool = True,
+        include_system_quirks: bool = False,
     ) -> dict[str, Any]:
         error_console = self.error_console(limit=10)
         doctor_cache = self.app.admin_task_service.cached_result("doctor.json") if include_doctor else None
@@ -985,7 +1009,7 @@ class AdminService:
         runtime_failures = error_console.get("runtime_failures") or []
         daemon_errors = error_console.get("daemon_errors") or []
         failed_tasks = error_console.get("failed_tasks") or []
-        hardware = self.system_hardware(refresh=False)
+        hardware = self.system_hardware(refresh=False) if include_system_settings else None
         title = str(summary or "").strip()
         if not title:
             if runtime_failures:
@@ -1049,25 +1073,28 @@ class AdminService:
         )
         for item in recommended_actions:
             lines.append(f"- {item}")
+        if include_system_settings:
+            lines.extend(
+                [
+                    "",
+                    "## Environment",
+                    "",
+                ]
+            )
+            lines.extend(self._hardware_issue_snapshot(hardware))
+            lines.extend(
+                [
+                    "",
+                    f"- DeepScientist version: `{DEEPSCIENTIST_VERSION}`",
+                    f"- Platform: `{platform.platform()}`",
+                    f"- Python: `{sys.version.split()[0]}`",
+                    f"- Node: `{self._node_version() or 'unavailable'}`",
+                    f"- Repo: `{repo_url}`",
+                    f"- Home: `{self.home}`",
+                ]
+            )
         lines.extend(
             [
-                "",
-                "## Environment",
-                "",
-            ]
-        )
-        lines.extend(
-            self._hardware_issue_snapshot(hardware)
-        )
-        lines.extend(
-            [
-                "",
-                f"- DeepScientist version: `{DEEPSCIENTIST_VERSION}`",
-                f"- Platform: `{platform.platform()}`",
-                f"- Python: `{sys.version.split()[0]}`",
-                f"- Node: `{self._node_version() or 'unavailable'}`",
-                f"- Repo: `{repo_url}`",
-                f"- Home: `{self.home}`",
                 "",
                 "## Runtime Health",
                 "",
@@ -1075,11 +1102,24 @@ class AdminService:
                 f"- Daemon id: `{health.get('daemon_id')}`",
                 f"- Browser auth enabled: `{health.get('auth_enabled')}`",
                 f"- CLI checks: `{cli_health.get('checks')}`",
-                "",
-                "## Recent Runtime Failures",
-                "",
             ]
         )
+        if include_system_quirks:
+            lines.extend(
+                [
+                    "",
+                    "## System Quirks",
+                    "",
+                ]
+            )
+            lines.extend(self._system_quirks_issue_snapshot())
+            lines.extend(
+                [
+                    "",
+                    "_Review and redact this section before submitting a public issue._",
+                ]
+            )
+        lines.extend(["", "## Recent Runtime Failures", ""])
         if runtime_failures:
             for item in runtime_failures[:5]:
                 lines.append(

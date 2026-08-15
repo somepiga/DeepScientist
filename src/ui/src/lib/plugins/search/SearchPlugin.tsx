@@ -94,6 +94,7 @@ export default function SearchPlugin({ context, setTitle }: PluginComponentProps
 
   const nodes = useFileTreeStore((s) => s.nodes)
   const findNode = useFileTreeStore((s) => s.findNode)
+  const findNodeByPath = useFileTreeStore((s) => s.findNodeByPath)
   const storeProjectId = useFileTreeStore((s) => s.projectId)
   const isTreeLoading = useFileTreeStore((s) => s.isLoading)
   const loadFiles = useFileTreeStore((s) => s.loadFiles)
@@ -171,8 +172,7 @@ export default function SearchPlugin({ context, setTitle }: PluginComponentProps
     const trimmed = raw.trim()
     const normalized = trimmed.replace(/^\/+/, '')
     if (!normalized) return ''
-    if (/[*?\[]/.test(normalized)) return normalized
-    return `*${normalized}*`
+    return normalized
   }, [])
 
   const questSearchConfig = React.useMemo(() => {
@@ -360,17 +360,17 @@ export default function SearchPlugin({ context, setTitle }: PluginComponentProps
   const openResult = React.useCallback(
     async (item: FileSearchItem) => {
       if (!projectId) return
-      let node = findNode(item.id)
+      let node = findNode(item.id) || findNodeByPath(item.path)
       if (!node) {
-        await loadFiles(projectId)
-        node = findNode(item.id)
+        await loadFiles(projectId, { force: true })
+        node = findNode(item.id) || findNodeByPath(item.path)
       }
       if (!node) return
       if (node.type !== 'file' && node.type !== 'notebook') return
       const options = { customData: { projectId } }
       await openFileInTab(node, options)
     },
-    [findNode, loadFiles, openFileInTab, projectId]
+    [findNode, findNodeByPath, loadFiles, openFileInTab, projectId]
   )
 
   const openLabFocus = React.useCallback(

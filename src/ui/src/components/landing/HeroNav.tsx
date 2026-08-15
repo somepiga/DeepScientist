@@ -20,7 +20,7 @@ export default function HeroNav() {
         'supports-[backdrop-filter]:bg-white/40'
       )}
     >
-      <div className="mx-auto flex min-h-16 w-full max-w-[90vw] items-center justify-between gap-4 px-6">
+      <div className="mx-auto flex min-h-16 w-full max-w-[min(1180px,100vw)] items-center justify-between gap-2 px-3 sm:max-w-[90vw] sm:gap-4 sm:px-6">
         <Link
           href="/"
           className="flex items-center gap-2 rounded-full px-2 py-1 transition-colors hover:bg-black/[0.03]"
@@ -36,22 +36,22 @@ export default function HeroNav() {
             decoding="async"
             draggable={false}
           />
-          <span className="text-sm font-semibold tracking-tight text-[#2D2A26]">
+          <span className="hidden text-sm font-semibold tracking-tight text-[#2D2A26] sm:inline">
             DeepScientist
           </span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <SystemUpdateButton />
           <LocalAuthTokenButton />
           <Button
             size="sm"
-            className="h-9 rounded-full bg-[#C7AD96] text-[#2D2A26] hover:bg-[#D7C6AE]"
+            className="h-9 w-9 rounded-full bg-[#C7AD96] px-0 text-[#2D2A26] hover:bg-[#D7C6AE] sm:w-auto sm:px-3"
             asChild
           >
-            <Link href="/settings">
-              <Settings2 className="mr-2 h-4 w-4" />
-              {t('navSettings')}
+            <Link href="/settings" aria-label={t('navSettings')}>
+              <Settings2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">{t('navSettings')}</span>
             </Link>
           </Button>
         </div>

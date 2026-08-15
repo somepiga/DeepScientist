@@ -91,12 +91,30 @@ async function openAutonomousDialog(page: import('@playwright/test').Page) {
   await page.goto('/')
   await expect(page.locator('[data-onboarding-id="landing-hero"]')).toBeVisible({ timeout: 30_000 })
   await page.locator('[data-onboarding-id="landing-start-research"]').click()
-  await expect(page.locator('[data-onboarding-id="experiment-launch-dialog"]')).toBeVisible({ timeout: 30_000 })
-  await page.locator('[data-onboarding-id="launch-mode-autonomous-card"]').click()
-  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText('你想研究什么？')).toBeVisible({ timeout: 20_000 })
+  await page.getByRole('button', { name: '手动进入全自动' }).click()
+  await expect(page.locator('[data-onboarding-id="start-research-dialog"]')).toBeVisible({ timeout: 20_000 })
 }
 
 test.describe('start research required fields', () => {
+  test('opening Start Research does not auto-load the last saved draft', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'ds:start-research:v5',
+        JSON.stringify({
+          title: 'Old stale draft',
+          goal: 'Old stale goal',
+          entry_state_summary: 'Old stale path',
+          user_language: 'zh',
+        })
+      )
+    })
+    await openAutonomousDialog(page)
+    await expect(page.locator('input').first()).toHaveValue('')
+    await expect(page.locator('textarea').first()).toHaveValue('')
+    await expect(page.getByDisplayValue('Old stale draft')).toHaveCount(0)
+  })
+
   test('create remains clickable and missing required fields trigger a validation dialog plus field focus', async ({ page }) => {
     await openAutonomousDialog(page)
 

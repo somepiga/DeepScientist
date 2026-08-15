@@ -232,7 +232,7 @@ def _resolve_executable_reference(reference: str) -> str | None:
     return shutil.which(normalized)
 
 
-def _codex_repo_roots() -> list[Path]:
+def _runner_repo_roots() -> list[Path]:
     roots: list[Path] = []
     configured = str(os.environ.get("DEEPSCIENTIST_REPO_ROOT") or "").strip()
     if configured:
@@ -248,6 +248,32 @@ def _codex_repo_roots() -> list[Path]:
         seen.add(key)
         deduped.append(root)
     return deduped
+
+
+def _runner_local_bin_names(runner_name: str) -> list[str]:
+    normalized = str(runner_name or "").strip().lower()
+    base_names = {
+        "codex": ["codex"],
+        "claude": ["claude"],
+        "kimi": ["kimi"],
+        "opencode": ["opencode"],
+    }.get(normalized, [normalized] if normalized else [])
+    if not sys.platform.startswith("win"):
+        return base_names
+    names: list[str] = []
+    for base_name in base_names:
+        names.extend([f"{base_name}.cmd", f"{base_name}.exe", base_name])
+    return names
+
+
+def _resolve_package_local_runner_binary(runner_name: str) -> str | None:
+    for root in _runner_repo_roots():
+        node_bin_root = root / "node_modules" / ".bin"
+        for name in _runner_local_bin_names(runner_name):
+            package_local = node_bin_root / name
+            if package_local.exists():
+                return str(package_local)
+    return None
 
 
 def resolve_runner_binary(binary: str, *, runner_name: str | None = None) -> str | None:
@@ -272,19 +298,7 @@ def resolve_runner_binary(binary: str, *, runner_name: str | None = None) -> str
             if resolved_override:
                 return resolved_override
 
-    if normalized_runner != "codex":
-        return resolved_reference
-
-    # Match the Codex installation the user already runs successfully in shell
-    # before falling back to the npm-bundled helper copy.
     if resolved_reference:
         return resolved_reference
 
-    names = ["codex.cmd", "codex.exe", "codex"] if sys.platform.startswith("win") else ["codex"]
-    for root in _codex_repo_roots():
-        node_bin_root = root / "node_modules" / ".bin"
-        for name in names:
-            package_local = node_bin_root / name
-            if package_local.exists():
-                return str(package_local)
-    return None
+    return _resolve_package_local_runner_binary(normalized_runner)

@@ -610,6 +610,13 @@ def test_review_skill_requires_independent_audit_outputs_and_followup_routing() 
     assert "matrix exp id" in text
     assert "highlight hypotheses" in text
     assert "copy-ready replacement sentence" in text or "copy-ready replacement" in text
+    assert "Run a paper-quality literature benchmark" in text
+    assert "DeepXiv or OpenAlex" in text
+    assert "Use web search when needed" in text
+    assert "ICLR, ICML, NeurIPS" in text
+    assert "Q1 journal" in text
+    assert "high-level paper comparison matrix" in text
+    assert "writing, logic, full-paper organization" in text
 
 
 def test_decision_and_finalize_skills_require_checkpoint_style_memory_when_resume_state_changes() -> None:
@@ -671,10 +678,21 @@ def test_stage_skill_progress_contracts_match_tool_call_keepalive_policy() -> No
 def test_experiment_and_analysis_skills_require_smoke_then_detach_tail_monitoring() -> None:
     experiment_text = _skill_text("experiment")
     analysis_text = _skill_text("analysis-campaign")
+    experiment_ops_text = (
+        repo_root() / "src" / "skills" / "experiment" / "references" / "execution-playbook.md"
+    ).read_text(encoding="utf-8")
+    analysis_ops_text = (
+        repo_root() / "src" / "skills" / "analysis-campaign" / "references" / "operational-guidance.md"
+    ).read_text(encoding="utf-8")
     baseline_text = _skill_text("baseline")
+    baseline_ops_text = (
+        repo_root() / "src" / "skills" / "baseline" / "references" / "operational-guidance.md"
+    ).read_text(encoding="utf-8")
 
     for text in (experiment_text, analysis_text):
         assert "smoke test" in text
+
+    for text in (experiment_ops_text, analysis_ops_text):
         assert "bash_exec(mode='detach', ...)" in text
         assert "2000 lines or fewer" in text
         assert ("first 500 lines plus the last 1500 lines" in text) or ("first 500 lines plus last 1500 lines" in text)
@@ -687,18 +705,16 @@ def test_experiment_and_analysis_skills_require_smoke_then_detach_tail_monitorin
         assert "canonical sleep choice" in text
         assert "bash_exec(command='sleep N', mode='await', timeout_seconds=N+buffer, ...)" in text
         assert "do not set `timeout_seconds` exactly equal to `N`" in text
-        assert "prefer `bash_exec(mode='await', id=..., timeout_seconds=...)` instead of starting a new sleep command" in text
+        assert "prefer `bash_exec(mode='await', id=..., wait_timeout_seconds=1800)` instead of starting a new sleep command" in text
 
     assert "verify-local-existing" in baseline_text
-    assert "same failure class appears again" in baseline_text
     assert "acceptance target" in baseline_text
-    assert "`0-2` budget" in experiment_text
-    assert "`0-2`" in analysis_text
-    assert "`0-2` default budget" in baseline_text
-
+    assert "Run a bounded smoke or pilot only when" in experiment_text
+    assert "For meaningful long-running slices" in analysis_text
     assert "smoke test" in baseline_text
-    assert "bash_exec(mode='detach', ...)" in baseline_text
-    assert "tqdm" in experiment_text
+    assert "bash_exec(mode='detach', ...)" in baseline_ops_text
+    assert "`0-2` default budget" in baseline_ops_text
+    assert "tqdm" in experiment_ops_text
     assert "tqdm" in analysis_text
 
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import fs from 'node:fs'
-import { useApp, useInput } from 'ink'
+import { useApp } from 'ink'
 import { spawn } from 'node:child_process'
 
 import type {
@@ -12,6 +12,8 @@ import type {
   ConnectorGuideSection,
   ConnectorMenuEntry,
 } from '../components/ConfigScreen.js'
+import type { UtilityPanel } from '../components/UtilityScreen.js'
+import { useSafeInput } from '../hooks/useSafeInput.js'
 import { client } from '../lib/api.js'
 import {
   CONNECTOR_ORDER,
@@ -34,7 +36,13 @@ import { renderQrAscii } from '../lib/qr.js'
 import { buildToolOperationContent, extractToolSubject } from '../lib/toolOperations.js'
 import { DefaultAppLayout } from '../layouts/DefaultAppLayout.js'
 import type {
+  AdminTask,
+  BaselineRegistryEntry,
+  BenchStoreCatalogPayload,
+  BenchStoreEntry,
   ConfigFileEntry,
+  ConfigTestPayload,
+  ConfigValidationPayload,
   ConnectorSnapshot,
   ConnectorTargetSnapshot,
   FeedEnvelope,
@@ -42,6 +50,7 @@ import type {
   OpenDocumentPayload,
   QuestSummary,
   SessionPayload,
+  TuiDebugSnapshot,
 } from '../types.js'
 
 type QuestPanelMode = 'projects' | 'pause' | 'stop' | 'resume'
@@ -135,6 +144,802 @@ const parseSlashCommand = (text: string): { name: string; arg: string } | null =
     arg: trimmed.slice(firstSpace + 1).trim(),
   }
 }
+
+const BACKEND_SLASH_COMMANDS = new Set([
+  '/status',
+  '/summary',
+  '/metrics',
+  '/graph',
+  '/terminal',
+  '/approve',
+  '/note',
+])
+
+const firstLine = (value: unknown): string => String(value ?? '').split('\n')[0]?.trim() || ''
+
+const splitCommandTokens = (value: string): string[] => value.split(/\s+/).map((item) => item.trim()).filter(Boolean)
+
+const stripKnownFlags = (value: string, flags: string[]): string => {
+  let next = value
+  for (const flag of flags) {
+    next = next.replace(new RegExp(`(^|\\s)${flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$)`, 'g'), ' ')
+  }
+  return next.replace(/\s+/g, ' ').trim()
+}
+
+const parseLocaleFlag = (tokens: string[]): 'en' | 'zh' | undefined => {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index]
+    if (token === '--locale') {
+      const value = tokens[index + 1]?.toLowerCase()
+      if (value === 'en' || value === 'zh') return value
+    }
+    if (token.startsWith('--locale=')) {
+      const value = token.slice('--locale='.length).toLowerCase()
+      if (value === 'en' || value === 'zh') return value
+    }
+  }
+  return undefined
+}
+
+const stringifyBrief = (value: unknown, maxLength = 280): string => {
+  if (typeof value === 'string') {
+    return value.length > maxLength ? `${value.slice(0, maxLength).trimEnd()}...` : value
+  }
+  if (value == null) {
+    return ''
+  }
+  try {
+    const text = JSON.stringify(value)
+    return text.length > maxLength ? `${text.slice(0, maxLength).trimEnd()}...` : text
+  } catch {
+    return String(value)
+  }
+}
+
+const buildHelpPanel = (): UtilityPanel => ({
+  kind: 'help',
+  title: 'TUI Help',
+  subtitle: 'Local commands are handled by TUI before anything is forwarded to the daemon command endpoint.',
+  sections: [
+    {
+      title: 'Quest',
+      lines: [
+        '/new <goal>              Create and auto-start a quest. Add --no-start to create only.',
+        '/projects                Browse quests.',
+        '/use <quest_id|index>     Open a quest.',
+        '/pause|/stop|/resume [id] Control a quest.',
+        '/delete <id> --yes        Delete a quest.',
+      ],
+    },
+    {
+      title: 'Run And Workflow',
+      lines: [
+        '/run <skill> <message>    Run one skill on the active quest.',
+        '/status /summary /graph   Forwarded to the implemented quest command handlers.',
+        '/note <text>              Store a note and queue it for the active quest.',
+      ],
+    },
+    {
+      title: 'BenchStore And Ops',
+      lines: [
+        '/benchstore               List benchmark catalog entries.',
+        '/benchstore show <id>     Show benchmark detail.',
+        '/benchstore install <id>  Start the install task.',
+        '/benchstore setup <id>    Preview the setup packet.',
+        '/benchstore launch <id>   Launch a benchmark quest.',
+        '/doctor                   Start a system doctor task.',
+        '/tasks [task_id]          List or inspect system tasks.',
+      ],
+    },
+    {
+      title: 'Diagnostics',
+      lines: [
+        '/debug                    Open the local debug inspector.',
+        'Ctrl+D                    Open the debug inspector from any TUI screen.',
+        '/debug is local only and shows the current route, screen, and web analog.',
+      ],
+    },
+    {
+      title: 'Config And Baseline',
+      lines: [
+        '/config                   Open config workspace.',
+        '/config validate [name]   Validate config, runners, connectors, plugins, or mcp_servers.',
+        '/config test <name>       Run config test. Add --live for live probes.',
+        '/config deepxiv-test      Test DeepXiv using current config.',
+        '/baseline                 List archived baselines.',
+        '/baseline attach <id>     Attach a baseline to the active quest.',
+        '/baseline unbind          Clear baseline binding on the active quest.',
+      ],
+    },
+  ],
+  footer: 'Esc closes this panel. Unknown slash commands are blocked locally instead of hitting the skeleton fallback.',
+})
+
+const buildBenchCatalogPanel = (payload: BenchStoreCatalogPayload): UtilityPanel => {
+  const items = payload.items.slice(0, 30).map((entry, index) => {
+    const title = entry.name || entry.id
+    const summary = entry.one_line || entry.task_description || entry.snapshot_status || ''
+    return `${index + 1}. ${entry.id} · ${title}${summary ? ` · ${summary}` : ''}`
+  })
+  return {
+    kind: 'benchstore',
+    title: 'BenchStore',
+    subtitle: `${payload.total ?? payload.items.length} benchmark entries${payload.device_summary ? ` · ${payload.device_summary}` : ''}`,
+    lines: items.length > 0 ? items : ['No benchmark entries are available.'],
+    footer: 'Use /benchstore show <id>, /benchstore install <id>, or /benchstore launch <id>.',
+  }
+}
+
+const buildBenchEntryPanel = (entry: BenchStoreEntry): UtilityPanel => ({
+  kind: 'benchstore',
+  title: entry.name || entry.id,
+  subtitle: entry.id,
+  sections: [
+    {
+      title: 'Summary',
+      lines: [
+        entry.one_line || entry.task_description || 'No summary.',
+        `status: ${entry.snapshot_status || 'unknown'}`,
+        `support: ${entry.support_level || 'unknown'}`,
+        `cost/time/difficulty: ${[entry.cost_band, entry.time_band, entry.difficulty].filter(Boolean).join(' / ') || 'unknown'}`,
+      ],
+    },
+    {
+      title: 'Compatibility',
+      lines: [
+        stringifyBrief(entry.compatibility || entry.recommendation || 'No compatibility payload.'),
+      ],
+    },
+    {
+      title: 'Risk',
+      lines: [
+        ...(entry.risk_flags?.length ? [`flags: ${entry.risk_flags.join(', ')}`] : []),
+        ...(entry.risk_notes?.length ? entry.risk_notes : ['No risk notes.']),
+      ],
+    },
+  ],
+  footer: 'Use /benchstore setup <id>, /benchstore install <id>, or /benchstore launch <id>.',
+})
+
+const buildTaskLine = (task: AdminTask): string => {
+  const progress =
+    typeof task.progress_percent === 'number'
+      ? `${Math.round(task.progress_percent)}%`
+      : task.progress_current != null && task.progress_total
+        ? `${task.progress_current}/${task.progress_total}`
+        : ''
+  return [task.task_id, task.kind, task.status, progress, task.current_step || task.message || task.error]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+const buildTasksPanel = (tasks: AdminTask[], title = 'System Tasks'): UtilityPanel => ({
+  kind: 'tasks',
+  title,
+  subtitle: `${tasks.length} task(s)`,
+  lines: tasks.length > 0 ? tasks.map(buildTaskLine) : ['No system tasks found.'],
+  footer: 'Use /tasks <task_id> to inspect one task, or /doctor to start a doctor task.',
+})
+
+const buildTaskPanel = (task: AdminTask): UtilityPanel => ({
+  kind: 'tasks',
+  title: `Task ${task.task_id}`,
+  subtitle: `${task.kind} · ${task.status}`,
+  lines: [
+    { label: 'step', value: task.current_step || 'none', tone: 'muted' },
+    { label: 'message', value: task.message || 'none' },
+    { label: 'progress', value: buildTaskLine(task) },
+    ...(task.result_path ? [{ label: 'result', value: task.result_path, tone: 'link' as const }] : []),
+    ...(task.error ? [{ label: 'error', value: task.error, tone: 'error' as const }] : []),
+  ],
+  footer: 'Use /tasks to refresh recent tasks.',
+})
+
+const buildBaselinesPanel = (entries: BaselineRegistryEntry[]): UtilityPanel => ({
+  kind: 'baselines',
+  title: 'Baselines',
+  subtitle: `${entries.length} archived baseline(s)`,
+  lines:
+    entries.length > 0
+      ? entries.slice(0, 40).map((entry, index) => {
+          const variantCount = Array.isArray(entry.variants) ? entry.variants.length : 0
+          return `${index + 1}. ${entry.baseline_id}${entry.summary ? ` · ${entry.summary}` : ''}${variantCount ? ` · variants ${variantCount}` : ''}`
+        })
+      : ['No archived baselines are available.'],
+  footer: 'Use /baseline attach <baseline_id> [variant_id] after opening a quest.',
+})
+
+const buildConfigResultPanel = (
+  title: string,
+  name: string,
+  payload: ConfigValidationPayload | ConfigTestPayload
+): UtilityPanel => ({
+  kind: 'config',
+  title,
+  subtitle: `${name} · ${payload.ok ? 'ok' : 'failed'}`,
+  sections: [
+    {
+      title: 'Summary',
+      lines: [
+        { value: payload.summary || (payload.ok ? 'OK' : 'Failed'), tone: payload.ok ? 'success' : 'error' },
+      ],
+    },
+    {
+      title: 'Errors',
+      lines: payload.errors?.length ? payload.errors.map((value) => ({ value, tone: 'error' as const })) : ['No errors.'],
+    },
+    {
+      title: 'Warnings',
+      lines: payload.warnings?.length ? payload.warnings.map((value) => ({ value, tone: 'warning' as const })) : ['No warnings.'],
+    },
+    ...(Array.isArray((payload as ConfigTestPayload).items)
+      ? [
+          {
+            title: 'Items',
+            lines: ((payload as ConfigTestPayload).items || []).map((item) =>
+              `${item.name || 'item'} · ${item.ok === false ? 'failed' : 'ok'} · ${item.summary || firstLine(item.errors?.[0]) || 'checked'}`
+            ),
+          },
+        ]
+      : []),
+    ...((payload as ConfigTestPayload).preview
+      ? [
+          {
+            title: 'Preview',
+            lines: [String((payload as ConfigTestPayload).preview)],
+          },
+        ]
+      : []),
+  ],
+})
+
+const compactDebugText = (value: unknown, maxLength = 140): string => {
+  const text = stringifyBrief(value, maxLength)
+  const flattened = text.replace(/\r?\n+/g, ' ⏎ ').replace(/\s+/g, ' ').trim()
+  return flattened || '—'
+}
+
+const SENSITIVE_DEBUG_KEY_PATTERN = /(secret|token|api[_-]?key|auth[_-]?ak|password|credential|app[_-]?secret)/i
+
+const redactedDebugText = (reason: string, value: unknown): string => {
+  const length = String(value ?? '').length
+  return `[redacted: ${reason}; ${length} chars]`
+}
+
+const resolveDebugInputRedaction = (args: {
+  input: string
+  configMode: ConfigMode | null
+  configEditor: ConfigEditState | null
+}): string | null => {
+  if (args.configMode === 'edit') {
+    if (args.configEditor?.kind === 'connector-field') {
+      if (
+        args.configEditor.fieldKind === 'password' ||
+        SENSITIVE_DEBUG_KEY_PATTERN.test(args.configEditor.fieldKey) ||
+        SENSITIVE_DEBUG_KEY_PATTERN.test(args.configEditor.fieldLabel)
+      ) {
+        return 'connector secret field'
+      }
+      return 'connector field editor'
+    }
+    return 'config editor buffer'
+  }
+  if (SENSITIVE_DEBUG_KEY_PATTERN.test(args.input)) {
+    return 'secret-like input'
+  }
+  return null
+}
+
+const compactMaybeRedacted = (value: unknown, reason: string | null, maxLength = 140): string =>
+  reason ? redactedDebugText(reason, value) : compactDebugText(value, maxLength)
+
+const countUtilityPanelLines = (panel: UtilityPanel | null) => {
+  if (!panel) {
+    return 0
+  }
+  const sectionLines = panel.sections?.reduce((total, section) => total + section.lines.length + 1, 0) ?? 0
+  return (panel.lines?.length ?? 0) + sectionLines
+}
+
+const describeDebugSurface = (args: {
+  activeQuestId: string | null
+  browseQuestId: string | null
+  configMode: ConfigMode | null
+  configView: ConfigView | null
+  questPanelMode: QuestPanelMode | null
+  utilityPanel: UtilityPanel | null
+}) => {
+  if (args.utilityPanel) {
+    return `utility:${args.utilityPanel.kind}`
+  }
+  if (args.configMode) {
+    return `config:${args.configView || 'root'}:${args.configMode}`
+  }
+  if (args.questPanelMode) {
+    return `quest-panel:${args.questPanelMode}`
+  }
+  if (args.activeQuestId) {
+    return `quest:${args.activeQuestId}`
+  }
+  if (args.browseQuestId) {
+    return `home:browse:${args.browseQuestId}`
+  }
+  return 'home'
+}
+
+const describeDebugWebAnalog = (args: {
+  activeQuestId: string | null
+  browseQuestId: string | null
+  configMode: ConfigMode | null
+  configView: ConfigView | null
+  configPanel: ConfigPanel | null
+  questPanelMode: QuestPanelMode | null
+  utilityPanel: UtilityPanel | null
+  selectedConnectorName: ManagedConnectorName | null
+}) => {
+  if (args.utilityPanel) {
+    if (args.utilityPanel.kind === 'benchstore') {
+      return 'Web BenchStore page'
+    }
+    if (args.utilityPanel.kind === 'tasks') {
+      return 'Web admin tasks'
+    }
+    if (args.utilityPanel.kind === 'baselines') {
+      return 'Web baselines page'
+    }
+    if (args.utilityPanel.kind === 'config') {
+      return 'Web Settings > diagnostics / DeepXiv test'
+    }
+    if (args.utilityPanel.kind === 'run') {
+      return 'Web workspace run drawer'
+    }
+    if (args.utilityPanel.kind === 'status') {
+      return 'Web quest status surface'
+    }
+    if (args.utilityPanel.kind === 'debug') {
+      return 'Web Settings > diagnostics / audit'
+    }
+    return 'Web utility surface'
+  }
+
+  if (args.configMode) {
+    if (args.configView === 'root') {
+      return 'Web Settings'
+    }
+    if (args.configView === 'files') {
+      const selected =
+        args.configPanel?.kind === 'files' ? args.configPanel.items[args.configPanel.selectedIndex] ?? null : null
+      if (selected?.title === 'config.yaml' || selected?.name === 'config') {
+        return 'Web Settings > DeepXiv / runtime defaults'
+      }
+      if (selected?.title === 'connectors.yaml' || selected?.name === 'connectors') {
+        return 'Web Settings > Connectors'
+      }
+      if (selected?.scope === 'quest') {
+        return 'Web quest settings'
+      }
+      return 'Web Settings > config files'
+    }
+    if (args.configView === 'connector-list' || args.configView === 'connector-detail') {
+      if (args.selectedConnectorName === 'weixin') {
+        return 'Web Settings > Weixin connector'
+      }
+      if (args.selectedConnectorName === 'qq') {
+        return 'Web Settings > QQ connector'
+      }
+      if (args.selectedConnectorName === 'lingzhu') {
+        return 'Web Settings > Lingzhu connector'
+      }
+      return 'Web Settings > Connectors'
+    }
+    if (args.configView === 'weixin-qr') {
+      return 'Web Settings > Weixin QR login dialog'
+    }
+  }
+
+  if (args.questPanelMode) {
+    return 'Web projects / quest picker'
+  }
+
+  if (args.activeQuestId) {
+    return 'Web quest workspace'
+  }
+  if (args.browseQuestId) {
+    return 'Web home / quest picker'
+  }
+  return 'Web home'
+}
+
+const previewDebugRoute = (args: {
+  input: string
+  activeQuestId: string | null
+  configMode: ConfigMode | null
+  questPanelMode: QuestPanelMode | null
+  redactionReason?: string | null
+}) => {
+  const trimmed = args.input.trim()
+  const slash = parseSlashCommand(args.input)
+  const redactionReason = args.redactionReason || null
+  const visibleArg = (value: unknown, maxLength = 120) => compactMaybeRedacted(value, redactionReason, maxLength)
+  const parsedCommand = slash
+    ? `${slash.name}${slash.arg ? ` ${redactionReason ? '[redacted]' : slash.arg}` : ''}`
+    : trimmed
+      ? visibleArg(trimmed, 120)
+      : 'none'
+
+  if (args.configMode === 'edit') {
+    return {
+      kind: 'config-save',
+      target: 'save config draft',
+      reason: 'Enter saves the current editor buffer.',
+      command: 'editor',
+      arg: redactedDebugText(redactionReason || 'config editor buffer', args.input),
+      parsedCommand: 'editor-buffer',
+    }
+  }
+
+  if (args.configMode === 'browse' && !trimmed) {
+    return {
+      kind: 'config-select',
+      target: 'open highlighted config item',
+      reason: 'Enter opens the selected config item.',
+      command: 'browse',
+      arg: 'selection',
+      parsedCommand,
+    }
+  }
+
+  if (args.questPanelMode && !trimmed) {
+    return {
+      kind: `quest-${args.questPanelMode}`,
+      target: `confirm ${args.questPanelMode} selection`,
+      reason: 'Enter confirms the highlighted quest.',
+      command: 'quest-panel',
+      arg: args.questPanelMode,
+      parsedCommand,
+    }
+  }
+
+  if (!trimmed) {
+    return {
+      kind: 'idle',
+      target: 'no-op',
+      reason: 'Input is empty.',
+      command: 'none',
+      arg: 'empty',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/help') {
+    return {
+      kind: 'local-help',
+      target: 'help panel',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg || 'none',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/debug') {
+    return {
+      kind: 'local-debug',
+      target: 'debug inspector',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg || 'none',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/home') {
+    return {
+      kind: 'local-home',
+      target: 'home request mode',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: 'none',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/benchstore') {
+    return {
+      kind: 'local-benchstore',
+      target: slash.arg ? `benchstore ${visibleArg(slash.arg)}` : 'benchstore catalog',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'list',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/doctor') {
+    return {
+      kind: 'local-doctor',
+      target: 'system doctor task',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg || 'none',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/tasks') {
+    return {
+      kind: 'local-tasks',
+      target: slash.arg ? `task ${visibleArg(slash.arg)}` : 'task list',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'list',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/baseline') {
+    return {
+      kind: 'local-baseline',
+      target: slash.arg ? `baseline ${visibleArg(slash.arg)}` : 'baseline list',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'list',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/run') {
+    return {
+      kind: 'local-run',
+      target: 'quest run endpoint',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'usage',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/projects' || slash?.name === '/pause' || slash?.name === '/stop' || slash?.name === '/resume' || slash?.name === '/use') {
+    return {
+      kind: 'local-quest',
+      target: slash.name === '/projects' ? 'quest browser' : 'quest control',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'none',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/config') {
+    return {
+      kind: 'local-config',
+      target: slash.arg ? `config ${visibleArg(slash.arg)}` : 'config workspace',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'workspace',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/new') {
+    return {
+      kind: 'local-new',
+      target: 'create quest and auto-start',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'usage',
+      parsedCommand,
+    }
+  }
+
+  if (slash?.name === '/delete') {
+    return {
+      kind: 'local-delete',
+      target: 'delete quest',
+      reason: 'Handled locally by the TUI command registry.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'usage',
+      parsedCommand,
+    }
+  }
+
+  if (args.activeQuestId) {
+    if (trimmed.startsWith('/') && BACKEND_SLASH_COMMANDS.has(slash?.name || '')) {
+      return {
+        kind: 'backend-command',
+        target: `/api/quests/${args.activeQuestId}/commands`,
+        reason: 'Forwarded to the daemon quest command endpoint.',
+        command: slash?.name || 'command',
+        arg: slash?.arg ? visibleArg(slash.arg) : 'none',
+        parsedCommand,
+      }
+    }
+    if (trimmed.startsWith('/')) {
+      return {
+        kind: 'blocked',
+        target: 'local block',
+        reason: 'Unknown slash command is blocked before it can hit the daemon fallback.',
+        command: slash?.name || 'unknown',
+        arg: slash?.arg ? visibleArg(slash.arg) : 'none',
+        parsedCommand,
+      }
+    }
+    return {
+      kind: 'quest-chat',
+      target: `/api/quests/${args.activeQuestId}/chat`,
+      reason: 'Sent as a user message to the active quest.',
+      command: 'chat',
+      arg: visibleArg(trimmed, 120),
+      parsedCommand,
+    }
+  }
+
+  if (trimmed.startsWith('/')) {
+    if (!slash || !BACKEND_SLASH_COMMANDS.has(slash.name)) {
+      return {
+        kind: 'blocked',
+        target: 'local block',
+        reason: 'Unknown slash command is blocked before it can hit the daemon fallback.',
+        command: slash?.name || 'unknown',
+        arg: slash?.arg ? visibleArg(slash.arg) : 'none',
+        parsedCommand,
+      }
+    }
+    return {
+      kind: 'needs-quest',
+      target: 'open a quest first',
+      reason: 'Open a quest before sending quest commands.',
+      command: slash.name,
+      arg: slash.arg ? visibleArg(slash.arg) : 'none',
+      parsedCommand,
+    }
+  }
+
+  return {
+    kind: 'home-message',
+    target: 'bind or create a quest',
+    reason: 'No active quest is bound yet.',
+    command: 'chat',
+    arg: visibleArg(trimmed, 120),
+    parsedCommand,
+  }
+}
+
+const selectedDebugLabel = (panel: ConfigPanel | null): string | null => {
+  if (!panel) {
+    return null
+  }
+  if (panel.kind === 'root') {
+    return panel.items[panel.selectedIndex]?.title ?? null
+  }
+  if (panel.kind === 'files') {
+    return panel.items[panel.selectedIndex]?.title ?? null
+  }
+  if (panel.kind === 'connector-list') {
+    return panel.items[panel.selectedIndex]?.label ?? null
+  }
+  if (panel.kind === 'connector-detail') {
+    return panel.items[panel.selectedIndex]?.label ?? null
+  }
+  if (panel.kind === 'document-editor') {
+    return panel.item.title
+  }
+  if (panel.kind === 'connector-field-editor') {
+    return `${panel.connectorName} · ${panel.fieldLabel}`
+  }
+  if (panel.kind === 'weixin-qr') {
+    return panel.status || 'weixin qr'
+  }
+  return null
+}
+
+const describeDebugScreen = (args: {
+  activeQuestId: string | null
+  browseQuestId: string | null
+  configMode: ConfigMode | null
+  configView: ConfigView | null
+  configPanel: ConfigPanel | null
+  questPanelMode: QuestPanelMode | null
+  utilityPanel: UtilityPanel | null
+  inputRedacted: boolean
+  debugStripVisible: boolean
+}) => {
+  const selected = args.utilityPanel?.title || selectedDebugLabel(args.configPanel)
+  let main = 'Home quest list'
+  if (args.utilityPanel) {
+    main = `Utility panel: ${args.utilityPanel.title}`
+  } else if (args.configMode === 'edit') {
+    main = selected ? `Config editor: ${selected}` : 'Config editor'
+  } else if (args.configMode === 'browse') {
+    main = `Config browser: ${args.configView || 'root'}`
+  } else if (args.questPanelMode) {
+    main = `Quest browser: ${args.questPanelMode}`
+  } else if (args.activeQuestId) {
+    main = `Quest workspace: ${args.activeQuestId}`
+  } else if (args.browseQuestId) {
+    main = `Home quest picker: ${args.browseQuestId}`
+  }
+
+  const composer = args.utilityPanel
+    ? 'utility command input'
+    : args.configMode === 'edit'
+    ? 'config editor input'
+    : args.configMode === 'browse'
+      ? 'config navigation input disabled'
+      : args.questPanelMode
+        ? 'quest selection input disabled'
+        : args.activeQuestId
+          ? 'quest chat input'
+          : 'home command input'
+
+  return {
+    main,
+    composer,
+    selected,
+    input_visible: args.configMode !== 'browse' && !args.questPanelMode,
+    input_redacted: args.inputRedacted,
+    debug_strip_visible: args.debugStripVisible,
+  }
+}
+
+const buildDebugPanel = (snapshot: TuiDebugSnapshot): UtilityPanel => ({
+  kind: 'debug',
+  title: 'TUI Debug',
+  subtitle: `${snapshot.surface} · ${snapshot.connection_state} · ${snapshot.web_analog}`,
+  sections: [
+    {
+      title: 'Submitted Route',
+      lines: [
+        `kind: ${snapshot.route.kind}`,
+        `target: ${snapshot.route.target}`,
+        `reason: ${snapshot.route.reason}`,
+        `command: ${snapshot.route.command || 'none'}${snapshot.route.arg ? ` ${snapshot.route.arg}` : ''}`,
+      ],
+    },
+    {
+      title: 'Input',
+      lines: [
+        `raw: ${compactDebugText(snapshot.input.raw, 220)}`,
+        `parsed: ${snapshot.input.parsed}`,
+        `preview: ${snapshot.input.preview}`,
+        `redacted: ${snapshot.input.redacted ? `yes · ${snapshot.input.redaction_reason || 'policy'}` : 'no'}`,
+        `length: ${snapshot.input.length ?? snapshot.input.raw.length}`,
+      ],
+    },
+    {
+      title: 'Screen',
+      lines: [
+        `main: ${snapshot.screen.main}`,
+        `composer: ${snapshot.screen.composer}`,
+        `selected: ${snapshot.screen.selected || 'none'}`,
+        `input visible: ${snapshot.screen.input_visible ? 'yes' : 'no'}`,
+        `debug strip: ${snapshot.screen.debug_strip_visible ? 'yes' : 'no'}`,
+      ],
+    },
+    {
+      title: 'Render',
+      lines: [
+        `active quest: ${snapshot.active_quest_id || 'none'}`,
+        `browse quest: ${snapshot.browse_quest_id || 'none'}`,
+        `config view: ${snapshot.config_view || 'none'}`,
+        `quest panel: ${snapshot.quest_panel_mode || 'none'}`,
+        `utility panel: ${snapshot.utility_panel_kind || 'none'}`,
+        `counts: quests ${snapshot.counts.quests}, history ${snapshot.counts.history}, pending ${snapshot.counts.pending}, config items ${snapshot.counts.config_items}, selection ${snapshot.counts.selected_index}, suggestions ${snapshot.counts.suggestions}, utility lines ${snapshot.counts.utility_lines}`,
+      ],
+    },
+    {
+      title: 'Capture',
+      lines: [
+        `status: ${snapshot.status_line}`,
+        `session: ${snapshot.session_id || 'none'}`,
+        `log path: ${snapshot.log_path || 'disabled'}`,
+        `signature: ${snapshot.signature}`,
+      ],
+    },
+  ],
+  footer: 'Esc closes this panel. Compare the route preview and web analog before retrying the action.',
+})
 
 const getPanelQuests = (mode: QuestPanelMode, quests: QuestSummary[]): QuestSummary[] => {
   if (mode === 'pause') {
@@ -655,10 +1460,18 @@ function buildProjectUrl(baseUrl: string, questId: string | null, authToken?: st
   return target.toString()
 }
 
-export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string | null; authToken?: string | null }> = ({
+export const AppContainer: React.FC<{
+  baseUrl: string
+  initialQuestId?: string | null
+  authToken?: string | null
+  debugEnabled?: boolean
+  debugLogPath?: string | null
+}> = ({
   baseUrl,
   initialQuestId = null,
   authToken = null,
+  debugEnabled = false,
+  debugLogPath = null,
 }) => {
   const { exit } = useApp()
   const [quests, setQuests] = useState<QuestSummary[]>([])
@@ -673,6 +1486,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
   const [configEditor, setConfigEditor] = useState<ConfigEditState | null>(null)
   const [connectorsDocument, setConnectorsDocument] = useState<ConnectorsDocumentState | null>(null)
   const [selectedConnectorName, setSelectedConnectorName] = useState<ManagedConnectorName | null>(null)
+  const [utilityPanel, setUtilityPanel] = useState<UtilityPanel | null>(null)
+  const [utilityPanelOverlay, setUtilityPanelOverlay] = useState(false)
   const [weixinQrState, setWeixinQrState] = useState<{
     sessionKey: string
     status: string
@@ -698,6 +1513,7 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
   const refreshRequestRef = useRef(0)
   const streamAbortRef = useRef<AbortController | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debugSnapshotSignatureRef = useRef('')
 
   const activeQuest = useMemo(
     () => quests.find((quest) => quest.quest_id === activeQuestId) ?? null,
@@ -1036,6 +1852,9 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
             ? 'Persist the generated Lingzhu values into connectors.yaml and reload the runtime.'
             : 'Set a public base URL and a Custom agent AK first. The Web Rokid popup applies the same save gate.',
           disabled: !saveReady,
+          disabledReason: !saveReady
+            ? 'Save is disabled because Lingzhu requires a public HTTP(S) base URL and a Custom agent AK.'
+            : undefined,
         },
         {
           type: 'action',
@@ -1366,10 +2185,17 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
   const slashSuggestions = useMemo(() => {
     const slashCommands = session?.acp_session?.slash_commands ?? []
     const localCommands = [
+      { name: '/help', description: 'Show TUI command help.' },
+      { name: '/debug', description: 'Open the local TUI debug inspector.' },
       { name: '/home', description: 'Return to home request mode.' },
       { name: '/projects', description: 'Open the quest browser.' },
       { name: '/use', description: 'Bind a quest, for example `/use 001`.' },
-      { name: '/new', description: 'Create a new quest explicitly.' },
+      { name: '/new', description: 'Create and auto-start a new quest.' },
+      { name: '/run', description: 'Run a skill in the active quest.' },
+      { name: '/benchstore', description: 'List, install, setup, or launch benchmark entries.' },
+      { name: '/doctor', description: 'Start a system doctor task.' },
+      { name: '/tasks', description: 'List or inspect system tasks.' },
+      { name: '/baseline', description: 'List, attach, or clear quest baselines.' },
       { name: '/delete', description: 'Delete a quest (requires --yes).' },
       { name: '/pause', description: 'Pause a running quest.' },
       { name: '/resume', description: 'Resume a stopped quest.' },
@@ -1377,6 +2203,9 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       { name: '/status', description: 'Show the current quest status.' },
       { name: '/graph', description: 'Show the quest graph.' },
       { name: '/config', description: 'Open the local config workspace.' },
+      { name: '/config validate', description: 'Validate a config file.' },
+      { name: '/config test', description: 'Run config tests.' },
+      { name: '/config deepxiv-test', description: 'Run a DeepXiv test using current config.' },
       { name: '/config connectors', description: 'Open the connector list inside config.' },
       { name: '/config qq', description: 'Open the QQ connector setup.' },
       { name: '/config weixin', description: 'Open the Weixin connector setup.' },
@@ -1504,6 +2333,137 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     return 0
   }, [configMode, configPanel])
 
+  const debugSnapshot = useMemo<TuiDebugSnapshot>(() => {
+    const redactionReason = resolveDebugInputRedaction({
+      input,
+      configMode,
+      configEditor,
+    })
+    const routePreview = previewDebugRoute({
+      input,
+      activeQuestId,
+      configMode,
+      questPanelMode,
+      redactionReason,
+    })
+    const selectedIndex = configMode ? configIndex : questPanelMode ? questPanelIndex : 0
+    const surface = describeDebugSurface({
+      activeQuestId,
+      browseQuestId,
+      configMode,
+      configView,
+      questPanelMode,
+      utilityPanel,
+    })
+    const webAnalog = describeDebugWebAnalog({
+      activeQuestId,
+      browseQuestId,
+      configMode,
+      configView,
+      configPanel,
+      questPanelMode,
+      utilityPanel,
+      selectedConnectorName,
+    })
+    const parsedCommand = routePreview.parsedCommand || routePreview.command || 'none'
+    const route = {
+      kind: routePreview.kind,
+      target: routePreview.target,
+      reason: routePreview.reason,
+      command: routePreview.command,
+      arg: routePreview.arg,
+    }
+    const inputSnapshot = {
+      raw: redactionReason ? redactedDebugText(redactionReason, input) : input,
+      parsed: redactionReason && configMode === 'edit' ? 'editor-buffer' : parsedCommand,
+      preview: compactMaybeRedacted(input || 'empty', redactionReason, 180),
+      redacted: Boolean(redactionReason),
+      redaction_reason: redactionReason,
+      length: input.length,
+    }
+    const counts = {
+      quests: quests.length,
+      history: history.length,
+      pending: pendingHistoryItems.length,
+      config_items: configSelectionCount,
+      selected_index: selectedIndex,
+      suggestions: slashSuggestions.length,
+      utility_lines: countUtilityPanelLines(utilityPanel),
+    }
+    const screen = describeDebugScreen({
+      activeQuestId,
+      browseQuestId,
+      configMode,
+      configView,
+      configPanel,
+      questPanelMode,
+      utilityPanel,
+      inputRedacted: inputSnapshot.redacted,
+      debugStripVisible: debugEnabled || utilityPanel?.kind === 'debug',
+    })
+    const signature = JSON.stringify({
+      surface,
+      webAnalog,
+      route,
+      input: inputSnapshot,
+      screen,
+      statusLine: compactDebugText(statusLine, 120),
+      connectionState,
+      activeQuestId,
+      browseQuestId,
+      configView,
+      configMode,
+      questPanelMode,
+      utilityPanelKind: utilityPanel?.kind ?? null,
+      selectedIndex,
+      counts,
+      sessionId: session?.acp_session?.session_id ?? null,
+      logPath: debugEnabled ? debugLogPath : null,
+    })
+    return {
+      surface,
+      web_analog: webAnalog,
+      route,
+      input: inputSnapshot,
+      screen,
+      status_line: compactDebugText(statusLine, 180),
+      connection_state: connectionState,
+      active_quest_id: activeQuestId,
+      browse_quest_id: browseQuestId,
+      config_view: configView,
+      config_mode: configMode,
+      quest_panel_mode: questPanelMode,
+      utility_panel_kind: utilityPanel?.kind ?? null,
+      session_id: session?.acp_session?.session_id ?? null,
+      counts,
+      log_path: debugEnabled ? debugLogPath : null,
+      signature,
+    }
+  }, [
+    activeQuestId,
+    browseQuestId,
+    configIndex,
+    configEditor,
+    configMode,
+    configPanel,
+    configSelectionCount,
+    configView,
+    connectionState,
+    debugEnabled,
+    debugLogPath,
+    history.length,
+    input,
+    pendingHistoryItems.length,
+    questPanelIndex,
+    questPanelMode,
+    selectedConnectorName,
+    session?.acp_session?.session_id,
+    slashSuggestions.length,
+    statusLine,
+    utilityPanel,
+    quests.length,
+  ])
+
   useEffect(() => {
     activeQuestIdRef.current = activeQuestId
   }, [activeQuestId])
@@ -1520,6 +2480,32 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     pendingHistoryItemsRef.current = pendingHistoryItems
   }, [pendingHistoryItems])
 
+  useEffect(() => {
+    if (!debugEnabled) {
+      debugSnapshotSignatureRef.current = ''
+      return
+    }
+    if (debugSnapshot.signature === debugSnapshotSignatureRef.current) {
+      return
+    }
+    debugSnapshotSignatureRef.current = debugSnapshot.signature
+    if (!debugLogPath) {
+      return
+    }
+    try {
+      fs.appendFileSync(
+        debugLogPath,
+        `${JSON.stringify({
+          recorded_at: new Date().toISOString(),
+          ...debugSnapshot,
+        })}\n`,
+        'utf8'
+      )
+    } catch {
+      // Debug logging should never break the TUI flow.
+    }
+  }, [debugEnabled, debugLogPath, debugSnapshot])
+
   const enterQuest = useCallback((questId: string | null) => {
     activeQuestIdRef.current = questId
     setActiveQuestId(questId)
@@ -1535,6 +2521,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     setConfigIndex(0)
     setConnectorsDocument(null)
     setSelectedConnectorName(null)
+    setUtilityPanel(null)
+    setUtilityPanelOverlay(false)
     setWeixinQrState(null)
     setQuestPanelMode(null)
     historyRef.current = []
@@ -1558,6 +2546,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     setConfigIndex(0)
     setConnectorsDocument(null)
     setSelectedConnectorName(null)
+    setUtilityPanel(null)
+    setUtilityPanelOverlay(false)
     setWeixinQrState(null)
     setQuestPanelMode(null)
     setSession(null)
@@ -1685,6 +2675,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       setConfigEditor(null)
       setConnectorsDocument(null)
       setSelectedConnectorName(null)
+      setUtilityPanel(null)
+      setUtilityPanelOverlay(false)
       setWeixinQrState(null)
       const candidates = getPanelQuests(mode, quests)
       setQuestPanelMode(mode)
@@ -1727,12 +2719,69 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     setConfigIndex(0)
     setConnectorsDocument(null)
     setSelectedConnectorName(null)
+    setUtilityPanel(null)
+    setUtilityPanelOverlay(false)
     setWeixinQrState(null)
     setInput('')
     if (nextStatus) {
       setStatusLine(nextStatus)
     }
   }, [])
+
+  const showUtilityPanel = useCallback((panel: UtilityPanel, nextStatus?: string, options?: { preserveContext?: boolean }) => {
+    const preserveContext = Boolean(options?.preserveContext)
+    setUtilityPanelOverlay(preserveContext)
+    if (!preserveContext) {
+      setConfigView(null)
+      setConfigEditor(null)
+      setConfigItems([])
+      setConfigSectionTitle('Config')
+      setConfigSectionDescription('')
+      setConfigIndex(0)
+      setConnectorsDocument(null)
+      setSelectedConnectorName(null)
+      setWeixinQrState(null)
+      setQuestPanelMode(null)
+      setInput('')
+    }
+    setUtilityPanel(panel)
+    setStatusLine(nextStatus || panel.subtitle || panel.title)
+  }, [])
+
+  const closeUtilityPanel = useCallback((nextStatus = 'Panel closed.') => {
+    setUtilityPanel(null)
+    if (!utilityPanelOverlay) {
+      setInput('')
+    }
+    setUtilityPanelOverlay(false)
+    setStatusLine(nextStatus)
+  }, [utilityPanelOverlay])
+
+  const validateConfigBeforeSave = useCallback(
+    async (name: string, input: { content?: string; structured?: Record<string, unknown> }) => {
+      try {
+        const validation = await client.validateConfig(baseUrl, name, input)
+        if (!validation.ok) {
+          showUtilityPanel(
+            buildConfigResultPanel('Config Validation Failed', name, validation),
+            firstLine(validation.errors?.[0]) || validation.summary || 'Config validation failed.'
+          )
+          return false
+        }
+        if (validation.warnings?.length) {
+          setStatusLine(`Config validation warning · ${validation.warnings[0]}`)
+        }
+        return true
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (!message.includes('404')) {
+          setStatusLine(`Config validation unavailable before save · ${firstLine(message)}`)
+        }
+        return true
+      }
+    },
+    [baseUrl, showUtilityPanel]
+  )
 
   const loadConnectorsDocument = useCallback(async (): Promise<ConnectorsDocumentState> => {
     const payload = await client.configDocument(baseUrl, 'connectors')
@@ -1800,6 +2849,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         }
         setQuestPanelMode(null)
         setConfigView('files')
+        setUtilityPanel(null)
+        setUtilityPanelOverlay(false)
         setConfigEditor({
           kind: 'document',
           item,
@@ -1824,6 +2875,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
             : buildQuestConfigItems(selectedQuestForConfig?.quest_id ?? null, selectedQuestForConfig?.quest_root)
         setQuestPanelMode(null)
         setConfigView('files')
+        setUtilityPanel(null)
+        setUtilityPanelOverlay(false)
         setConfigItems(nextItems)
         setConfigSectionTitle(scope === 'global' ? 'Global Config Files' : 'Current Quest Files')
         setConfigSectionDescription(
@@ -1857,6 +2910,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
   const openConfigRoot = useCallback((nextStatus = 'Config · choose a section with arrows and Enter.') => {
     setQuestPanelMode(null)
     setConfigView('root')
+    setUtilityPanel(null)
+    setUtilityPanelOverlay(false)
     setConfigEditor(null)
     setConfigItems([])
     setConfigSectionTitle('Config')
@@ -1880,6 +2935,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         const browseNames = names.length > 0 ? names : CONNECTOR_ORDER
         setQuestPanelMode(null)
         setConfigView('connector-list')
+        setUtilityPanel(null)
+        setUtilityPanelOverlay(false)
         setConfigEditor(null)
         setConnectorsDocument(document)
         setSelectedConnectorName(null)
@@ -1973,6 +3030,8 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         setConnectorsDocument(currentDocument)
         setSelectedConnectorName(connectorName)
         setConfigView('connector-detail')
+        setUtilityPanel(null)
+        setUtilityPanelOverlay(false)
         setConfigEditor(null)
         setWeixinQrState(null)
         setConfigIndex(0)
@@ -2004,6 +3063,10 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         merged[selectedConnectorName] = cloneStructured(asRecord(connectorsDocument.structured[selectedConnectorName]))
         return merged
       })()
+      const valid = await validateConfigBeforeSave('connectors', { structured: structuredToSave })
+      if (!valid) {
+        return
+      }
       const payload = await client.saveStructuredConfig(
         baseUrl,
         'connectors',
@@ -2021,7 +3084,7 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     } catch (error) {
       setStatusLine(error instanceof Error ? error.message : String(error))
     }
-  }, [baseUrl, connectorsDocument, loadConnectorsDocument, refresh, selectedConnectorName])
+  }, [baseUrl, connectorsDocument, loadConnectorsDocument, refresh, selectedConnectorName, validateConfigBeforeSave])
 
   const saveConfigEditor = useCallback(
     async (content: string) => {
@@ -2037,6 +3100,10 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
           return
         }
         if (configEditor.item.scope === 'global' && configEditor.item.configName) {
+          const valid = await validateConfigBeforeSave(configEditor.item.configName, { content })
+          if (!valid) {
+            return
+          }
           const payload = await client.saveConfig(
             baseUrl,
             configEditor.item.configName,
@@ -2068,13 +3135,13 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         setInput('')
         setConfigEditor(null)
         setConfigView('files')
-        setStatusLine(`Saved ${configEditor.item.title}`)
         await refresh(true, activeQuestId)
+        setStatusLine(`Saved ${configEditor.item.title}`)
       } catch (error) {
         setStatusLine(error instanceof Error ? error.message : String(error))
       }
     },
-    [activeQuestId, baseUrl, configEditor, refresh, selectedQuestForConfig, updateConnectorDraft]
+    [activeQuestId, baseUrl, configEditor, refresh, selectedQuestForConfig, updateConnectorDraft, validateConfigBeforeSave]
   )
 
   const openConnectorFieldEditor = useCallback(
@@ -2247,9 +3314,11 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         return
       }
       if (selected.type === 'action') {
-        if (!selected.disabled) {
-          await handleConnectorAction(selected.id)
+        if (selected.disabled) {
+          setStatusLine(selected.disabledReason || selected.description || `${selected.label} is not available.`)
+          return
         }
+        await handleConnectorAction(selected.id)
         return
       }
       if (selected.type === 'field') {
@@ -2309,6 +3378,273 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     setStatusLine(String(payload.message ?? `Quest ${selected.quest_id} ${fallbackVerb}.`))
     await focusQuest(selected.quest_id)
   }, [baseUrl, closeQuestPanel, focusQuest, panelQuests, questPanelIndex, questPanelMode])
+
+  const handleConfigSlashCommand = useCallback(
+    async (arg: string): Promise<boolean> => {
+      const tokens = splitCommandTokens(arg)
+      const action = tokens[0]?.toLowerCase() || ''
+      if (!['validate', 'test', 'deepxiv-test', 'deepxiv'].includes(action)) {
+        return false
+      }
+      if (action === 'deepxiv' && tokens[1]?.toLowerCase() !== 'test') {
+        return false
+      }
+      if (action === 'deepxiv-test' || action === 'deepxiv') {
+        const document = await client.configDocument(baseUrl, 'config')
+        const structured = asRecord(document.meta?.structured_config)
+        const payload = await client.deepxivTest(baseUrl, structured)
+        showUtilityPanel(
+          buildConfigResultPanel('DeepXiv Test', 'config.literature.deepxiv', payload),
+          payload.summary || (payload.ok ? 'DeepXiv test completed.' : 'DeepXiv test failed.')
+        )
+        return true
+      }
+      const name = tokens.find((token, index) => index > 0 && !token.startsWith('--')) || 'config'
+      const document = await client.configDocument(baseUrl, name)
+      const structured = asRecord(document.meta?.structured_config)
+      const input = Object.keys(structured).length > 0 ? { structured } : { content: document.content }
+      if (action === 'validate') {
+        const payload = await client.validateConfig(baseUrl, name, input)
+        showUtilityPanel(
+          buildConfigResultPanel('Config Validation', name, payload),
+          payload.summary || (payload.ok ? `${name} validation passed.` : `${name} validation failed.`)
+        )
+        return true
+      }
+      const payload = await client.testConfig(baseUrl, name, {
+        ...input,
+        live: tokens.includes('--live'),
+      })
+      showUtilityPanel(
+        buildConfigResultPanel('Config Test', name, payload),
+        payload.summary || (payload.ok ? `${name} test passed.` : `${name} test failed.`)
+      )
+      return true
+    },
+    [baseUrl, showUtilityPanel]
+  )
+
+  const handleBenchstoreCommand = useCallback(
+    async (arg: string) => {
+      const tokens = splitCommandTokens(arg)
+      const action = tokens[0]?.toLowerCase() || 'list'
+      const locale = parseLocaleFlag(tokens)
+      if (action === 'list' || action === 'ls') {
+        const payload = await client.benchstoreEntries(baseUrl, locale)
+        showUtilityPanel(buildBenchCatalogPanel(payload), 'BenchStore catalog loaded.')
+        return
+      }
+      if (action === 'show' || action === 'detail') {
+        const entryId = tokens[1]
+        if (!entryId) {
+          setStatusLine('Usage · /benchstore show <entry_id>')
+          return
+        }
+        const payload = await client.benchstoreEntry(baseUrl, entryId, locale)
+        showUtilityPanel(buildBenchEntryPanel(payload.entry), `BenchStore · ${entryId}`)
+        return
+      }
+      if (action === 'setup') {
+        const entryId = tokens[1]
+        if (!entryId) {
+          setStatusLine('Usage · /benchstore setup <entry_id>')
+          return
+        }
+        const payload = await client.benchstoreSetupPacket(baseUrl, entryId, locale)
+        const packet = payload.setup_packet
+        showUtilityPanel(
+          {
+            kind: 'benchstore',
+            title: `BenchStore Setup · ${entryId}`,
+            subtitle: packet.project_title || packet.assistant_label || undefined,
+            sections: [
+              {
+                title: 'Launch',
+                lines: [
+                  `goal: ${packet.launch_payload?.goal || packet.benchmark_goal || 'missing'}`,
+                  `initial_message: ${stringifyBrief(packet.launch_payload?.initial_message || packet.startup_instruction || '')}`,
+                  `device_fit: ${packet.device_fit || 'unknown'}`,
+                ],
+              },
+              {
+                title: 'Paths',
+                lines: [
+                  `benchmark: ${packet.benchmark_local_path || 'not installed'}`,
+                  `datasets: ${(packet.local_dataset_paths || []).join(', ') || 'none'}`,
+                ],
+              },
+              {
+                title: 'Suggested Form',
+                lines: [stringifyBrief(packet.suggested_form || {}, 800)],
+              },
+            ],
+            footer: 'Use /benchstore launch <id> to create and start the benchmark quest.',
+          },
+          `BenchStore setup packet loaded for ${entryId}.`
+        )
+        return
+      }
+      if (action === 'install') {
+        const entryId = tokens[1]
+        if (!entryId) {
+          setStatusLine('Usage · /benchstore install <entry_id>')
+          return
+        }
+        const payload = await client.installBenchstoreEntry(baseUrl, entryId)
+        showUtilityPanel(buildTaskPanel(payload.task), `BenchStore install task started · ${payload.task.task_id}`)
+        return
+      }
+      if (action === 'launch' || action === 'run') {
+        const entryId = tokens[1]
+        if (!entryId) {
+          setStatusLine('Usage · /benchstore launch <entry_id>')
+          return
+        }
+        const payload = await client.launchBenchstoreEntry(baseUrl, entryId, locale)
+        setStatusLine(`BenchStore launched ${payload.snapshot.quest_id}.`)
+        await focusQuest(payload.snapshot.quest_id)
+        return
+      }
+      const payload = await client.benchstoreEntries(baseUrl, locale)
+      showUtilityPanel(buildBenchCatalogPanel(payload), `Unknown BenchStore action · ${action}`)
+    },
+    [baseUrl, focusQuest, showUtilityPanel]
+  )
+
+  const handleTasksCommand = useCallback(
+    async (arg: string) => {
+      const token = splitCommandTokens(arg)[0]
+      if (token) {
+        const payload = await client.systemTask(baseUrl, token)
+        showUtilityPanel(buildTaskPanel(payload.task), `Task ${payload.task.task_id}`)
+        return
+      }
+      const payload = await client.systemTasks(baseUrl, undefined, 50)
+      showUtilityPanel(buildTasksPanel(payload.items), 'System tasks loaded.')
+    },
+    [baseUrl, showUtilityPanel]
+  )
+
+  const handleDoctorCommand = useCallback(async () => {
+    const payload = await client.startDoctorTask(baseUrl)
+    showUtilityPanel(buildTaskPanel(payload.task), `Doctor task started · ${payload.task.task_id}`)
+  }, [baseUrl, showUtilityPanel])
+
+  const handleBaselineCommand = useCallback(
+    async (arg: string) => {
+      const tokens = splitCommandTokens(arg)
+      const action = tokens[0]?.toLowerCase() || 'list'
+      if (action === 'list' || action === 'ls') {
+        const entries = await client.baselines(baseUrl)
+        showUtilityPanel(buildBaselinesPanel(entries), 'Baselines loaded.')
+        return
+      }
+      if (action === 'attach' || action === 'bind') {
+        if (!activeQuestId) {
+          setStatusLine('Open a quest first, then run /baseline attach <baseline_id> [variant_id].')
+          return
+        }
+        const baselineId = tokens[1]
+        if (!baselineId) {
+          setStatusLine('Usage · /baseline attach <baseline_id> [variant_id]')
+          return
+        }
+        const payload = await client.attachBaseline(baseUrl, activeQuestId, baselineId, tokens[2] || null)
+        setStatusLine(String(payload.message || `Baseline ${baselineId} attached to ${activeQuestId}.`))
+        await refresh(true, activeQuestId)
+        return
+      }
+      if (action === 'unbind' || action === 'clear') {
+        if (!activeQuestId) {
+          setStatusLine('Open a quest first, then run /baseline unbind.')
+          return
+        }
+        const payload = await client.unbindBaseline(baseUrl, activeQuestId)
+        setStatusLine(String(payload.message || `Baseline binding cleared for ${activeQuestId}.`))
+        await refresh(true, activeQuestId)
+        return
+      }
+      setStatusLine('Usage · /baseline [list] | /baseline attach <baseline_id> [variant_id] | /baseline unbind')
+    },
+    [activeQuestId, baseUrl, refresh, showUtilityPanel]
+  )
+
+  const handleRunCommand = useCallback(
+    async (arg: string) => {
+      if (!activeQuestId) {
+        setStatusLine('Open a quest first, then run /run <skill> <message>.')
+        return
+      }
+      const tokens = splitCommandTokens(arg)
+      const skillId = tokens[0]
+      if (!skillId) {
+        setStatusLine('Usage · /run <skill_id> <message> [--runner <runner>] [--model <model>] [--effort <level>]')
+        return
+      }
+      let runner: string | undefined
+      let model: string | undefined
+      let effort: string | undefined
+      const messageParts: string[] = []
+      for (let index = 1; index < tokens.length; index += 1) {
+        const token = tokens[index]
+        if (token === '--runner') {
+          runner = tokens[index + 1]
+          index += 1
+          continue
+        }
+        if (token.startsWith('--runner=')) {
+          runner = token.slice('--runner='.length)
+          continue
+        }
+        if (token === '--model') {
+          model = tokens[index + 1]
+          index += 1
+          continue
+        }
+        if (token.startsWith('--model=')) {
+          model = token.slice('--model='.length)
+          continue
+        }
+        if (token === '--effort') {
+          effort = tokens[index + 1]
+          index += 1
+          continue
+        }
+        if (token.startsWith('--effort=')) {
+          effort = token.slice('--effort='.length)
+          continue
+        }
+        messageParts.push(token)
+      }
+      const message = messageParts.join(' ').trim()
+      const payload = await client.runSkill(baseUrl, activeQuestId, {
+        skill_id: skillId,
+        message,
+        runner,
+        model,
+        model_reasoning_effort: effort,
+        turn_reason: 'tui_run_command',
+      })
+      showUtilityPanel(
+        {
+          kind: 'run',
+          title: `Run · ${skillId}`,
+          subtitle: `${String(payload.runner || 'runner')} · ${String(payload.ok) === 'false' ? 'failed' : 'completed'}`,
+          lines: [
+            { label: 'quest', value: activeQuestId },
+            { label: 'run_id', value: String(payload.run_id || 'unknown') },
+            { label: 'model', value: String(payload.model || model || 'default') },
+            ...(payload.output_text ? [{ label: 'output', value: stringifyBrief(payload.output_text, 900) }] : []),
+            ...(payload.stderr_text ? [{ label: 'stderr', value: stringifyBrief(payload.stderr_text, 500), tone: 'warning' as const }] : []),
+          ],
+          footer: 'The quest feed is refreshed after the run completes.',
+        },
+        `Run ${String(payload.run_id || skillId)} finished.`
+      )
+      await refresh(false, activeQuestId, { eventMode: 'recent' })
+    },
+    [activeQuestId, baseUrl, refresh, showUtilityPanel]
+  )
 
   const cycleQuest = useCallback(
     (direction: 1 | -1) => {
@@ -2557,10 +3893,38 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       setInput('')
       try {
         const slash = parseSlashCommand(text)
+        if (slash?.name === '/help') {
+          showUtilityPanel(buildHelpPanel(), 'TUI help.')
+          return
+        }
+        if (slash?.name === '/debug') {
+          showUtilityPanel(buildDebugPanel(debugSnapshot), 'TUI debug inspector.')
+          return
+        }
         if (text === '/home') {
           closeQuestPanel()
           leaveQuest()
           setStatusLine('Home · request mode · quest unbound.')
+          return
+        }
+        if (slash?.name === '/benchstore') {
+          await handleBenchstoreCommand(slash.arg)
+          return
+        }
+        if (slash?.name === '/doctor') {
+          await handleDoctorCommand()
+          return
+        }
+        if (slash?.name === '/tasks') {
+          await handleTasksCommand(slash.arg)
+          return
+        }
+        if (slash?.name === '/baseline') {
+          await handleBaselineCommand(slash.arg)
+          return
+        }
+        if (slash?.name === '/run') {
+          await handleRunCommand(slash.arg)
           return
         }
         if (slash?.name === '/projects') {
@@ -2642,6 +4006,9 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         }
         if (slash?.name === '/config') {
           const arg = String(slash.arg || '').trim()
+          if (await handleConfigSlashCommand(arg)) {
+            return
+          }
           if (!arg) {
             openConfigRoot()
             return
@@ -2685,8 +4052,20 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
             setStatusLine('Usage · /new <goal>')
             return
           }
-          const payload = await client.createQuest(baseUrl, slash.arg)
-          setStatusLine(`Created ${payload.snapshot.quest_id}`)
+          const createOnly =
+            /(^|\s)(--no-start|--create-only)(?=\s|$)/.test(slash.arg)
+          const goal = stripKnownFlags(slash.arg, ['--no-start', '--create-only'])
+          if (!goal) {
+            setStatusLine('Usage · /new <goal> [--no-start]')
+            return
+          }
+          const payload = await client.createQuestWithOptions(baseUrl, {
+            goal,
+            source: 'tui-ink',
+            auto_start: !createOnly,
+            initial_message: goal,
+          })
+          setStatusLine(createOnly ? `Created ${payload.snapshot.quest_id}` : `Created and started ${payload.snapshot.quest_id}`)
           await focusQuest(payload.snapshot.quest_id)
           return
         }
@@ -2727,7 +4106,22 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
 
         if (!activeQuestId) {
           if (text.startsWith('/')) {
-            setStatusLine('Home mode · use `/projects`, `/use <quest_id>`, or `/new <goal>` first.')
+            if (!slash || !BACKEND_SLASH_COMMANDS.has(slash.name)) {
+              showUtilityPanel(
+                {
+                  kind: 'help',
+                  title: 'Unknown TUI Command',
+                  subtitle: `${slash?.name || text} is not implemented by the TUI command registry.`,
+                  lines: [
+                    'This command was blocked locally instead of being forwarded to the daemon skeleton fallback.',
+                    'Use /help to see supported local commands.',
+                  ],
+                },
+                `Unknown command · ${slash?.name || text}`
+              )
+              return
+            }
+            setStatusLine('Open a quest first, then use that quest command.')
             return
           }
           if (quests.length === 0) {
@@ -2739,6 +4133,21 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         }
 
         if (text.startsWith('/')) {
+          if (!slash || !BACKEND_SLASH_COMMANDS.has(slash.name)) {
+            showUtilityPanel(
+              {
+                kind: 'help',
+                title: 'Unknown TUI Command',
+                subtitle: `${slash?.name || text} is not implemented by the TUI command registry.`,
+                lines: [
+                  'This command was blocked locally instead of being forwarded to the daemon skeleton fallback.',
+                  'Use /help to see supported local commands.',
+                ],
+              },
+              `Unknown command · ${slash?.name || text}`
+            )
+            return
+          }
           const payload = await client.sendCommand(baseUrl, activeQuestId, text)
           const messageRecord = (payload.message_record ?? null) as Record<string, unknown> | null
           const commandItems: FeedItem[] = [
@@ -2832,10 +4241,17 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       configEditor,
       configIndex,
       configMode,
+      debugSnapshot,
       closeQuestPanel,
       focusQuest,
+      handleBaselineCommand,
+      handleBenchstoreCommand,
       handleConfigBrowseSelection,
+      handleConfigSlashCommand,
+      handleDoctorCommand,
       handleQuestPanelSelection,
+      handleRunCommand,
+      handleTasksCommand,
       input,
       leaveQuest,
       openConfigFiles,
@@ -2848,6 +4264,7 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       refresh,
       replyTargetId,
       saveConfigEditor,
+      showUtilityPanel,
     ]
   )
 
@@ -2878,7 +4295,7 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     }
   }, [closeConfigScreen, configView, openConfigRoot])
 
-  useInput((value, key) => {
+  useSafeInput((value, key) => {
     const canBrowseSelection = configMode === 'browse' || Boolean(questPanelMode)
     const canBrowseHomeQuests = !activeQuestId && input.length === 0
     const submitRequested = key.return || value === '\r' || value === '\n'
@@ -2899,7 +4316,15 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       openConfigRoot()
       return
     }
+    if (key.ctrl && value.toLowerCase() === 'd') {
+      showUtilityPanel(buildDebugPanel(debugSnapshot), 'TUI debug inspector.', { preserveContext: true })
+      return
+    }
     if (key.ctrl && value.toLowerCase() === 'b') {
+      if (utilityPanel) {
+        closeUtilityPanel()
+        return
+      }
       if (configMode) {
         closeConfigScreen()
         return
@@ -2909,6 +4334,10 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       return
     }
     if (key.escape) {
+      if (utilityPanel) {
+        closeUtilityPanel()
+        return
+      }
       if (configMode === 'edit') {
         setConfigEditor(null)
         setInput('')
@@ -2942,24 +4371,29 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
     }
   })
 
+  const utilityOverlayActive = Boolean(utilityPanel && utilityPanelOverlay)
+  const composerInput = utilityOverlayActive ? '' : input
+
   return (
     <DefaultAppLayout
       baseUrl={baseUrl}
       quests={quests}
       activeQuestId={activeQuestId}
       browseQuestId={browseQuestId}
-      configMode={configMode}
+      configMode={utilityOverlayActive ? null : configMode}
       configPanel={configPanel}
+      utilityPanel={utilityPanel}
       snapshot={activeQuest}
       session={session}
       connectors={connectors}
       history={history}
       pendingHistoryItems={pendingHistoryItems}
-      input={input}
+      input={composerInput}
       connectionState={connectionState}
       statusLine={statusLine}
+      debugSnapshot={debugEnabled || utilityPanel?.kind === 'debug' ? debugSnapshot : null}
       suggestions={slashSuggestions}
-      questPanelMode={questPanelMode}
+      questPanelMode={utilityOverlayActive ? null : questPanelMode}
       questPanelQuests={panelQuests}
       questPanelIndex={questPanelIndex}
       onQuestPanelMove={(direction) => {
@@ -2971,8 +4405,11 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
       onQuestPanelCancel={() => {
         closeQuestPanel('Quest browser closed.')
       }}
-      onChange={setInput}
+      onChange={utilityOverlayActive ? () => {} : setInput}
       onSubmit={(override) => {
+        if (utilityOverlayActive) {
+          return
+        }
         const submitted = override ?? input
         if (configMode === 'browse' && !String(submitted).trim()) {
           void handleConfigBrowseSelection()
@@ -2989,6 +4426,10 @@ export const AppContainer: React.FC<{ baseUrl: string; initialQuestId?: string |
         void submit(override)
       }}
       onCancel={() => {
+        if (utilityPanel) {
+          closeUtilityPanel()
+          return
+        }
         if (configMode === 'edit') {
           setConfigEditor(null)
           setInput('')

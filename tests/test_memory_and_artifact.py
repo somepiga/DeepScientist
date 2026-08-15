@@ -22,6 +22,26 @@ from deepscientist.shared import ensure_dir, read_json, read_jsonl, read_yaml, w
 from deepscientist.skills import SkillInstaller
 
 
+def _assert_artifact_delta(
+    delta: dict[str, Any],
+    *,
+    delta_kind: str,
+    expected_labels: set[str],
+) -> dict[str, Any]:
+    assert delta["schema_version"] == 1
+    assert delta["delta_kind"] == delta_kind
+    assert delta["path_count"] >= len(expected_labels)
+    assert delta["sidecar_rel_path"].startswith("paper/artifact_deltas/")
+    sidecar = read_json(Path(delta["sidecar_path"]), {})
+    assert sidecar["schema_version"] == 1
+    assert sidecar["delta_id"] == delta["delta_id"]
+    assert sidecar["delta_kind"] == delta_kind
+    by_label = {item["label"]: item for item in sidecar["paths"]}
+    assert expected_labels.issubset(by_label)
+    assert all(by_label[label]["exists"] is True for label in expected_labels)
+    return sidecar
+
+
 def _detailed_metric_contract(
     metric_ids: list[str],
     *,
@@ -423,6 +443,19 @@ def test_apply_start_setup_form_patch_persists_and_merges_suggested_form(temp_ho
             "goal": "Run the benchmark faithfully.",
             "runtime_constraints": "- Use only GPU 0 after confirmation",
         },
+        session_patch={
+            "recommended_workspace_mode": "copilot",
+            "launch_readiness": "needs_confirmation",
+            "missing_confirmations": ["Confirm whether external API keys may be used."],
+            "fit_assessment": {
+                "verdict": "copilot_recommended",
+                "summary": "The task still needs repeated human guidance before autonomous launch is safe.",
+            },
+            "science_package_cards": ["science/references/packages/pyscf.md"],
+            "preview_plan": {
+                "summary": "If launched, the system would first normalize the baseline, then evaluate whether a durable optimization loop is actually possible.",
+            },
+        },
         message="Prepared a merged setup draft.",
     )
 
@@ -431,6 +464,7 @@ def test_apply_start_setup_form_patch_persists_and_merges_suggested_form(temp_ho
     assert result["suggested_form"]["title"] == "Original setup title"
     assert result["suggested_form"]["goal"] == "Run the benchmark faithfully."
     assert result["suggested_form"]["runtime_constraints"] == "- Use only GPU 0 after confirmation"
+    assert result["session_patch"]["recommended_workspace_mode"] == "copilot"
 
     persisted = quest_service.read_quest_yaml(quest_root)
     startup_contract = persisted.get("startup_contract") if isinstance(persisted.get("startup_contract"), dict) else {}
@@ -443,6 +477,47 @@ def test_apply_start_setup_form_patch_persists_and_merges_suggested_form(temp_ho
     assert suggested_form["title"] == "Original setup title"
     assert suggested_form["goal"] == "Run the benchmark faithfully."
     assert suggested_form["runtime_constraints"] == "- Use only GPU 0 after confirmation"
+    assert start_setup_session["recommended_workspace_mode"] == "copilot"
+    assert start_setup_session["launch_readiness"] == "needs_confirmation"
+    assert start_setup_session["missing_confirmations"] == ["Confirm whether external API keys may be used."]
+    assert start_setup_session["fit_assessment"]["verdict"] == "copilot_recommended"
+    assert start_setup_session["science_package_cards"] == ["science/references/packages/pyscf.md"]
+    assert "normalize the baseline" in str(start_setup_session["preview_plan"]["summary"])
+
+
+def test_apply_start_setup_form_patch_allows_session_patch_without_form_changes(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create(
+        "start setup session-only patch quest",
+        startup_contract={
+            "workspace_mode": "copilot",
+            "start_setup_session": {
+                "source": "manual",
+                "locale": "zh",
+                "suggested_form": {
+                    "title": "Session-only test",
+                },
+            },
+        },
+    )
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    result = artifact.apply_start_setup_form_patch(
+        quest_root,
+        session_patch={
+            "recommended_workspace_mode": "copilot",
+            "launch_readiness": "not_ready",
+            "missing_confirmations": ["Need a clearer task boundary."],
+        },
+    )
+
+    assert result["ok"] is True
+    assert result["form_patch"] == {}
+    assert result["suggested_form"]["title"] == "Session-only test"
+    assert result["session_patch"]["launch_readiness"] == "not_ready"
 
 
 def test_confirm_baseline_strict_flattens_canonical_metric_summary(temp_home: Path) -> None:
@@ -743,6 +818,39 @@ def test_shared_memory_visibility_reads_other_quests_but_opens_them_read_only(te
     assert Path(remote_card["path"]).exists()
 
 
+def test_memory_read_resolves_sharedmemory_document_id_from_other_quest(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest_local = quest_service.create("shared memory read local")
+    quest_remote = quest_service.create("shared memory read remote")
+    local_root = Path(quest_local["quest_root"])
+    remote_root = Path(quest_remote["quest_root"])
+    memory = MemoryService(temp_home)
+
+    remote_card = memory.write_card(
+        scope="quest",
+        kind="knowledge",
+        title="Cross quest checkpoint",
+        body="checkpoint body for cross-quest read",
+        quest_root=remote_root,
+        quest_id=quest_remote["quest_id"],
+    )
+    relative = Path(remote_card["path"]).relative_to(remote_root / "memory").as_posix()
+    document_id = f"sharedmemory::{quest_remote['quest_id']}::{relative}"
+
+    opened = memory.read_card(path=document_id, scope="quest", quest_root=local_root)
+    assert opened["path"] == str(Path(remote_card["path"]))
+    assert opened["body"].strip() == "checkpoint body for cross-quest read"
+
+    with pytest.raises(FileNotFoundError):
+        memory.read_card(
+            path=f"sharedmemory::{quest_remote['quest_id']}::knowledge/missing-card.md",
+            scope="quest",
+            quest_root=local_root,
+        )
+
+
 def test_memory_document_open_uses_quest_root_when_active_workspace_is_worktree(temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
@@ -775,6 +883,112 @@ def test_memory_document_open_uses_quest_root_when_active_workspace_is_worktree(
     assert opened["writable"] is True
     assert opened["path"] == str(Path(card["path"]))
     assert "Memory content should still resolve from quest root." in opened["content"]
+
+
+def test_refresh_summary_mirrors_to_quest_root_when_active_workspace_is_worktree(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("refresh summary worktree mirror")
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    worktree_root = quest_root / ".ds" / "worktrees" / "idea-branch-mirror"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    quest_service.update_research_state(
+        quest_root,
+        current_workspace_root=str(worktree_root),
+        research_head_worktree_root=str(worktree_root),
+    )
+
+    result = artifact.refresh_summary(quest_root, reason="mirror to quest root")
+    assert result["ok"] is True
+
+    workspace_summary = Path(result["summary_path"])
+    quest_root_summary = Path(result["quest_root_summary_path"])
+    assert workspace_summary == worktree_root / "SUMMARY.md"
+    assert quest_root_summary == quest_root / "SUMMARY.md"
+    assert workspace_summary.exists()
+    assert quest_root_summary.exists()
+    assert workspace_summary.read_text(encoding="utf-8") == quest_root_summary.read_text(encoding="utf-8")
+    assert "mirror to quest root" in quest_root_summary.read_text(encoding="utf-8")
+
+
+def test_refresh_summary_writes_once_when_workspace_equals_quest_root(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("refresh summary no worktree")
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    result = artifact.refresh_summary(quest_root, reason="no worktree")
+    assert result["ok"] is True
+    assert Path(result["summary_path"]) == quest_root / "SUMMARY.md"
+    assert Path(result["quest_root_summary_path"]) == quest_root / "SUMMARY.md"
+    assert (quest_root / "SUMMARY.md").exists()
+
+
+def test_record_auto_refreshes_quest_root_summary_without_extra_artifact(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("auto refresh on record")
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    summary_path = quest_root / "SUMMARY.md"
+    pre_summary = summary_path.read_text(encoding="utf-8") if summary_path.exists() else ""
+
+    result = artifact.record(
+        quest_root,
+        {
+            "kind": "report",
+            "status": "completed",
+            "report_id": "report-auto-1",
+            "summary": "first user-driven artifact",
+            "reason": "exercise auto-refresh hook",
+            "source": {"kind": "agent"},
+        },
+    )
+
+    assert result["ok"] is True
+    post_summary = summary_path.read_text(encoding="utf-8")
+    assert post_summary != pre_summary
+    assert "auto after report" in post_summary
+    assert result["artifact_id"] in post_summary
+
+    summary_refresh_payloads = []
+    for item in artifact.recent(quest_root, limit=20):
+        if item.get("kind") != "reports":
+            continue
+        payload = read_json(Path(item["path"]), {})
+        if payload.get("report_type") == "summary_refresh":
+            summary_refresh_payloads.append(payload)
+    assert summary_refresh_payloads == []
+
+
+def test_record_skips_auto_refresh_when_record_is_summary_refresh(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("no summary refresh recursion")
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    explicit = artifact.refresh_summary(quest_root, reason="explicit user-driven refresh")
+
+    assert explicit["ok"] is True
+    assert explicit["artifact"] is not None
+
+    summary_refresh_payloads = []
+    for item in artifact.recent(quest_root, limit=20):
+        if item.get("kind") != "reports":
+            continue
+        payload = read_json(Path(item["path"]), {})
+        if payload.get("report_type") == "summary_refresh":
+            summary_refresh_payloads.append(payload)
+    assert len(summary_refresh_payloads) == 1
 
 
 def test_artifact_interact_and_prepare_branch(temp_home: Path) -> None:
@@ -1373,6 +1587,12 @@ def test_paper_outline_flow_and_outline_bound_analysis_campaign(temp_home: Path)
     assert candidate_1["outline_id"] == "outline-001"
     assert candidate_2["outline_id"] == "outline-002"
     assert candidate_3["outline_id"] == "outline-003"
+    candidate_delta = _assert_artifact_delta(
+        candidate_1["artifact_delta"],
+        delta_kind="paper_outline_candidate",
+        expected_labels={"outline_json", "artifact_json"},
+    )
+    assert candidate_delta["metadata"]["outline_id"] == "outline-001"
 
     selected = artifact.submit_paper_outline(
         quest_root,
@@ -1385,6 +1605,18 @@ def test_paper_outline_flow_and_outline_bound_analysis_campaign(temp_home: Path)
     assert Path(selected["outline_manifest_path"]).exists()
     assert Path(selected["paper_line_state_path"]).exists()
     assert Path(selected["outline_selection_path"]).exists()
+    selected_delta = _assert_artifact_delta(
+        selected["artifact_delta"],
+        delta_kind="paper_outline_selected",
+        expected_labels={
+            "selected_outline_json",
+            "outline_manifest_json",
+            "outline_selection_md",
+            "paper_line_state_json",
+            "artifact_json",
+        },
+    )
+    assert selected_delta["metadata"]["outline_id"] == "outline-002"
     assert quest_service.snapshot(quest["quest_id"])["active_anchor"] == "write"
 
     campaign = artifact.create_analysis_campaign(
@@ -1405,6 +1637,8 @@ def test_paper_outline_flow_and_outline_bound_analysis_campaign(temp_home: Path)
                 "tier": "main_required",
                 "paper_placement": "main_text",
                 "paper_role": "main_text",
+                "analysis_role": "ablation",
+                "target_display": "Main ablation",
                 "section_id": "analysis-main",
                 "item_id": "AN-001",
                 "claim_links": ["C1"],
@@ -1505,7 +1739,9 @@ def test_writing_facing_analysis_campaign_requires_selected_outline_and_todo_map
             ],
         )
 
-    assert "selected_outline_ref" in str(exc_info.value)
+        assert "selected_outline_ref" in str(exc_info.value)
+        assert "submit_paper_outline" in str(exc_info.value)
+        assert "analysis-lite" in str(exc_info.value)
 
 
 def test_artifact_stage_milestones_emit_semantic_connector_messages(temp_home: Path, monkeypatch) -> None:
@@ -1680,7 +1916,7 @@ def test_artifact_stage_milestones_emit_semantic_connector_messages(temp_home: P
         for text in texts
         if text.startswith(f"Analysis campaign `{campaign['campaign_id']}` is complete.")
     )
-    bundle_text = next(text for text in texts if text.startswith("Paper bundle `Semantic Paper`"))
+    bundle_text = next(text for text in texts if text.startswith("Paper draft checkpoint `Semantic Paper`"))
     assert "Semantic route" in idea_text
     assert "Insert a compact residual adapter in the main path and keep the rest of the protocol fixed." in idea_text
     assert "The message should show the exact mechanism without collapsing it into an ellipsis." in idea_text
@@ -1707,7 +1943,10 @@ def test_artifact_stage_milestones_emit_semantic_connector_messages(temp_home: P
     assert "This second paragraph should also be delivered in full" in bundle_text
     assert "Files:\n- Bundle manifest:" in bundle_text
     assert "- PDF: `paper/paper.pdf`" in bundle_text
-    assert "Next route:\nFinalize the paper package, review the bundle artifacts, and publish or close the quest when ready." in bundle_text
+    assert (
+        "Next route:\nContinue writing/review unless manuscript coverage and submission readiness are both explicit;"
+        in bundle_text
+    )
     assert "…" not in bundle_text
 
 
@@ -2114,7 +2353,7 @@ def test_supplementary_experiment_protocol_supports_runtime_ref_queries_and_unif
     assert by_ref[manifest_after["parent_branch"]]["workflow_state"]["writing_state"] == "ready"
 
 
-def test_submit_paper_bundle_writes_manifest_and_advances_anchor(temp_home: Path) -> None:
+def test_submit_paper_bundle_writes_draft_checkpoint_without_finalize(temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
     quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
@@ -2163,19 +2402,37 @@ def test_submit_paper_bundle_writes_manifest_and_advances_anchor(temp_home: Path
     assert Path(result["evidence_ledger_path"]).exists()
     assert Path(result["paper_line_state_path"]).exists()
     assert result["open_source_manifest_path"] is None
+    bundle_delta = _assert_artifact_delta(
+        result["artifact_delta"],
+        delta_kind="draft_checkpoint",
+        expected_labels={
+            "paper_bundle_manifest_json",
+            "baseline_inventory_json",
+            "evidence_ledger_json",
+            "paper_line_state_json",
+            "manuscript_coverage_json",
+            "artifact_json",
+        },
+    )
+    assert bundle_delta["metadata"]["package_type"] == "draft_checkpoint"
     baseline_inventory = read_json(Path(result["baseline_inventory_path"]), {})
     assert baseline_inventory["schema_version"] == 1
     manifest = read_json(Path(result["manifest_path"]), {})
+    assert manifest["package_type"] == "draft_checkpoint"
     assert manifest["prepare_open_source"] is False
     assert manifest["open_source_manifest_path"] is None
     assert manifest["open_source_cleanup_plan_path"] is None
     snapshot = quest_service.snapshot(quest["quest_id"])
-    assert snapshot["active_anchor"] == "finalize"
+    assert snapshot["active_anchor"] == "write"
     assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
     assert snapshot["continuation_anchor"] == "decision"
-    assert snapshot["continuation_reason"] == "paper_bundle_submitted"
-    assert snapshot["paper_contract_health"]["closure_state"] == "delivery_ready"
-    assert snapshot["paper_contract_health"]["delivery_state"] == "bundle_ready"
+    assert snapshot["continuation_reason"] == "paper_draft_checkpoint_submitted"
+    assert snapshot["paper_contract_health"]["closure_state"] == "draft_checkpoint_continue_writing"
+    assert snapshot["paper_contract_health"]["delivery_state"] == "draft_checkpoint_ready"
+    assert snapshot["paper_contract_health"]["draft_checkpoint_ready"] is True
+    assert snapshot["paper_contract_health"]["finalize_ready"] is False
+    assert snapshot["paper_contract_health"]["submission_ready"] is False
+    assert Path(result["manuscript_coverage_path"]).exists()
     assert snapshot["paper_evidence"]["item_count"] == 0
     assert snapshot["paper_lines"][0]["paper_line_id"] == result["paper_line_state"]["paper_line_id"]
 
@@ -2190,6 +2447,183 @@ def test_submit_paper_bundle_writes_manifest_and_advances_anchor(temp_home: Path
     )
     assert stage_view["stage_key"] == "paper"
     assert any(item["label"] == "Bundle Manifest" for item in stage_view["sections"]["key_files"])
+
+
+def test_validate_manuscript_coverage_blocks_short_memo_as_full_paper(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("paper coverage quest")
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    artifact.submit_paper_outline(
+        quest_root,
+        mode="candidate",
+        title="Coverage Outline",
+        detailed_outline={
+            "title": "Coverage Outline",
+            "research_questions": ["RQ-coverage"],
+            "experimental_designs": ["Exp-coverage"],
+            "contributions": ["C-coverage"],
+        },
+    )
+    artifact.submit_paper_outline(
+        quest_root,
+        mode="select",
+        outline_id="outline-001",
+        selected_reason="Use this for coverage validation.",
+    )
+    paper_root = quest_service.active_workspace_root(quest_root) / "paper"
+    paper_root.mkdir(parents=True, exist_ok=True)
+    (paper_root / "draft.md").write_text("# Short Memo\n\nOne paragraph.\n", encoding="utf-8")
+
+    coverage_result = artifact.validate_manuscript_coverage(quest_root, detail="full")
+    coverage = coverage_result["manuscript_coverage"]
+
+    assert coverage["draft_checkpoint_ready"] is True
+    assert coverage["manuscript_ready"] is False
+    assert coverage["submission_ready"] is False
+    assert coverage["one_section_only"] is True
+    assert any("fewer than 5 section" in item for item in coverage["manuscript_blockers"])
+
+
+def test_validate_academic_outline_surfaces_quality_reminders_without_blocking(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("paper outline reminder quest")
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    artifact.submit_paper_outline(
+        quest_root,
+        mode="candidate",
+        title="Reminder Outline",
+        detailed_outline={
+            "paper_view": {
+                "paper_type": "full_empirical",
+                "outline_maturity": "mature",
+                "working_title": "Reminder Outline",
+                "narrative_strategy": {
+                    "central_thesis": "The method improves the target setting under a controlled comparison.",
+                },
+                "story_spine": {
+                    "problem": "The target setting needs a more reliable comparison protocol.",
+                    "gap": "Existing runs do not isolate the relevant support signal.",
+                    "method": "The method adds a controlled support pass.",
+                    "main_result": "The measured main result improves over the accepted baseline.",
+                    "scope_limit": "The claim is limited to this benchmark and evidence budget.",
+                },
+                "core_claims": [
+                    {
+                        "claim_id": "C1",
+                        "claim": "The controlled support pass improves the target metric.",
+                        "scope": "Accepted baseline and target benchmark only.",
+                        "evidence_needed": ["main-result"],
+                        "what_would_falsify_it": "No gain under the same comparison budget.",
+                    }
+                ],
+                "method_abstraction": {
+                    "intuition": "A separate support pass reduces unsupported updates.",
+                    "mechanism_steps": ["collect support", "score candidates", "update only supported decisions"],
+                },
+                "evaluation_plan": {
+                    "setting": "Accepted benchmark protocol.",
+                    "datasets_or_benchmarks": ["TargetBench"],
+                    "baselines": ["accepted-baseline"],
+                    "metrics": ["score"],
+                },
+                "analysis_plan": [
+                    {
+                        "analysis_id": "A1",
+                        "title": "Single ablation",
+                        "analysis_role": "component ablation",
+                        "reviewer_question": "Does the support pass matter?",
+                        "claim_links": ["C1"],
+                        "target_display": "Ablation table",
+                        "main_or_appendix": "main_text",
+                    }
+                ],
+                "evidence_grounding": {
+                    "observed_facts": ["main-result improved the target metric"],
+                    "allowed_interpretations": ["the support pass may be useful in this setting"],
+                    "must_not_claim": ["general improvement across unrelated benchmarks"],
+                },
+            }
+        },
+    )
+    artifact.submit_paper_outline(
+        quest_root,
+        mode="select",
+        outline_id="outline-001",
+        selected_reason="Use this for outline reminder validation.",
+    )
+
+    result = artifact.validate_academic_outline(quest_root, detail="full")
+    validation = result["academic_outline_validation"]
+
+    assert result["ok"] is True
+    assert validation["analysis_plan_ready"] is True
+    assert validation["analysis_count"] == 1
+    assert any("central_insight" in item for item in validation["warnings"])
+    assert any("fewer than 4" in item for item in validation["warnings"])
+    assert any("reviewer_objections" in item for item in validation["warnings"])
+
+
+def test_paper_experiment_matrix_preserves_same_item_analysis_rows(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("paper matrix duplicate quest")
+    quest_root = Path(quest["quest_root"])
+    artifact = ArtifactService(temp_home)
+
+    artifact.submit_paper_outline(
+        quest_root,
+        mode="candidate",
+        title="Matrix Outline",
+        detailed_outline={
+            "title": "Matrix Outline",
+            "sections": [
+                {
+                    "section_id": "analysis",
+                    "title": "Analysis",
+                    "paper_role": "main_text",
+                    "required_items": ["shared-item"],
+                    "result_table": [
+                        {
+                            "item_id": "shared-item",
+                            "kind": "analysis_slice",
+                            "campaign_id": "analysis-a",
+                            "slice_id": "robustness",
+                            "status": "completed",
+                            "result_summary": "Robustness check passed.",
+                        },
+                        {
+                            "item_id": "shared-item",
+                            "kind": "analysis_slice",
+                            "campaign_id": "analysis-b",
+                            "slice_id": "failure",
+                            "status": "completed",
+                            "result_summary": "Failure modes identified.",
+                        },
+                    ],
+                }
+            ],
+        },
+    )
+    artifact.submit_paper_outline(
+        quest_root,
+        mode="select",
+        outline_id="outline-001",
+        selected_reason="Use this for matrix validation.",
+    )
+
+    matrix = read_json(quest_service.active_workspace_root(quest_root) / "paper" / "paper_experiment_matrix.json", {})
+    shared_rows = [row for row in matrix["rows"] if row["item_id"] == "shared-item"]
+    assert len(shared_rows) == 2
+    assert {row["slice_id"] for row in shared_rows} == {"robustness", "failure"}
 
 
 def test_submit_paper_bundle_can_prepare_open_source_when_enabled(temp_home: Path) -> None:
@@ -3985,6 +4419,49 @@ def test_explorer_lists_real_files_and_path_documents_can_be_saved(temp_home: Pa
     assert "Updated from explorer." in reopened["content"]
 
 
+def test_explorer_search_finds_paths_and_normalizes_legacy_glob_wrappers(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("explorer search quest")
+    quest_root = Path(quest["quest_root"])
+
+    script_path = quest_root / "experiments" / "analysis" / "new-slice" / "scripts" / "run_probe.py"
+    script_path.parent.mkdir(parents=True, exist_ok=True)
+    script_path.write_text("print('analysis runner')\n", encoding="utf-8")
+
+    path_result = quest_service.search_files(quest["quest_id"], "run_probe", limit=10)
+    assert any(item["path"] == "experiments/analysis/new-slice/scripts/run_probe.py" for item in path_result["items"])
+
+    wrapped_result = quest_service.search_files(quest["quest_id"], "*analysis runner*", limit=10)
+    assert any(item["path"] == "experiments/analysis/new-slice/scripts/run_probe.py" for item in wrapped_result["items"])
+
+
+def test_explorer_search_skips_heavy_runtime_mirrors_by_default(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create("explorer search runtime hygiene quest")
+    quest_root = Path(quest["quest_root"])
+
+    note_path = quest_root / "notes" / "runtime-note.md"
+    note_path.parent.mkdir(parents=True, exist_ok=True)
+    note_path.write_text("needle-runtime-hygiene in user content\n", encoding="utf-8")
+    terminal_log = quest_root / ".ds" / "bash_exec" / "bash-001" / "terminal.log"
+    terminal_log.parent.mkdir(parents=True, exist_ok=True)
+    terminal_log.write_text("needle-runtime-hygiene in heavy runtime mirror\n", encoding="utf-8")
+    run_prompt = quest_root / ".ds" / "runs" / "run-001" / "prompt.md"
+    run_prompt.parent.mkdir(parents=True, exist_ok=True)
+    run_prompt.write_text("needle-runtime-hygiene in runner prompt mirror\n", encoding="utf-8")
+
+    result = quest_service.search_files(quest["quest_id"], "needle-runtime-hygiene", limit=10)
+
+    paths = {item["path"] for item in result["items"]}
+    assert "notes/runtime-note.md" in paths
+    assert ".ds/bash_exec/bash-001/terminal.log" not in paths
+    assert ".ds/runs/run-001/prompt.md" not in paths
+
+
 def test_explorer_opens_image_files_as_assets(temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
@@ -4506,6 +4983,46 @@ def test_artifact_interact_redirects_ordinary_decision_requests_in_autonomous_mo
     snapshot_after = quest_service.snapshot(quest["quest_id"])
     assert snapshot_after["status"] != "waiting_for_user"
     assert not snapshot_after["pending_decisions"]
+
+
+def test_artifact_interact_does_not_redirect_copilot_decision_request_with_stale_autonomous_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest = quest_service.create(
+        "copilot stale autonomous decision quest",
+        startup_contract={"workspace_mode": "copilot", "decision_policy": "user_gated"},
+    )
+    quest_root = Path(quest["quest_root"])
+    quest_service.update_research_state(quest_root, workspace_mode="copilot")
+    quest_yaml_path = quest_root / "quest.yaml"
+    quest_yaml = read_yaml(quest_yaml_path, {})
+    startup_contract = dict(quest_yaml.get("startup_contract") or {})
+    startup_contract["decision_policy"] = "autonomous"
+    quest_yaml["startup_contract"] = startup_contract
+    write_yaml(quest_yaml_path, quest_yaml)
+    artifact = ArtifactService(temp_home)
+
+    result = artifact.interact(
+        quest_root,
+        kind="decision_request",
+        message="Should I choose branch A or branch B?",
+        deliver_to_bound_conversations=False,
+        include_recent_inbound_messages=False,
+        reply_mode="blocking",
+        options=[
+            {"id": "a", "label": "A", "description": "Choose branch A."},
+            {"id": "b", "label": "B", "description": "Choose branch B."},
+        ],
+    )
+
+    assert result["status"] == "ok"
+    assert result["reply_mode"] == "blocking"
+    assert result["interaction_id"]
+    snapshot_after = quest_service.snapshot(quest["quest_id"])
+    assert snapshot_after["workspace_mode"] == "copilot"
+    assert snapshot_after["status"] == "waiting_for_user"
+    assert snapshot_after["pending_decisions"]
 
 
 def test_artifact_interact_allows_completion_approval_in_autonomous_mode(temp_home: Path) -> None:

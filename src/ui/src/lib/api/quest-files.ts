@@ -355,7 +355,7 @@ async function loadQuestTree(projectId: string, force = false): Promise<FileTree
   }
 
   const promise = questClient
-    .explorer(projectId)
+    .explorer(projectId, { profile: 'workspace' })
     .then((explorer) => {
       const payload = flattenQuestExplorerPayload(projectId, explorer)
       treeCache.set(projectId, {

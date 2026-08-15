@@ -270,6 +270,9 @@ export function CreateCopilotProjectPage() {
           decision_policy: 'user_gated',
           launch_mode: 'custom',
           custom_profile: 'freeform',
+          launch_form_source: 'copilot_manual',
+          launch_form_recorded_at: new Date().toISOString(),
+          launch_markdown: normalizedTitle,
           project_display: {
             template,
             accent_color: accentColor,

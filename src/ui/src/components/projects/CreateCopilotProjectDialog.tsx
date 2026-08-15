@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { client } from '@/lib/api'
 import { connectorTargetLabel, normalizeConnectorTargets } from '@/lib/connectors'
+import type { QuestMessageAttachmentDraft } from '@/lib/hooks/useQuestMessageAttachments'
 import { useI18n } from '@/lib/i18n'
 import {
   PROJECT_ACCENT_OPTIONS,
@@ -20,6 +21,19 @@ import {
 } from '@/lib/projectDisplayCatalog'
 import { cn } from '@/lib/utils'
 import type { ConnectorSnapshot } from '@/types'
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error || new Error('Failed to read file.'))
+    reader.onload = () => {
+      const result = String(reader.result || '')
+      const base64 = result.includes(',') ? result.split(',', 2)[1] : result
+      resolve(base64)
+    }
+    reader.readAsDataURL(file)
+  })
+}
 
 const copy = {
   en: {
@@ -124,6 +138,11 @@ export function CreateCopilotProjectDialog(props: {
   open: boolean
   onClose: () => void
   onBack?: () => void
+  initialTitle?: string
+  initialMessage?: string
+  initialSetupQuestId?: string | null
+  initialSetupAttachments?: Array<Record<string, unknown>>
+  initialLocalAttachments?: QuestMessageAttachmentDraft[]
   onCreated: (questId: string) => void
 }) {
   const { locale } = useI18n()
@@ -185,6 +204,11 @@ export function CreateCopilotProjectDialog(props: {
     }
   }, [props.open])
 
+  React.useEffect(() => {
+    if (!props.open) return
+    setTitle(props.initialTitle || '')
+  }, [props.initialTitle, props.open])
+
   const selectedConnectorBinding = React.useMemo(() => {
     if (!selectedConnector || selectedConnector === '__local__') return []
     const [connector, conversationId] = selectedConnector.split('::')
@@ -218,6 +242,10 @@ export function CreateCopilotProjectDialog(props: {
           decision_policy: 'user_gated',
           launch_mode: 'custom',
           custom_profile: 'freeform',
+          launch_form_source: 'copilot_manual',
+          launch_form_recorded_at: new Date().toISOString(),
+          launch_setup_quest_id: props.initialSetupQuestId || null,
+          launch_markdown: String(props.initialMessage || '').trim() || normalizedTitle,
           project_display: {
             template,
             accent_color: accentColor,
@@ -225,13 +253,64 @@ export function CreateCopilotProjectDialog(props: {
           },
         },
       })
+      const importedPayload =
+        props.initialSetupQuestId && Array.isArray(props.initialSetupAttachments) && props.initialSetupAttachments.length > 0
+          ? await client.importQuestChatAttachments(result.snapshot.quest_id, {
+              source_quest_id: props.initialSetupQuestId,
+              attachments: props.initialSetupAttachments.map((item) => ({
+                name: item.label || item.name || item.file_name,
+                file_name: item.label || item.file_name || item.name,
+                content_type: item.contentType || item.content_type || item.mime_type || null,
+                quest_relative_path: item.questRelativePath || item.quest_relative_path || null,
+                path: item.path || null,
+              })),
+            })
+          : null
+      if (importedPayload && !importedPayload.ok) {
+        throw new Error(importedPayload.message || 'Failed to import setup attachments.')
+      }
+      const importedDraftIdsNormalized = (importedPayload?.attachments || [])
+        .map((item) => String(item.draft_id || '').trim())
+        .filter(Boolean)
+      const localDraftIds: string[] = []
+      for (const attachment of props.initialLocalAttachments || []) {
+        if (attachment.status !== 'success' || !attachment.file) continue
+        const contentBase64 = await fileToBase64(attachment.file)
+        const payload = await client.uploadChatAttachment(result.snapshot.quest_id, {
+          draft_id: attachment.draftId,
+          file_name: attachment.name,
+          mime_type: attachment.contentType || undefined,
+          content_base64: contentBase64,
+        })
+        if (payload.ok && payload.draft_id) {
+          localDraftIds.push(String(payload.draft_id))
+        }
+      }
+      const seedMessage = String(props.initialMessage || '').trim()
+      if (seedMessage || importedDraftIdsNormalized.length > 0 || localDraftIds.length > 0) {
+        await client.sendChat(
+          result.snapshot.quest_id,
+          seedMessage || normalizedTitle,
+          undefined,
+          undefined,
+          [...importedDraftIdsNormalized, ...localDraftIds]
+        )
+      }
       props.onCreated(result.snapshot.quest_id)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Failed to create project.')
     } finally {
       setCreating(false)
     }
-  }, [accentColor, backgroundStyle, props, selectedConnectorBinding, t.required, template, title])
+  }, [
+    accentColor,
+    backgroundStyle,
+    props,
+    selectedConnectorBinding,
+    t.required,
+    template,
+    title,
+  ])
 
   return (
     <OverlayDialog

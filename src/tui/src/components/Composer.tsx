@@ -6,6 +6,7 @@ import { LoadingIndicator } from './LoadingIndicator.js'
 import { theme } from '../semantic-colors.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
 import { Footer } from './Footer.js'
+import type { TuiDebugSnapshot } from '../types.js'
 
 type ComposerProps = {
   input: string
@@ -21,6 +22,7 @@ type ComposerProps = {
   questRoot?: string
   modelLabel?: string
   sessionId?: string
+  debugSnapshot?: TuiDebugSnapshot | null
   onChange: (next: string) => void
   onSubmit: (override?: string) => void
   onCancel: () => void
@@ -40,6 +42,7 @@ export const Composer: React.FC<ComposerProps> = ({
   questRoot,
   modelLabel,
   sessionId,
+  debugSnapshot,
   onChange,
   onSubmit,
   onCancel,
@@ -84,6 +87,35 @@ export const Composer: React.FC<ComposerProps> = ({
           </Text>
         }
       />
+
+      {debugSnapshot ? (
+        <Box marginTop={1} flexDirection="column">
+          <Text color={theme.text.secondary}>
+            debug · surface: <Text color={theme.text.primary}>{debugSnapshot.surface}</Text> · web:{' '}
+            <Text color={theme.text.link}>{debugSnapshot.web_analog}</Text>
+          </Text>
+          <Text color={theme.text.secondary}>
+            route:{' '}
+            <Text
+              color={
+                debugSnapshot.route.kind === 'blocked'
+                  ? theme.status.warning
+                  : debugSnapshot.route.kind === 'backend-command' || debugSnapshot.route.kind.startsWith('backend')
+                    ? theme.status.success
+                    : theme.text.primary
+              }
+            >
+              {debugSnapshot.route.kind}
+            </Text>{' '}
+            · target: <Text color={theme.text.primary}>{debugSnapshot.route.target}</Text>
+          </Text>
+          <Text color={theme.text.secondary}>
+            parse: <Text color={theme.text.primary}>{debugSnapshot.input.parsed}</Text> · preview:{' '}
+            <Text color={theme.text.primary}>{debugSnapshot.input.preview}</Text>
+            {debugSnapshot.input.redacted ? <Text color={theme.status.warning}> · redacted</Text> : null}
+          </Text>
+        </Box>
+      ) : null}
 
       <InputPrompt
         value={input}

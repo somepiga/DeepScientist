@@ -478,6 +478,8 @@ npm --prefix src/ui run build</pre>
             user_notes=str(payload.get("user_notes") or "").strip() or None,
             include_doctor=payload.get("include_doctor") is not False,
             include_logs=payload.get("include_logs") is not False,
+            include_system_settings=payload.get("include_system_settings") is not False,
+            include_system_quirks=payload.get("include_system_quirks") is True,
         )
 
     def admin_controllers(self) -> dict:
@@ -1151,13 +1153,14 @@ npm --prefix src/ui run build</pre>
             "active_anchor": body.get("active_anchor") if "active_anchor" in body else None,
             "default_runner": body.get("default_runner") if "default_runner" in body else None,
             "workspace_mode": body.get("workspace_mode") if "workspace_mode" in body else None,
+            "decision_policy": body.get("decision_policy") if "decision_policy" in body else None,
         }
         if all(value is None for value in updates.values()):
             return {
                 "ok": True,
                 "snapshot": self.app.quest_service.snapshot(quest_id),
             }
-        previous_snapshot = self.app.quest_service.snapshot(quest_id) if updates.get("workspace_mode") else None
+        previous_snapshot = self.app.quest_service.snapshot(quest_id) if updates.get("workspace_mode") or updates.get("decision_policy") else None
         try:
             snapshot = self.app.quest_service.update_settings(quest_id, **updates)
         except FileNotFoundError:
@@ -1166,7 +1169,7 @@ npm --prefix src/ui run build</pre>
             return 400, {"ok": False, "message": str(exc)}
         # When switching from copilot to autonomous, continue safely without
         # replaying stale history-only user messages.
-        if previous_snapshot is not None:
+        if previous_snapshot is not None and (updates.get("workspace_mode") or updates.get("decision_policy")):
             prev_policy = str(previous_snapshot.get("continuation_policy") or "").strip().lower()
             new_policy = str(snapshot.get("continuation_policy") or "").strip().lower()
             prev_status = str(previous_snapshot.get("status") or previous_snapshot.get("runtime_status") or "").strip().lower()
@@ -1532,9 +1535,11 @@ npm --prefix src/ui run build</pre>
     def quest_message_read_now(self, quest_id: str, body: dict) -> dict:
         source = str(body.get("source") or "local-ui").strip() or "local-ui"
         message_id = str(body.get("message_id") or "").strip() or None
+        client_message_id = str(body.get("client_message_id") or "").strip() or None
         return self.app.read_queued_user_messages_now(
             quest_id,
             message_id=message_id,
+            client_message_id=client_message_id,
             source=source,
         )
 
@@ -2124,7 +2129,7 @@ npm --prefix src/ui run build</pre>
         try:
             return self.app.quest_service.save_document(
                 quest_id,
-                document_id,
+                unquote(document_id),
                 body["content"],
                 previous_revision=body.get("revision"),
             )
@@ -2163,6 +2168,22 @@ npm --prefix src/ui run build</pre>
             )
         except FileNotFoundError:
             return 404, {"ok": False, "message": f"Unknown quest `{quest_id}`."}
+
+    def chat_upload_import(self, quest_id: str, body: dict) -> dict:
+        source_quest_id = str(body.get("source_quest_id") or "").strip()
+        attachments = [dict(item) for item in (body.get("attachments") or []) if isinstance(item, dict)]
+        if not source_quest_id:
+            return {"ok": False, "message": "`source_quest_id` is required."}
+        if not attachments:
+            return {"ok": False, "message": "`attachments` is required."}
+        try:
+            return self.app.quest_service.import_chat_attachment_drafts(
+                quest_id,
+                source_quest_id=source_quest_id,
+                attachments=attachments,
+            )
+        except FileNotFoundError as exc:
+            return 404, {"ok": False, "message": str(exc)}
 
     def latex_init(self, project_id: str, body: dict) -> dict:
         return self.app.latex_service.init_project(
@@ -2598,6 +2619,17 @@ npm --prefix src/ui run build</pre>
         }
 
     def config_save(self, name: str, body: dict) -> dict:
+        if name == "config" and isinstance(body.get("structured"), dict):
+            default_runner = self.app.config_manager._normalize_runtime_runner_name(
+                body["structured"].get("default_runner")
+            )
+            if default_runner in {"codex", "claude", "kimi", "opencode"}:
+                os.environ["DEEPSCIENTIST_DEFAULT_RUNNER"] = default_runner
+                os.environ["DEEPSCIENTIST_ENABLE_RUNNER"] = default_runner
+                os.environ.pop("DS_DEFAULT_RUNNER", None)
+                os.environ.pop("DS_ENABLE_RUNNER", None)
+                os.environ.pop("DEEPSCIENTIST_ENABLE_RUNNERS", None)
+                os.environ.pop("DS_ENABLE_RUNNERS", None)
         if isinstance(body.get("structured"), dict):
             result = self.app.config_manager.save_named_payload(name, body["structured"])
         else:
@@ -2636,12 +2668,16 @@ npm --prefix src/ui run build</pre>
         return self.app.config_manager.test_deepxiv_payload(payload)
 
     def asset(self, asset_path: str) -> tuple[int, dict, bytes]:
+        dist_root = self._ui_dist_root()
         candidate_roots = [
+            dist_root / "assets" if dist_root is not None else None,
             self.app.repo_root / "src" / "ui" / "public" / "assets",
             self.app.repo_root / "assets",
         ]
         path = None
         for root in candidate_roots:
+            if root is None:
+                continue
             candidate = resolve_within(root, asset_path)
             if candidate.exists() and candidate.is_file():
                 path = candidate
@@ -2649,7 +2685,7 @@ npm --prefix src/ui run build</pre>
         if path is None:
             return 404, {"Content-Type": "text/plain; charset=utf-8"}, b"Not Found"
         mime_type = self._guess_static_mime_type(path)
-        return 200, {"Content-Type": mime_type}, path.read_bytes()
+        return 200, self._asset_headers(mime_type), path.read_bytes()
 
     @staticmethod
     def parse_query(path: str) -> dict[str, list[str]]:

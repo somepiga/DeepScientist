@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from deepscientist.bridges import register_builtin_connector_bridges
@@ -667,6 +668,43 @@ def test_codex_probe_omits_reasoning_effort_flag_when_runner_sets_none(monkeypat
     assert not any("model_reasoning_effort=" in part for part in command)
 
 
+def test_claude_probe_keeps_prompt_outside_variadic_tools_args(monkeypatch, temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr("deepscientist.config.service.resolve_runner_binary", lambda binary, runner_name=None: "/tmp/fake-claude")
+
+    def fake_run(command, **kwargs):  # noqa: ANN001
+        captured["command"] = list(command)
+        captured["input"] = kwargs.get("input")
+
+        class Result:
+            returncode = 0
+            stdout = '{"result":"HELLO"}'
+            stderr = ""
+
+        return Result()
+
+    monkeypatch.setattr("deepscientist.config.service.subprocess.run", fake_run)
+
+    result = manager._probe_claude_runner(
+        {
+            "binary": "claude",
+            "model": "claude-opus-4-6",
+            "permission_mode": "bypassPermissions",
+        }
+    )
+
+    command = [str(part) for part in captured["command"]]
+    assert result["ok"] is True
+    assert captured["input"] == "Reply with exactly HELLO."
+    assert "Reply with exactly HELLO." not in command
+    assert command.index("--model") < command.index("--tools")
+    assert command[-2:] == ["--tools", ""]
+
+
 def test_codex_probe_downgrades_xhigh_for_legacy_codex_cli(monkeypatch, temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     manager = ConfigManager(temp_home)
@@ -1103,6 +1141,88 @@ def test_codex_probe_failure_guidance_mentions_login_doctor_and_model(monkeypatc
     assert "codex login" in error_text
 
 
+def test_codex_probe_network_failure_guidance_does_not_default_to_login(monkeypatch, temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+
+    monkeypatch.setattr("deepscientist.config.service.resolve_runner_binary", lambda binary, runner_name=None: "/tmp/fake-codex")
+
+    def fake_run(command, **kwargs):  # noqa: ANN001
+        class Result:
+            returncode = 1
+            stdout = ""
+            stderr = "connection timed out while connecting through proxy"
+
+        return Result()
+
+    monkeypatch.setattr("deepscientist.config.service.subprocess.run", fake_run)
+
+    result = manager._probe_codex_runner({"binary": "codex", "model": "inherit"})
+
+    assert result["ok"] is False
+    guidance_text = "\n".join(result["guidance"])
+    error_text = "\n".join(result["errors"])
+    assert "proxy" in guidance_text
+    assert "codex login" not in guidance_text
+    assert "codex login" not in error_text
+
+
+def test_codex_probe_timeout_guidance_uses_captured_network_stderr(monkeypatch, temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+
+    monkeypatch.setattr("deepscientist.config.service.resolve_runner_binary", lambda binary, runner_name=None: "/tmp/fake-codex")
+
+    def fake_run(command, **kwargs):  # noqa: ANN001
+        raise subprocess.TimeoutExpired(
+            cmd=command,
+            timeout=90,
+            output="",
+            stderr="TLS proxy handshake timed out",
+        )
+
+    monkeypatch.setattr("deepscientist.config.service.subprocess.run", fake_run)
+
+    result = manager._probe_codex_runner({"binary": "codex", "model": "inherit"})
+
+    assert result["ok"] is False
+    guidance_text = "\n".join(result["guidance"])
+    error_text = "\n".join(result["errors"])
+    assert "proxy" in guidance_text
+    assert "network, proxy, TLS, or provider" in error_text
+    assert "codex login" not in guidance_text
+
+
+def test_codex_probe_generic_failure_guidance_points_to_real_exec_probe(monkeypatch, temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+
+    monkeypatch.setattr("deepscientist.config.service.resolve_runner_binary", lambda binary, runner_name=None: "/tmp/fake-codex")
+
+    def fake_run(command, **kwargs):  # noqa: ANN001
+        class Result:
+            returncode = 1
+            stdout = ""
+            stderr = "provider returned an unexpected empty response"
+
+        return Result()
+
+    monkeypatch.setattr("deepscientist.config.service.subprocess.run", fake_run)
+
+    result = manager._probe_codex_runner({"binary": "codex", "model": "inherit"})
+
+    assert result["ok"] is False
+    guidance_text = "\n".join(result["guidance"])
+    error_text = "\n".join(result["errors"])
+    assert "codex --search exec --json" in guidance_text
+    assert "which codex" in guidance_text
+    assert "codex login" not in guidance_text
+    assert "codex login" not in error_text
+
+
 def test_codex_probe_failure_guidance_mentions_responses_for_local_provider(monkeypatch, temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     manager = ConfigManager(temp_home)
@@ -1218,7 +1338,7 @@ model_provider = "sglang"
     assert "runners.codex.env.sglang" in guidance_text
     assert 'wire_api = "responses"' in guidance_text
     assert "requires_openai_auth = false" in guidance_text
-    assert "codex exec --profile sglang" in guidance_text
+    assert "codex --search --profile sglang exec --json" in guidance_text
 
 
 def test_codex_probe_blocks_chat_mode_profile_on_non_0570_codex(monkeypatch, temp_home: Path) -> None:
@@ -1542,6 +1662,99 @@ def test_saving_runners_profile_invalidates_cached_codex_bootstrap_state(temp_ho
     assert result["ok"] is True
     assert state["codex_ready"] is False
     assert state["codex_last_result"]["summary"] == "Codex runner configuration changed. A new startup probe is required."
+
+
+def test_runner_live_config_test_persists_startup_probe_state(monkeypatch, temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+    runners = manager.load_named("runners")
+    for runner in runners.values():
+        if isinstance(runner, dict):
+            runner["enabled"] = False
+    runners["claude"]["enabled"] = True
+    runners["claude"]["binary"] = "claude"
+
+    monkeypatch.setattr(
+        "deepscientist.config.service.resolve_runner_binary",
+        lambda _binary, *, runner_name=None: f"/tmp/fake-{runner_name or 'runner'}",
+    )
+
+    probed: list[str] = []
+
+    def fake_probe(runner_name: str, *, persist: bool = False, payload=None):  # noqa: ANN001
+        probed.append(runner_name)
+        assert persist is True
+        if runner_name != "claude":
+            return {
+                "ok": True,
+                "summary": f"{runner_name} startup probe completed.",
+                "warnings": [],
+                "errors": [],
+                "details": {"checked_at": "2026-05-13T02:15:00+00:00"},
+            }
+        config = manager.load_named_normalized("config")
+        bootstrap = config.get("bootstrap") if isinstance(config.get("bootstrap"), dict) else {}
+        readiness = bootstrap.get("runner_readiness") if isinstance(bootstrap.get("runner_readiness"), dict) else {}
+        readiness["claude"] = {
+            "ready": True,
+            "last_checked_at": "2026-05-13T02:15:00+00:00",
+            "last_result": {
+                "ok": True,
+                "summary": "Claude Code startup probe completed.",
+                "warnings": [],
+                "errors": [],
+                "guidance": [],
+            },
+        }
+        bootstrap["runner_readiness"] = readiness
+        config["bootstrap"] = bootstrap
+        manager.save_named_payload("config", config)
+        return {
+            "ok": True,
+            "summary": "Claude Code startup probe completed.",
+            "warnings": [],
+            "errors": [],
+            "details": {"checked_at": "2026-05-13T02:15:00+00:00"},
+        }
+
+    monkeypatch.setattr(manager, "probe_runner_bootstrap", fake_probe)
+
+    result = manager._test_runners_payload(runners, live=True)
+    state = manager.runner_bootstrap_state("claude")
+
+    assert result["ok"] is True
+    assert "claude" in probed
+    assert state["ready"] is True
+    assert state["last_result"]["summary"] == "Claude Code startup probe completed."
+
+
+def test_feishu_profiles_validate_profile_credentials_without_top_level_secret(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+    connectors = manager.load_named("connectors")
+    connectors["feishu"]["enabled"] = True
+    connectors["feishu"]["app_id"] = ""
+    connectors["feishu"]["app_secret"] = ""
+    connectors["feishu"]["profiles"] = [
+        {
+            "profile_id": "feishu-alpha",
+            "enabled": True,
+            "app_id": "cli_alpha",
+            "app_secret": "alpha-secret",
+        },
+        {
+            "profile_id": "feishu-beta",
+            "enabled": True,
+            "app_id": "cli_beta",
+            "app_secret": "beta-secret",
+        },
+    ]
+
+    result = manager._validate_connectors_payload(connectors)
+
+    assert result["errors"] == []
 
 
 def test_default_config_includes_deepxiv_defaults(temp_home: Path) -> None:

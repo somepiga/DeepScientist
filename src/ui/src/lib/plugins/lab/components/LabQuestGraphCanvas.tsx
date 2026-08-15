@@ -23,7 +23,7 @@ import '@xyflow/react/dist/style.css'
 import '@/lib/plugins/lab/lab.css'
 import dagre from '@dagrejs/dagre'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ChevronDown, Clock, FileText, GitBranch } from 'lucide-react'
+import { ChevronDown, Clock, FileText, GitBranch, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -53,6 +53,8 @@ import { useFileTreeStore } from '@/lib/stores/file-tree'
 import { useI18n } from '@/lib/i18n/useI18n'
 import { useLabGraphSelectionStore } from '@/lib/stores/lab-graph-selection'
 import { useThemeStore } from '@/lib/stores/theme'
+import ScienceNodeCard from '@/components/science/ScienceNodeCard'
+import { isScienceKind, normalizeScienceNode } from '@/lib/science/normalize'
 import {
   LAB_CANVAS_SEMANTIC_TONE_META,
   resolveLabCanvasViewSemantic,
@@ -158,6 +160,7 @@ type QuestNodeData = {
   metricEmptyReason?: string | null
   isCurrentWorkspace?: boolean
   isCurrentPath?: boolean
+  sciencePayload?: Record<string, unknown> | null
 }
 
 type AgentNodeData = {
@@ -329,8 +332,16 @@ const isKeyEventType = (raw?: string | null) => {
     value === 'baseline' ||
     value === 'idea' ||
     value === 'run' ||
+    value.startsWith('science.') ||
     value === 'report'
   )
+}
+
+type ScienceFocusEventDetail = {
+  node_id?: string | null
+  focus?: boolean
+  open_detail?: boolean
+  notify?: boolean
 }
 
 const pickPrimaryMetric = (metrics?: Record<string, unknown> | null) => {
@@ -1059,9 +1070,9 @@ const resolveEdgePalette = (resolvedTheme: 'light' | 'dark'): LabEdgePalette => 
     }
   }
   return {
-    defaultStroke: 'rgba(71, 63, 52, 0.38)',
+    defaultStroke: 'rgba(71, 63, 52, 0.48)',
     stageStroke: '#b48d4f',
-    agentStroke: 'rgba(71, 63, 52, 0.48)',
+    agentStroke: 'rgba(71, 63, 52, 0.58)',
   }
 }
 
@@ -1135,6 +1146,62 @@ const buildSelectionContext = (
   label: payload.label ?? null,
   summary: payload.summary ?? null,
 })
+
+const sciencePayloadNodeId = (payload?: Record<string, unknown> | null) => {
+  if (!payload) return null
+  return asString(payload.node_id) || asString(payload.nodeId) || asString(payload.artifact_id) || asString(payload.id)
+}
+
+const nodeMatchesScienceFocus = (node: QuestFlowNode, targetNodeId: string) => {
+  const normalizedTarget = targetNodeId.trim()
+  if (!normalizedTarget) return false
+  if (node.id === normalizedTarget) return true
+  const data = node.data as QuestNodeData | AgentNodeData
+  if ((data as AgentNodeData).isAgent) return false
+  const questData = data as QuestNodeData
+  const payload = asRecord(questData.sciencePayload)
+  if (!payload) return false
+  const scienceNodeId = sciencePayloadNodeId(payload)
+  const artifactId = asString(payload.artifact_id) || asString(payload.id)
+  return scienceNodeId === normalizedTarget || artifactId === normalizedTarget
+}
+
+const buildScienceSelectionContext = (
+  questId: string,
+  node: QuestFlowNode
+): (LabQuestSelectionContext & { label?: string | null; summary?: string | null }) | null => {
+  const data = node.data as QuestNodeData | AgentNodeData
+  if ((data as AgentNodeData).isAgent) return null
+  const questData = data as QuestNodeData
+  const payload = asRecord(questData.sciencePayload)
+  if (!payload) return null
+  const nodeId = sciencePayloadNodeId(payload)
+  const selectionType = node.id.startsWith('stage:') ? 'stage_node' : 'event_node'
+  return buildSelectionContext(questId, {
+    selectionType,
+    selectionRef: node.id,
+    branchName: questData.branchName ?? null,
+    branchNo: questData.branchNo ?? null,
+    parentBranch: questData.parentBranch ?? null,
+    foundationRef: questData.foundationRef ?? null,
+    foundationReason: questData.foundationReason ?? null,
+    foundationLabel: questData.foundationLabel ?? null,
+    ideaTitle: questData.ideaTitle ?? null,
+    stageKey: questData.stageKey ?? 'science',
+    worktreeRelPath: questData.worktreeRelPath ?? null,
+    traceNodeId: node.id,
+    label: asString(payload.title) || questData.label || nodeId || node.id,
+    summary: asString(payload.summary) || questData.summary || null,
+    compareBase: questData.compareBase ?? null,
+    compareHead: questData.compareHead ?? null,
+    scopePaths: questData.scopePaths ?? null,
+    nodeKind: questData.nodeKind ?? null,
+    baselineGate: questData.baselineGate ?? null,
+  })
+}
+
+const findScienceFocusNode = (nodes: QuestFlowNode[], targetNodeId: string) =>
+  nodes.find((node) => nodeMatchesScienceFocus(node, targetNodeId)) ?? null
 
 const shouldOpenCanonicalStage = (stageKey?: string | null) => {
   const normalized = String(stageKey || '').trim().toLowerCase()
@@ -1671,6 +1738,30 @@ const MetricCurveChart = ({
 const QuestGraphNode = ({ data }: NodeProps) => {
   const { t } = useI18n('lab')
   const nodeData = data as QuestNodeData
+  if (nodeData.sciencePayload) {
+    const scienceNode = normalizeScienceNode({
+      kind: String(nodeData.sciencePayload.kind || nodeData.nodeKind || ''),
+      payload: {
+        ...nodeData.sciencePayload,
+        title: nodeData.sciencePayload.title || nodeData.label,
+        summary: nodeData.sciencePayload.summary || nodeData.summary,
+        status: nodeData.sciencePayload.status || nodeData.status,
+      },
+    })
+    return (
+      <div
+        className={cn(
+          'lab-quest-graph-node is-science',
+          nodeData.isSelected && 'is-selected'
+        )}
+        title={scienceNode.summary || scienceNode.title}
+      >
+        <Handle type="target" position={FlowPosition.Left} className="lab-flow-handle" />
+        <Handle type="source" position={FlowPosition.Right} className="lab-flow-handle" />
+        <ScienceNodeCard node={scienceNode} compact />
+      </div>
+    )
+  }
   const isMetricMode = nodeData.displayMode === 'metric' && !nodeData.isEvent
   const positive =
     nodeData.metricTone === 'good' ||
@@ -1918,6 +2009,100 @@ const buildDagreLayout = (
   return positions
 }
 
+const LAYOUT_TEXT_COLLATOR = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
+
+const compareLayoutText = (left?: string | null, right?: string | null) =>
+  LAYOUT_TEXT_COLLATOR.compare(String(left || ''), String(right || ''))
+
+const compareLayoutTime = (left?: string | null, right?: string | null) => {
+  const leftTime = parseEventTime(left)
+  const rightTime = parseEventTime(right)
+  if (leftTime && rightTime && leftTime !== rightTime) return leftTime - rightTime
+  if (leftTime && !rightTime) return -1
+  if (!leftTime && rightTime) return 1
+  return 0
+}
+
+const resolveNodeKindRank = (node: LabQuestGraphNode) => {
+  if (node.node_kind === 'baseline_root') return 0
+  if (node.node_kind === 'placeholder' || node.placeholder) return 9
+  return 1
+}
+
+const resolveBranchClassRank = (node: LabQuestGraphNode) => {
+  const branchClass = String(node.branch_class || '').toLowerCase()
+  if (branchClass === 'main') return 0
+  if (branchClass === 'idea') return 1
+  if (branchClass === 'analysis') return 2
+  if (branchClass === 'paper') return 3
+  return 4
+}
+
+const resolveStageLayoutRank = (node: LabQuestGraphNode) => {
+  const stageKey = String(node.stage_key || '').toLowerCase()
+  const index = STAGE_ORDER.indexOf(stageKey as BranchStage)
+  return index >= 0 ? index : STAGE_ORDER.length
+}
+
+const compareLayoutNodes = (
+  left: LabQuestGraphNode,
+  right: LabQuestGraphNode,
+  viewMode: 'branch' | 'event' | 'stage'
+) => {
+  if (viewMode === 'event') {
+    return (
+      compareLayoutTime(left.created_at, right.created_at) ||
+      resolveStageLayoutRank(left) - resolveStageLayoutRank(right) ||
+      compareLayoutText(left.branch_name, right.branch_name) ||
+      compareLayoutText(left.node_id, right.node_id)
+    )
+  }
+
+  if (viewMode === 'stage') {
+    return (
+      resolveStageLayoutRank(left) - resolveStageLayoutRank(right) ||
+      compareLayoutTime(left.created_at, right.created_at) ||
+      compareLayoutText(left.stage_key, right.stage_key) ||
+      compareLayoutText(left.node_id, right.node_id)
+    )
+  }
+
+  return (
+    resolveNodeKindRank(left) - resolveNodeKindRank(right) ||
+    resolveBranchClassRank(left) - resolveBranchClassRank(right) ||
+    compareLayoutTime(left.created_at, right.created_at) ||
+    compareLayoutText(left.branch_no, right.branch_no) ||
+    compareLayoutText(left.branch_name, right.branch_name) ||
+    compareLayoutText(left.node_id, right.node_id)
+  )
+}
+
+const sortNodesForLayout = (
+  nodes: LabQuestGraphNode[],
+  viewMode: 'branch' | 'event' | 'stage'
+) => [...nodes].sort((left, right) => compareLayoutNodes(left, right, viewMode))
+
+const sortEdgesForLayout = (
+  edges: LabQuestGraphEdge[],
+  orderedNodes: LabQuestGraphNode[]
+) => {
+  const nodeOrder = new Map(orderedNodes.map((node, index) => [node.node_id, index]))
+  return [...edges].sort((left, right) => {
+    const leftSource = nodeOrder.get(left.source) ?? Number.MAX_SAFE_INTEGER
+    const rightSource = nodeOrder.get(right.source) ?? Number.MAX_SAFE_INTEGER
+    if (leftSource !== rightSource) return leftSource - rightSource
+    const leftTarget = nodeOrder.get(left.target) ?? Number.MAX_SAFE_INTEGER
+    const rightTarget = nodeOrder.get(right.target) ?? Number.MAX_SAFE_INTEGER
+    if (leftTarget !== rightTarget) return leftTarget - rightTarget
+    return (
+      compareLayoutText(left.edge_type, right.edge_type) ||
+      compareLayoutText(left.edge_id, right.edge_id) ||
+      compareLayoutText(left.source, right.source) ||
+      compareLayoutText(left.target, right.target)
+    )
+  })
+}
+
 const buildBranchLayout = (
   nodes: LabQuestGraphNode[],
   edges: LabQuestGraphEdge[],
@@ -1938,13 +2123,22 @@ const buildBranchLayout = (
   })
 }
 
-const buildEventLayout = (nodes: LabQuestGraphNode[], edges: LabQuestGraphEdge[]) =>
-  buildDagreLayout(nodes, edges, {
-    rankdir: 'TB',
-    nodesep: 60,
-    ranksep: 110,
-    getNodeSize: () => ({ width: DAGRE_NODE_WIDTH, height: DAGRE_EVENT_NODE_HEIGHT }),
+const buildEventLayout = (nodes: LabQuestGraphNode[], _edges: LabQuestGraphEdge[]) => {
+  if (nodes.length === 0) return {}
+  const positions: Record<string, Position> = {}
+  const laneByKey = new Map<string, number>()
+  nodes.forEach((node, index) => {
+    const laneKey = node.branch_name || node.stage_key || 'default'
+    if (!laneByKey.has(laneKey)) {
+      laneByKey.set(laneKey, laneByKey.size)
+    }
+    positions[node.node_id] = {
+      x: index * (DAGRE_NODE_WIDTH + 92),
+      y: (laneByKey.get(laneKey) ?? 0) * (DAGRE_EVENT_NODE_HEIGHT + 76),
+    }
   })
+  return positions
+}
 
 const buildStageLayout = (nodes: LabQuestGraphNode[], edges: LabQuestGraphEdge[]) =>
   buildDagreLayout(nodes, edges, {
@@ -2514,6 +2708,7 @@ const GraphViewport = React.memo(function GraphViewport({
   onNodeDragStop,
   onNodesChange,
   onEdgesChange,
+  onViewportMoveStart,
   isLoading,
   isError,
   statusMessage,
@@ -2535,6 +2730,7 @@ const GraphViewport = React.memo(function GraphViewport({
   onNodeDragStop: (event: React.MouseEvent, node: Node<QuestFlowNodeData>) => void
   onNodesChange: (changes: any) => void
   onEdgesChange: (changes: any) => void
+  onViewportMoveStart?: () => void
   isLoading: boolean
   isError: boolean
   statusMessage?: string | null
@@ -2564,6 +2760,7 @@ const GraphViewport = React.memo(function GraphViewport({
         onNodeDragStop={onNodeDragStop}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onMoveStart={onViewportMoveStart}
         nodesDraggable={!readOnly}
         // Explicitly enable "infinite canvas" interactions (pan + wheel zoom).
         // We keep this explicit to avoid surprises if @xyflow/react defaults change.
@@ -2852,6 +3049,12 @@ function LabQuestGraphCanvasInner({
   const nodesInitialized = useNodesInitialized()
   const boundsRef = React.useRef<HTMLDivElement | null>(null)
   const fittedViewportRef = React.useRef(new Set<string>())
+  const resizeFitSignatureRef = React.useRef<string | null>(null)
+  const userMovedViewportRef = React.useRef(false)
+  const programmaticViewportMoveRef = React.useRef(false)
+  const programmaticViewportTimerRef = React.useRef<number | null>(null)
+  const lastAutoLayoutSignatureRef = React.useRef<string | null>(null)
+  const collisionLayoutSignatureRef = React.useRef<string | null>(null)
   const [nodes, setNodes, onNodesChange] = useNodesState<QuestFlowNode>([])
   const [edgesState, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [viewMode, setViewMode] = React.useState<'branch' | 'event' | 'stage'>(
@@ -2870,6 +3073,8 @@ function LabQuestGraphCanvasInner({
   const [eventFilter, setEventFilter] = React.useState<EventFilterMode>('activity')
   const [hoverCard, setHoverCard] = React.useState<GraphHoverCardState | null>(null)
   const hoverClearTimerRef = React.useRef<number | null>(null)
+  const appliedPreferredViewModeRef = React.useRef<typeof preferredViewMode>(null)
+  const pendingScienceFocusRef = React.useRef<ScienceFocusEventDetail | null>(null)
   const { openFileInTab } = useOpenFile()
   const findNode = useFileTreeStore((state) => state.findNode)
   const findNodeByPath = useFileTreeStore((state) => state.findNodeByPath)
@@ -2884,6 +3089,9 @@ function LabQuestGraphCanvasInner({
     return () => {
       if (hoverClearTimerRef.current) {
         window.clearTimeout(hoverClearTimerRef.current)
+      }
+      if (programmaticViewportTimerRef.current) {
+        window.clearTimeout(programmaticViewportTimerRef.current)
       }
     }
   }, [])
@@ -2995,6 +3203,8 @@ function LabQuestGraphCanvasInner({
 
   React.useEffect(() => {
     if (!preferredViewMode) return
+    if (appliedPreferredViewModeRef.current === preferredViewMode) return
+    appliedPreferredViewModeRef.current = preferredViewMode
     if (preferredViewMode === viewMode) return
     setViewMode(preferredViewMode)
   }, [preferredViewMode, viewMode])
@@ -3008,7 +3218,29 @@ function LabQuestGraphCanvasInner({
     setCurveMetric('')
     setNodeDisplayMode('summary')
     setLayoutOverride({})
+    userMovedViewportRef.current = false
+    lastAutoLayoutSignatureRef.current = null
+    collisionLayoutSignatureRef.current = null
+    resizeFitSignatureRef.current = null
+    pendingScienceFocusRef.current = null
   }, [projectId, questId])
+
+  React.useEffect(() => {
+    userMovedViewportRef.current = false
+    collisionLayoutSignatureRef.current = null
+    resizeFitSignatureRef.current = null
+  }, [viewMode])
+
+  const markProgrammaticViewportMove = React.useCallback((durationMs: number) => {
+    programmaticViewportMoveRef.current = true
+    if (programmaticViewportTimerRef.current) {
+      window.clearTimeout(programmaticViewportTimerRef.current)
+    }
+    programmaticViewportTimerRef.current = window.setTimeout(() => {
+      programmaticViewportMoveRef.current = false
+      programmaticViewportTimerRef.current = null
+    }, Math.max(0, durationMs) + 120)
+  }, [])
 
   const livePollingEnabled = isPageVisible && !atEventId
   const shouldPollGraph = livePollingEnabled
@@ -3679,16 +3911,24 @@ function LabQuestGraphCanvasInner({
       ),
     [branchEdgesRaw, branchNodeIdSet]
   )
+  const branchLayoutNodes = React.useMemo(
+    () => sortNodesForLayout(branchNodes, 'branch'),
+    [branchNodes]
+  )
+  const branchLayoutEdges = React.useMemo(
+    () => sortEdgesForLayout(branchEdges, branchLayoutNodes),
+    [branchEdges, branchLayoutNodes]
+  )
   const branchLayoutFallback = React.useMemo(
     () =>
-      buildBranchLayout(branchNodes, branchEdges, {
+      buildBranchLayout(branchLayoutNodes, branchLayoutEdges, {
         nodeDisplayMode,
         curveMetric: curveMetric || null,
         curveMode,
         branchInsights,
         memoryByBranch,
       }),
-    [branchEdges, branchInsights, branchNodes, curveMetric, curveMode, memoryByBranch, nodeDisplayMode]
+    [branchInsights, branchLayoutEdges, branchLayoutNodes, curveMetric, curveMode, memoryByBranch, nodeDisplayMode]
   )
   const branchLayoutExplicit = React.useMemo(() => resolveLayoutMap(layoutJson, 'branch'), [layoutJson])
   const branchLayoutMap = React.useMemo(
@@ -3726,27 +3966,65 @@ function LabQuestGraphCanvasInner({
   const viewEdges = React.useMemo(() => {
     return edgesRaw.filter((edge) => viewNodeIds.has(edge.source) && viewNodeIds.has(edge.target))
   }, [edgesRaw, viewNodeIds])
+  const layoutNodes = React.useMemo(
+    () => sortNodesForLayout(viewNodes, viewMode),
+    [viewMode, viewNodes]
+  )
+  const layoutEdges = React.useMemo(
+    () => sortEdgesForLayout(viewEdges, layoutNodes),
+    [layoutNodes, viewEdges]
+  )
   const fallbackLayout = React.useMemo(
     () =>
       viewMode === 'event'
-        ? buildEventLayout(viewNodes, viewEdges)
+        ? buildEventLayout(layoutNodes, layoutEdges)
         : viewMode === 'stage'
-          ? buildStageLayout(viewNodes, viewEdges)
-          : buildBranchLayout(viewNodes, viewEdges, {
+          ? buildStageLayout(layoutNodes, layoutEdges)
+          : buildBranchLayout(layoutNodes, layoutEdges, {
               nodeDisplayMode,
               curveMetric: curveMetric || null,
               curveMode,
               branchInsights,
               memoryByBranch,
             }),
-    [branchInsights, curveMetric, curveMode, memoryByBranch, nodeDisplayMode, viewEdges, viewMode, viewNodes]
+    [branchInsights, curveMetric, curveMode, layoutEdges, layoutNodes, memoryByBranch, nodeDisplayMode, viewMode]
   )
+  const autoLayoutSignature = React.useMemo(() => {
+    const layoutEntries = Object.entries(fallbackLayout)
+      .sort(([left], [right]) => compareLayoutText(left, right))
+      .map(([id, position]) => `${id}:${Math.round(position.x * 10) / 10}:${Math.round(position.y * 10) / 10}`)
+    return [
+      viewMode,
+      showAnalysis ? 'analysis:on' : 'analysis:off',
+      pathFilterMode,
+      timeRange,
+      eventTraceMode,
+      nodeDisplayMode,
+      curveMode,
+      curveMetric || '',
+      layoutEntries.join('|'),
+    ].join('::')
+  }, [
+    curveMetric,
+    curveMode,
+    eventTraceMode,
+    fallbackLayout,
+    nodeDisplayMode,
+    pathFilterMode,
+    showAnalysis,
+    timeRange,
+    viewMode,
+  ])
   const explicitLayout = React.useMemo(
     () => ({
       ...resolveLayoutMap(layoutJson, viewMode),
       ...layoutOverride,
     }),
     [layoutJson, layoutOverride, viewMode]
+  )
+  const hasExplicitNodeLayout = React.useMemo(
+    () => Object.keys(explicitLayout).length > 0,
+    [explicitLayout]
   )
   const layoutMap = React.useMemo(
     () => ({
@@ -3868,6 +4146,13 @@ function LabQuestGraphCanvasInner({
           viewMode === 'branch' && node.branch_name ? memoryByBranch.get(node.branch_name) : null
         const isPlaceholder = Boolean(node.placeholder || node.node_kind === 'placeholder')
         const isBaselineRoot = node.node_kind === 'baseline_root'
+        const sciencePayload =
+          viewMode !== 'branch' &&
+          node.stage_key === 'science' &&
+          node.idea_json &&
+          isScienceKind(node.idea_json.kind)
+            ? node.idea_json
+            : null
         const label = isStage
           ? node.stage_title || node.stage_key || node.branch_name || 'stage'
           : viewMode === 'event'
@@ -4004,6 +4289,7 @@ function LabQuestGraphCanvasInner({
             retireState: node.retire_state ?? null,
             claimEvidenceState: node.claim_evidence_state ?? null,
             baselineGate: node.baseline_state ?? null,
+            sciencePayload,
           },
           draggable: !interactionLocked,
         }
@@ -4151,7 +4437,7 @@ function LabQuestGraphCanvasInner({
   )
 
   const computedEdges: Edge[] = React.useMemo(() => {
-    const questEdges = viewEdges.map((edge, index) => {
+    const questEdges = layoutEdges.map((edge, index) => {
       const baseStyle = resolveEdgeStyle(edge.edge_type, edgePalette)
       const isHighlighted = highlightIds.has(edge.source) && highlightIds.has(edge.target)
       const isCurrentPathEdge =
@@ -4188,23 +4474,25 @@ function LabQuestGraphCanvasInner({
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          width: 14,
-          height: 14,
+          width: 16,
+          height: 16,
           color,
         },
       }
     })
     return [...questEdges, ...agentGraph.edges, ...overlayGraph.edges]
-  }, [agentGraph.edges, currentPathNodeIds, edgePalette, highlightIds, overlayGraph.edges, viewEdges, viewMode])
+  }, [agentGraph.edges, currentPathNodeIds, edgePalette, highlightIds, layoutEdges, overlayGraph.edges, viewMode])
 
   React.useEffect(() => {
     const forceLayout = viewModeRef.current !== viewMode
+    const autoLayoutChanged = lastAutoLayoutSignatureRef.current !== autoLayoutSignature
+    lastAutoLayoutSignatureRef.current = autoLayoutSignature
     setNodes((prev) => {
       const prevMap = new Map(prev.map((node) => [node.id, node]))
       const next = combinedNodes.map((node) => {
         if (node.type === 'agentNode') return node
         const existing = prevMap.get(node.id)
-        if (!existing || forceLayout) return node
+        if (!existing || forceLayout || autoLayoutChanged) return node
         if (!explicitLayout[node.id]) {
           const existingPositionAbsolute = (existing as { positionAbsolute?: Position }).positionAbsolute
           return {
@@ -4218,12 +4506,14 @@ function LabQuestGraphCanvasInner({
       return areNodesEquivalent(prev, next) ? prev : next
     })
     setEdges((prev) => (areEdgesEquivalent(prev as Edge[], computedEdges) ? prev : computedEdges))
-  }, [combinedNodes, computedEdges, explicitLayout, setEdges, setNodes, viewMode])
+  }, [autoLayoutSignature, combinedNodes, computedEdges, explicitLayout, setEdges, setNodes, viewMode])
 
   React.useEffect(() => {
     if (!nodesInitialized) return
     if (nodes.length <= 1) return
     if (nodes.some((node) => node.dragging)) return
+    if (hasExplicitNodeLayout) return
+    if (collisionLayoutSignatureRef.current === autoLayoutSignature) return
 
     const resolved = resolveNodeSpacingCollisions(nodes, {
       viewMode,
@@ -4237,10 +4527,11 @@ function LabQuestGraphCanvasInner({
       },
     })
 
+    collisionLayoutSignatureRef.current = autoLayoutSignature
     if (!areNodesEquivalent(nodes, resolved)) {
       setNodes(resolved)
     }
-  }, [flow, nodes, nodesInitialized, setNodes, viewMode])
+  }, [autoLayoutSignature, flow, hasExplicitNodeLayout, nodes, nodesInitialized, setNodes, viewMode])
 
   React.useEffect(() => {
     viewModeRef.current = viewMode
@@ -4250,18 +4541,19 @@ function LabQuestGraphCanvasInner({
     if (nodes.length === 0) return
     const key = `${questId}:${viewMode}`
     if (fittedViewportRef.current.has(key)) return
+    if (userMovedViewportRef.current) return
     try {
+      markProgrammaticViewportMove(450)
       flow.fitView({ padding: 0.2, duration: 450 })
       fittedViewportRef.current.add(key)
     } catch {
       // ignore fit errors if flow not ready
     }
-  }, [flow, nodes.length, questId, viewMode])
-
-  const resizeFitSignatureRef = React.useRef<string | null>(null)
+  }, [flow, markProgrammaticViewportMove, nodes.length, questId, viewMode])
 
   React.useEffect(() => {
     if (nodes.length === 0) return
+    if (userMovedViewportRef.current) return
     if (typeof ResizeObserver === 'undefined') return
     const bounds = boundsRef.current
     if (!bounds) return
@@ -4285,6 +4577,7 @@ function LabQuestGraphCanvasInner({
       }
       resizeFitSignatureRef.current = signature
       try {
+        markProgrammaticViewportMove(320)
         flow.fitView({ padding: viewMode === 'branch' ? 0.22 : 0.2, duration: 320 })
       } catch {
         // ignore fit errors if flow not ready
@@ -4310,7 +4603,7 @@ function LabQuestGraphCanvasInner({
         window.clearTimeout(timer)
       }
     }
-  }, [boundsRef, flow, nodes.length, questId, viewMode])
+  }, [boundsRef, flow, markProgrammaticViewportMove, nodes.length, questId, viewMode])
 
   const questNodeCountRef = React.useRef<Record<string, number>>({})
 
@@ -4321,13 +4614,15 @@ function LabQuestGraphCanvasInner({
     const current = computedQuestNodes.length
     questNodeCountRef.current[key] = current
     if (previous <= 0 || current <= previous) return
+    if (userMovedViewportRef.current) return
     if (highlightNodeId || highlightBranch) return
     try {
+      markProgrammaticViewportMove(320)
       flow.fitView({ padding: 0.22, duration: 320 })
     } catch {
       // ignore fit errors if flow not ready
     }
-  }, [computedQuestNodes.length, flow, highlightBranch, highlightNodeId, questId, viewMode])
+  }, [computedQuestNodes.length, flow, highlightBranch, highlightNodeId, markProgrammaticViewportMove, questId, viewMode])
 
   const lastFocusedKeyRef = React.useRef<string | null>(null)
 
@@ -4358,12 +4653,13 @@ function LabQuestGraphCanvasInner({
     try {
       // Center the viewport, but do not force a zoom level.
       // Forcing zoom makes wheel zoom feel broken/locked.
+      markProgrammaticViewportMove(500)
       flow.setCenter(centerX, centerY, { duration: 500 })
       lastFocusedKeyRef.current = focusKey
     } catch {
       // ignore focus errors if flow not ready
     }
-  }, [flow, highlightBranch, highlightNodeId, nodes])
+  }, [flow, highlightBranch, highlightNodeId, markProgrammaticViewportMove, nodes])
 
   const sortBranches = React.useCallback(
     (nodes: LabQuestGraphNode[]) =>
@@ -4540,6 +4836,65 @@ function LabQuestGraphCanvasInner({
     },
     [onSelectionChange, setSelectionStore]
   )
+
+  const focusScienceNode = React.useCallback(
+    (detail: ScienceFocusEventDetail) => {
+      const targetNodeId = String(detail.node_id || '').trim()
+      if (!targetNodeId) return false
+      const target = findScienceFocusNode(nodes, targetNodeId)
+      if (!target) return false
+
+      const selection = buildScienceSelectionContext(questId, target)
+      if (selection) {
+        applySelection(selection)
+        if (detail.open_detail && selection.selection_type === 'stage_node' && onStageOpen) {
+          onStageOpen(selection)
+        }
+      }
+
+      if (detail.focus !== false) {
+        const internal = flow.getInternalNode(target.id)
+        const targetWidth = internal?.measured?.width ?? target.measured?.width ?? target.width ?? DAGRE_NODE_WIDTH
+        const targetHeight = internal?.measured?.height ?? target.measured?.height ?? target.height ?? DAGRE_NODE_HEIGHT
+        const centerX = target.position.x + targetWidth / 2
+        const centerY = target.position.y + targetHeight / 2
+        try {
+          markProgrammaticViewportMove(500)
+          flow.setCenter(centerX, centerY, { duration: 500 })
+        } catch {
+          // ignore focus errors if flow not ready
+        }
+      }
+      return true
+    },
+    [applySelection, flow, markProgrammaticViewportMove, nodes, onStageOpen, questId]
+  )
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleScienceFocus = (event: Event) => {
+      const detail = ((event as CustomEvent<ScienceFocusEventDetail>).detail || {}) as ScienceFocusEventDetail
+      if (!String(detail.node_id || '').trim()) return
+      pendingScienceFocusRef.current = detail
+      if (focusScienceNode(detail)) {
+        pendingScienceFocusRef.current = null
+        return
+      }
+      if (viewMode !== 'event') {
+        setViewMode('event')
+      }
+    }
+    window.addEventListener('ds:science:focus', handleScienceFocus as EventListener)
+    return () => window.removeEventListener('ds:science:focus', handleScienceFocus as EventListener)
+  }, [focusScienceNode, viewMode])
+
+  React.useEffect(() => {
+    const pending = pendingScienceFocusRef.current
+    if (!pending) return
+    if (focusScienceNode(pending)) {
+      pendingScienceFocusRef.current = null
+    }
+  }, [focusScienceNode, viewMode])
 
   const combinedNodeLookup = React.useMemo(() => {
     const lookup = new Map<string, QuestFlowNode>()
@@ -4894,6 +5249,57 @@ function LabQuestGraphCanvasInner({
     },
     [interactionLocked]
   )
+
+  const handleViewportMoveStart = React.useCallback(() => {
+    if (programmaticViewportMoveRef.current) return
+    userMovedViewportRef.current = true
+  }, [])
+
+  const handleRelayoutCanvas = React.useCallback(() => {
+    if (interactionLocked) return
+    setLayoutOverride({})
+    userMovedViewportRef.current = false
+    lastAutoLayoutSignatureRef.current = null
+    collisionLayoutSignatureRef.current = null
+    resizeFitSignatureRef.current = null
+    const preferences = buildCanvasPreferences({
+      curveMetric,
+      curveMode,
+      nodeDisplayMode,
+      showAnalysis,
+      pathFilterMode,
+    })
+    const nextLayout: QuestLayoutJson = {
+      ...(layoutJson ?? {}),
+      preferences,
+      [viewMode]: {},
+    }
+    layoutMutation.mutate(nextLayout, {
+      onSuccess: () => {
+        const key = `${questId}:${viewMode}`
+        fittedViewportRef.current.delete(key)
+        try {
+          markProgrammaticViewportMove(320)
+          flow.fitView({ padding: viewMode === 'branch' ? 0.22 : 0.2, duration: 320 })
+        } catch {
+          // ignore fit errors if flow not ready
+        }
+      },
+    })
+  }, [
+    curveMetric,
+    curveMode,
+    flow,
+    interactionLocked,
+    layoutJson,
+    layoutMutation,
+    markProgrammaticViewportMove,
+    nodeDisplayMode,
+    pathFilterMode,
+    questId,
+    showAnalysis,
+    viewMode,
+  ])
 
   React.useEffect(() => {
     if (interactionLocked) return
@@ -5263,28 +5669,60 @@ function LabQuestGraphCanvasInner({
     curveMode === 'sota'
       ? t('quest_curve_mode_sota', undefined, 'SoTA only')
       : t('quest_curve_mode_full', undefined, 'Full trace')
+  const viewModeToolbar = !showFloatingPanels ? (
+    <div className="lab-quest-graph-toolbar__segmented" aria-label="Canvas view mode">
+      <Button
+        type="button"
+        size="sm"
+        variant={viewMode === 'branch' ? 'secondary' : 'ghost'}
+        onClick={() => setViewMode('branch')}
+      >
+        Branch map
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={viewMode === 'event' ? 'secondary' : 'ghost'}
+        onClick={() => setViewMode('event')}
+      >
+        Event trace
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={viewMode === 'stage' ? 'secondary' : 'ghost'}
+        onClick={() => setViewMode('stage')}
+      >
+        Stage flow
+      </Button>
+    </div>
+  ) : null
+
   const graphToolbar =
-    viewMode === 'branch' ? (
+    !showFloatingPanels || viewMode === 'branch' ? (
       <div className="lab-quest-graph-toolbar__group nowheel nopan">
-        <div className="lab-quest-graph-toolbar__segmented" aria-label="Canvas node display mode">
-          <Button
-            type="button"
-            size="sm"
-            variant={nodeDisplayMode === 'summary' ? 'secondary' : 'ghost'}
-            onClick={() => setNodeDisplayMode('summary')}
-          >
-            {t('quest_node_display_summary', undefined, 'Summary')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={nodeDisplayMode === 'metric' ? 'secondary' : 'ghost'}
-            onClick={() => setNodeDisplayMode('metric')}
-          >
-            {t('quest_node_display_metric', undefined, 'Metric')}
-          </Button>
-        </div>
-        {nodeDisplayMode === 'metric' ? (
+        {viewModeToolbar}
+        {viewMode === 'branch' ? (
+          <div className="lab-quest-graph-toolbar__segmented" aria-label="Canvas node display mode">
+            <Button
+              type="button"
+              size="sm"
+              variant={nodeDisplayMode === 'summary' ? 'secondary' : 'ghost'}
+              onClick={() => setNodeDisplayMode('summary')}
+            >
+              {t('quest_node_display_summary', undefined, 'Summary')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={nodeDisplayMode === 'metric' ? 'secondary' : 'ghost'}
+              onClick={() => setNodeDisplayMode('metric')}
+            >
+              {t('quest_node_display_metric', undefined, 'Metric')}
+            </Button>
+          </div>
+        ) : null}
+        {viewMode === 'branch' && nodeDisplayMode === 'metric' ? (
           <div className="lab-quest-graph-toolbar__controls">
             <span className="lab-quest-graph-toolbar__caption">
               {t('quest_curve_metric_label', undefined, 'Focus metric')}
@@ -5308,6 +5746,37 @@ function LabQuestGraphCanvasInner({
             <span className="lab-quest-graph-toolbar__caption">{curveModeLabel}</span>
           </div>
         ) : null}
+        {!showFloatingPanels && viewMode === 'event' ? (
+          <div className="lab-quest-graph-toolbar__segmented" aria-label="Event trace mode">
+            <Button
+              type="button"
+              size="sm"
+              variant={eventTraceMode === 'compact' ? 'secondary' : 'ghost'}
+              onClick={() => setEventTraceMode('compact')}
+            >
+              Compact
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={eventTraceMode === 'detailed' ? 'secondary' : 'ghost'}
+              onClick={() => setEventTraceMode('detailed')}
+            >
+              Detailed
+            </Button>
+          </div>
+        ) : null}
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={handleRelayoutCanvas}
+          disabled={interactionLocked || layoutMutation.isPending}
+          title={t('quest_canvas_relayout_title', undefined, 'Recompute the canvas layout')}
+        >
+          <RefreshCw size={14} />
+          {t('quest_canvas_relayout', undefined, 'Relayout')}
+        </Button>
       </div>
     ) : null
 
@@ -5329,6 +5798,7 @@ function LabQuestGraphCanvasInner({
         onNodeDragStop={handleDragStop}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onViewportMoveStart={handleViewportMoveStart}
         isLoading={graphQuery.isLoading || (branchProjectionPending && nodes.length === 0)}
         isError={graphQuery.isError}
         statusMessage={branchProjectionStatusMessage}

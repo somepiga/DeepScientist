@@ -23,6 +23,13 @@ _SESSION_RETRY_INITIAL_SECONDS = 5.0
 _SESSION_RETRY_MAX_SECONDS = 60.0
 _POLL_RETRY_INITIAL_SECONDS = 2.0
 _POLL_RETRY_MAX_SECONDS = 30.0
+# Hard ceiling on the long-poll timeout we will accept from the iLink server.
+# Without this, a misbehaving server can return an arbitrarily large
+# longpolling_timeout_ms, which then becomes the urlopen() timeout for the
+# next request — and Python's urllib does not always honour socket timeouts
+# during stalled SSL reads, so the polling thread can hang indefinitely and
+# block the daemon scheduler that depends on it.
+_SERVER_LONG_POLL_CEILING_MS = 60_000
 
 
 class WeixinIlinkService:
@@ -152,7 +159,7 @@ class WeixinIlinkService:
                 )
                 long_poll_timeout_ms = int(response.get("longpolling_timeout_ms") or 0)
                 if long_poll_timeout_ms > 0:
-                    timeout_ms = long_poll_timeout_ms
+                    timeout_ms = min(long_poll_timeout_ms, _SERVER_LONG_POLL_CEILING_MS)
                 errcode = int(response.get("errcode") or 0)
                 retcode = int(response.get("ret") or 0)
                 if errcode == SESSION_EXPIRED_ERRCODE or retcode == SESSION_EXPIRED_ERRCODE:

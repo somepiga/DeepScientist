@@ -189,23 +189,12 @@ test.describe('CreateProjectDialog button enable after agent completion', () => 
     await page.goto('/')
     await expect(page.locator('[data-onboarding-id="landing-hero"]')).toBeVisible({ timeout: 30_000 })
 
-    // Simulate opening create dialog with setup agent
-    await page.evaluate((qid) => {
-      const event = new CustomEvent('ds:open-create-dialog', {
-        detail: {
-          setupQuestId: qid,
-          setupPacket: {
-            entry_id: 'test',
-            project_title: 'Test Project',
-            benchmark_goal: 'Test goal',
-          },
-        },
-      })
-      window.dispatchEvent(event)
-    }, setupQuestId)
+    await page.locator('[data-onboarding-id="landing-start-research"]').click()
+    await expect(page.getByText('What do you want to research?')).toBeVisible({ timeout: 20_000 })
+    await page.getByRole('button', { name: 'Manual autonomous' }).click()
 
     // Wait for dialog to open
-    await expect(page.getByText('Start Research')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('[data-onboarding-id="start-research-dialog"]')).toBeVisible({ timeout: 10_000 })
 
     // Wait a bit for the agent state to be processed
     await page.waitForTimeout(2000)

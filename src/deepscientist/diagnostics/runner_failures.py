@@ -26,6 +26,46 @@ _MODEL_UNAVAILABLE_MARKERS = (
     "unrecognized model",
 )
 
+_CODEX_PROVIDER_ACCOUNT_ERROR_MARKERS = (
+    "account balance is negative",
+    "please recharge",
+    "insufficient quota",
+    "quota exceeded",
+    "billing hard limit",
+    "billing limit",
+    "payment required",
+    "invalid api key",
+    "invalid_api_key",
+    "incorrect api key",
+    "api key is invalid",
+    "unauthorized",
+)
+
+_CODEX_PROVIDER_ACCOUNT_STATUS_MARKERS = (
+    "401 unauthorized",
+    "402 payment required",
+    "403 forbidden",
+)
+
+_CODEX_UPSTREAM_ERROR_MARKERS = (
+    "rate limit",
+    "too many requests",
+    "service unavailable",
+    "bad gateway",
+    "gateway timeout",
+    "internal server error",
+    "temporarily unavailable",
+    "server overloaded",
+)
+
+_CODEX_UPSTREAM_STATUS_MARKERS = (
+    "429 too many requests",
+    "500 internal server error",
+    "502 bad gateway",
+    "503 service unavailable",
+    "504 gateway timeout",
+)
+
 
 def _build_haystack(*values: object) -> str:
     return "\n".join(str(value or "") for value in values if str(value or "").strip())
@@ -45,6 +85,52 @@ def diagnose_runner_failure(
     haystack = _build_haystack(summary, stderr_text, output_text)
     lower = haystack.lower()
     normalized_runner = str(runner_name or "").strip().lower()
+
+    if normalized_runner == "codex" and (
+        any(marker in lower for marker in _CODEX_PROVIDER_ACCOUNT_ERROR_MARKERS)
+        or (
+            ("unexpected status" in lower or "http_code" in lower or "status" in lower)
+            and any(marker in lower for marker in _CODEX_PROVIDER_ACCOUNT_STATUS_MARKERS)
+        )
+    ):
+        return FailureDiagnosis(
+            code="codex_provider_account_error",
+            problem="The configured Codex provider account cannot serve the request.",
+            why=(
+                "The provider reported an account, billing, quota, or credential blocker. "
+                "Repeating the same quest turn will keep failing until the provider account state is corrected."
+            ),
+            guidance=(
+                "Check the configured provider account, quota, billing status, credentials, and API-key scope.",
+                "Verify the same Codex profile works outside DeepScientist before resuming the quest.",
+                "Do not relaunch the same quest repeatedly until the provider account state is healthy.",
+            ),
+            retriable=False,
+            matched_text="codex provider account error",
+        )
+
+    if normalized_runner == "codex" and (
+        any(marker in lower for marker in _CODEX_UPSTREAM_ERROR_MARKERS)
+        or (
+            ("unexpected status" in lower or "http_code" in lower or "status" in lower)
+            and any(marker in lower for marker in _CODEX_UPSTREAM_STATUS_MARKERS)
+        )
+    ):
+        return FailureDiagnosis(
+            code="codex_upstream_provider_error",
+            problem="The configured Codex upstream provider rejected or could not serve the request.",
+            why=(
+                "This is an external provider/API service condition. DeepScientist can retry with backoff, "
+                "but it cannot repair upstream provider availability from inside the quest runtime."
+            ),
+            guidance=(
+                "Check the configured provider service health, rate limits, and API status.",
+                "Verify the same Codex profile works outside DeepScientist before resuming the quest.",
+                "Do not repeatedly relaunch the same quest if the provider continues returning the same upstream error.",
+            ),
+            retriable=True,
+            matched_text="codex upstream provider error",
+        )
 
     if (
         "tool call result does not follow tool call (2013)" in lower

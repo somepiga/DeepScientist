@@ -7,10 +7,59 @@ import pytest
 
 from deepscientist.cli import build_parser
 from deepscientist.config import ConfigManager
-from deepscientist.doctor import render_doctor_report, run_doctor
+from deepscientist.doctor import _check_ui_port, render_doctor_report, run_doctor
 from deepscientist.home import ensure_home_layout, repo_root
 from deepscientist.quest import QuestService
 from deepscientist.shared import append_jsonl, ensure_dir, utc_now, write_json
+
+
+def _stub_ready_doctor_environment(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr("deepscientist.doctor.resolve_runner_binary", lambda binary, runner_name=None: "/usr/bin/codex")
+    monkeypatch.setattr("deepscientist.doctor._query_local_health", lambda url: None)
+    monkeypatch.setattr("deepscientist.doctor._port_is_bindable", lambda host, port: (True, None))
+    monkeypatch.setattr(
+        "deepscientist.doctor._check_bundles",
+        lambda root: {
+            "id": "bundles",
+            "label": "UI bundles",
+            "ok": True,
+            "status": "ok",
+            "summary": "Web and TUI bundles are present.",
+            "warnings": [],
+            "errors": [],
+            "guidance": [],
+            "details": {},
+        },
+    )
+    monkeypatch.setattr("deepscientist.doctor.which", lambda name: "/usr/bin/uv" if name == "uv" else None)
+    monkeypatch.setattr(
+        "deepscientist.doctor.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="uv 0.9.2\n", stderr=""),
+    )
+    monkeypatch.setattr(
+        ConfigManager,
+        "git_readiness",
+        lambda self: {
+            "ok": True,
+            "installed": True,
+            "user_name": "Deep Scientist",
+            "user_email": "deep@example.com",
+            "warnings": [],
+            "errors": [],
+            "guidance": [],
+        },
+    )
+    monkeypatch.setattr(
+        ConfigManager,
+        "probe_codex_bootstrap",
+        lambda self, *, persist=False, payload=None: {
+            "ok": True,
+            "summary": "Codex startup probe completed.",
+            "warnings": [],
+            "errors": [],
+            "guidance": [],
+        },
+    )
 
 
 def test_cli_parser_exposes_doctor_and_removes_metrics() -> None:
@@ -270,6 +319,54 @@ def test_doctor_reports_recent_runtime_failure_with_problem_why_fix(monkeypatch,
     assert f"evidence: quest: {quest['quest_id']}" in rendered
 
 
+def test_doctor_reports_provider_account_runtime_failure_with_problem_why_fix(monkeypatch, temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+    quest = QuestService(temp_home).create("doctor provider account diagnosis quest")
+    quest_root = Path(quest["quest_root"])
+    run_id = "run-provider-account-001"
+    run_root = ensure_dir(quest_root / ".ds" / "runs" / run_id)
+    write_json(
+        run_root / "result.json",
+        {
+            "ok": False,
+            "run_id": run_id,
+            "model": "provider-default",
+            "exit_code": 1,
+            "output_text": "unexpected status 402 Payment Required: insufficient quota",
+            "stderr_text": "",
+            "completed_at": utc_now(),
+        },
+    )
+    append_jsonl(
+        quest_root / ".ds" / "events.jsonl",
+        {
+            "event_id": "evt-provider-account-001",
+            "type": "runner.turn_error",
+            "quest_id": quest["quest_id"],
+            "run_id": run_id,
+            "source": "codex",
+            "skill_id": "baseline",
+            "model": "provider-default",
+            "summary": "Runner failed after provider rejected the account quota.",
+            "created_at": utc_now(),
+        },
+    )
+    _stub_ready_doctor_environment(monkeypatch)
+
+    report = run_doctor(temp_home, repo_root=repo_root())
+    rendered = render_doctor_report(report)
+    runtime_check = next(item for item in report["checks"] if item["id"] == "recent_runtime_failures")
+
+    assert runtime_check["status"] == "warn"
+    assert runtime_check["problem"] == "The configured Codex provider account cannot serve the request."
+    assert "account, billing, quota" in str(runtime_check["why"])
+    assert any("quota" in line.lower() for line in runtime_check["fix"])
+    assert "problem: The configured Codex provider account cannot serve the request." in rendered
+    assert "fix: Check the configured provider account" in rendered
+
+
 def test_doctor_surfaces_probe_diagnosis_for_known_tool_argument_error(monkeypatch, temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     manager = ConfigManager(temp_home)
@@ -321,6 +418,9 @@ def test_doctor_surfaces_probe_diagnosis_for_known_tool_argument_error(monkeypat
             "guidance": ["Retry later."],
             "details": {
                 "resolved_binary": "/usr/bin/codex",
+                "exit_code": 1,
+                "probe_command": ["/usr/bin/codex", "--search", "exec", "--json", "-"],
+                "effective_model": "inherit",
                 "stderr_excerpt": "failed to parse tool call arguments: trailing characters at line 1 column 3",
                 "stdout_excerpt": "",
             },
@@ -335,3 +435,27 @@ def test_doctor_surfaces_probe_diagnosis_for_known_tool_argument_error(monkeypat
     assert codex_check["problem"] == "The runner emitted malformed tool-call arguments."
     assert any("Serialize tool calls one at a time" in line for line in codex_check["fix"])
     assert "problem: The runner emitted malformed tool-call arguments." in rendered
+    assert "exit code: 1" in rendered
+    assert "probe command: /usr/bin/codex --search exec --json -" in rendered
+    assert "stderr excerpt: failed to parse tool call arguments" in rendered
+
+
+def test_doctor_web_port_guidance_mentions_conflicting_home(monkeypatch, temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+
+    other_home = "/data384/zyj/e2h_codex/DeepScientist"
+    monkeypatch.setattr(
+        "deepscientist.doctor._query_local_health",
+        lambda url: {"status": "ok", "home": other_home},
+    )
+
+    check = _check_ui_port(temp_home, manager)
+
+    assert check["ok"] is False
+    assert "another DeepScientist home" in check["summary"]
+    guidance = "\n".join(check["guidance"])
+    assert f"ds --home {other_home} doctor" in guidance
+    assert f"ds --home {other_home} --stop" in guidance
+    assert "ds --port 21000" in guidance

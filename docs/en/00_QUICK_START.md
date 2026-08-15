@@ -49,7 +49,7 @@ Prepare these first:
 
 If you are still choosing a coding plan or subscription, these are practical starting points:
 
-- If you just want one simple starting recommendation, start with GPT-5.4 using `xhigh` reasoning effort, or Gemini 3 Pro using `gemini-3-pro-preview`.
+- If you just want one simple starting recommendation, start with the Codex + OpenAI login path. If you want Gemini, do not just put a Gemini model name into DeepScientist; first make OpenCode + Gemini work with [25 OpenCode Setup](./25_OPENCODE_PROVIDER_SETUP.md).
 - ChatGPT pricing: https://openai.com/chatgpt/pricing/
 - ChatGPT Plus help: https://help.openai.com/en/articles/6950777-what-is-chatgpt-plus%3F.eps
 - MiniMax Coding Plan: https://platform.minimaxi.com/docs/guides/pricing-codingplan
@@ -98,8 +98,8 @@ DeepScientist ships four built-in runner paths:
 
 Important installation detail:
 
-- DeepScientist prefers the `codex` already available on your machine and only falls back to the bundled npm dependency when no local Codex path is available.
-- DeepScientist does not auto-install or auto-authenticate Claude Code or OpenCode for you. For those two paths, make the CLI work first, then let DeepScientist reuse it.
+- DeepScientist prefers runner CLIs already available on your machine and only falls back to bundled npm helper copies when a compatible package-local binary is present.
+- DeepScientist does not auto-authenticate Claude Code, Kimi Code, or OpenCode for you. For those paths, make the CLI work first, then let DeepScientist reuse it.
 
 If `codex` is still missing afterward, repair it explicitly:
 
@@ -204,7 +204,7 @@ The shortest validation path is:
 
 ```bash
 claude --version
-claude -p --output-format json --tools "" "Reply with exactly HELLO."
+claude -p "Reply with exactly HELLO." --output-format json --tools ""
 ds doctor --runner claude
 ```
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -54,7 +55,7 @@ from ..connector.weixin_support import normalize_weixin_base_url, normalize_weix
 from ..network import urlopen_with_proxy as urlopen
 from ..runners.metadata import get_runner_metadata, list_builtin_runner_names
 from ..runners.runtime_overrides import apply_codex_runtime_overrides, apply_runners_runtime_overrides
-from ..shared import ensure_utf8_subprocess_env, read_json, read_text, read_yaml, resolve_runner_binary, run_command, sha256_text, utc_now, utf8_text_subprocess_kwargs, which, write_text, write_yaml
+from ..shared import ensure_utf8_subprocess_env, read_json, read_text, read_yaml, resolve_runner_binary, run_command, sha256_text, utc_now, utf8_text_subprocess_kwargs, which, write_json, write_text, write_yaml
 from .models import (
     CONFIG_NAMES,
     OPTIONAL_CONFIG_NAMES,
@@ -271,7 +272,11 @@ class ConfigManager:
         runner_readiness = bootstrap.get("runner_readiness") if isinstance(bootstrap.get("runner_readiness"), dict) else {}
         checked_at = utc_now()
         for runner_name in changed_runners:
-            summary = f"{runner_name} runner configuration changed. A new startup probe is required."
+            try:
+                runner_label = get_runner_metadata(runner_name).label
+            except KeyError:
+                runner_label = runner_name
+            summary = f"{runner_label} runner configuration changed. A new startup probe is required."
             runner_readiness[runner_name] = {
                 "ready": False,
                 "last_checked_at": checked_at,
@@ -528,12 +533,12 @@ The **Test** button checks:
 
 This is a safe local smoke test.
 
-## Codex startup gate
+## Runner startup gate
 
-- `bootstrap.codex_ready` starts as `false`
-- the launcher runs a real Codex hello probe before first daemon start
-- once Codex answers correctly, DeepScientist flips this flag to `true`
-- if the probe fails, DeepScientist writes the failure summary back into config and blocks startup
+- the launcher runs a real hello probe for the selected runner before first daemon start
+- `codex`, `claude`, `kimi`, and `opencode` can each record readiness under `bootstrap.runner_readiness`
+- if the selected runner fails, DeepScientist writes the failure summary back into config and blocks only that requested startup path
+- you can start with the default runner first, then configure or switch Claude Code / Kimi Code / OpenCode from Settings
 
 ## Figure and chart style policy
 
@@ -558,6 +563,7 @@ This page edits `{home_text}/config/runners.yaml`.
 - keep `codex.retry_on_failure: true` so transient Codex failures can resume automatically
 - keep retry timing near `10s / 6x / 1800s max` so Codex backs off exponentially and the final retries sit at the 30-minute cap
 - DeepScientist hard-limits one turn to at most `7` total attempts, even if the config says more
+- one-off diagnostics can target a runner without permanently enabling it: `ds doctor --runner claude`, `ds doctor --runner kimi`, or `ds doctor --runner opencode`
 
 ## Test behavior
 
@@ -565,7 +571,7 @@ The **Test** button checks:
 
 - whether the configured runner binaries are on PATH
 - whether disabled runners are intentionally skipped
-- for Codex, it also runs a real hello probe so login problems, profile misconfiguration, and first-run setup issues surface before quest execution
+- for enabled runners, it also runs a real hello probe so login problems, profile misconfiguration, and first-run setup issues surface before quest execution
 - it does not simulate the full failure/retry loop, so use quest runtime logs when debugging recovery behavior
 """
         if name == "plugins":
@@ -669,9 +675,9 @@ Use **Test** when the file exposes runtime dependencies.
         env_token = str(os.environ.get(token_env_name) or "").strip() if token_env_name else ""
         resolved_token = direct_token or env_token
         query = "transformers"
-        result_size = max(1, int(deepxiv.get("default_result_size") or 20))
-        preview_characters = max(200, int(deepxiv.get("preview_characters") or 5000))
-        request_timeout_seconds = max(3, int(deepxiv.get("request_timeout_seconds") or 90))
+        result_size = max(1, int(deepxiv.get("default_result_size") or 10))
+        preview_characters = max(200, int(deepxiv.get("preview_characters") or 1200))
+        request_timeout_seconds = max(3, int(deepxiv.get("request_timeout_seconds") or 20))
         details = {
             "base_url": base_url,
             "query": query,
@@ -691,7 +697,7 @@ Use **Test** when the file exposes runtime dependencies.
                 "results": [],
                 "preview": "",
             }
-        url = f"{base_url.rstrip('/')}/arxiv/?{urlencode({'type': 'retrieve', 'query': query, 'size': str(result_size)})}"
+        url = f"{base_url.rstrip('/')}/arxiv/?{urlencode({'type': 'retrieve', 'query': query, 'top_k': str(result_size)})}"
         request = Request(
             url,
             headers={
@@ -731,8 +737,14 @@ Use **Test** when the file exposes runtime dependencies.
                 "preview": preview,
             }
         results = parsed.get("results") if isinstance(parsed.get("results"), list) else []
+        if not results and isinstance(parsed.get("result"), list):
+            results = parsed.get("result") or []
+        total = parsed.get("total")
+        if total is None:
+            total = parsed.get("total_count")
         preview_payload = {
-            "total": parsed.get("total"),
+            "total": total,
+            "status": parsed.get("status"),
             "took": parsed.get("took"),
             "results": results[: min(3, len(results))],
         }
@@ -742,7 +754,7 @@ Use **Test** when the file exposes runtime dependencies.
         details.update(
             {
                 "request_url": url,
-                "total": parsed.get("total"),
+                "total": total,
                 "result_count": len(results),
                 "first_title": str((results[0] or {}).get("title") or "").strip() if results else None,
             }
@@ -760,7 +772,7 @@ Use **Test** when the file exposes runtime dependencies.
 
     def probe_runner_bootstrap(self, runner_name: str, *, persist: bool = False, payload: dict | None = None) -> dict:
         normalized_runner = str(runner_name or "codex").strip().lower() or "codex"
-        runners_payload = payload if isinstance(payload, dict) else self.load_named_normalized("runners")
+        runners_payload = payload if isinstance(payload, dict) else self.load_runners_config()
         runner_payload = runners_payload.get(normalized_runner) if isinstance(runners_payload.get(normalized_runner), dict) else {}
         if normalized_runner == "codex":
             result = self._probe_codex_runner(runner_payload)
@@ -888,7 +900,8 @@ Use **Test** when the file exposes runtime dependencies.
 
     def _test_runners_payload(self, payload: dict, *, live: bool) -> dict:
         items = []
-        for name, config in payload.items():
+        normalized_payload = apply_runners_runtime_overrides(self._normalize_named_payload("runners", payload))
+        for name, config in normalized_payload.items():
             if not isinstance(config, dict):
                 continue
             enabled = bool(config.get("enabled", False))
@@ -911,8 +924,8 @@ Use **Test** when the file exposes runtime dependencies.
                     "live_probe_executed": False,
                 },
             }
-            if enabled and name == "codex" and exists and live:
-                probe = self._probe_codex_runner(config)
+            if enabled and exists and live:
+                probe = self.probe_runner_bootstrap(name, persist=True, payload=normalized_payload)
                 item["ok"] = bool(probe.get("ok"))
                 item["warnings"] = [*warnings, *list(probe.get("warnings") or [])]
                 item["errors"] = list(probe.get("errors") or [])
@@ -1029,14 +1042,34 @@ Use **Test** when the file exposes runtime dependencies.
                 if not str(config.get("login_user_id") or "").strip():
                     warnings.append("weixin: `login_user_id` is empty. Save the scanner user id after QR login for easier diagnostics.")
             elif name == "feishu":
-                has_app_id = bool(str(config.get("app_id") or "").strip())
-                has_app_secret = self._has_secret(config, "app_secret", "app_secret_env")
                 if transport != "long_connection":
                     errors.append("feishu: `transport` must stay `long_connection`.")
-                if not has_app_id:
-                    errors.append("feishu: `transport: long_connection` requires `app_id`.")
-                if not has_app_secret:
-                    errors.append("feishu: `transport: long_connection` requires `app_secret` or `app_secret_env`.")
+                profiles = list_connector_profiles("feishu", config)
+                if profiles:
+                    seen_profile_ids: set[str] = set()
+                    seen_app_ids: set[str] = set()
+                    for profile in profiles:
+                        profile_id = str(profile.get("profile_id") or "").strip() or "unknown"
+                        app_id = str(profile.get("app_id") or "").strip()
+                        if profile_id in seen_profile_ids:
+                            errors.append(f"feishu: duplicate profile_id `{profile_id}`.")
+                        else:
+                            seen_profile_ids.add(profile_id)
+                        if not app_id:
+                            errors.append(f"feishu[{profile_id}]: requires `app_id`.")
+                        elif app_id in seen_app_ids:
+                            errors.append(f"feishu: duplicate app_id `{app_id}` across profiles.")
+                        else:
+                            seen_app_ids.add(app_id)
+                        if not self._has_secret(profile, "app_secret", "app_secret_env"):
+                            errors.append(f"feishu[{profile_id}]: requires `app_secret` or `app_secret_env`.")
+                else:
+                    has_app_id = bool(str(config.get("app_id") or "").strip())
+                    has_app_secret = self._has_secret(config, "app_secret", "app_secret_env")
+                    if not has_app_id:
+                        errors.append("feishu: `transport: long_connection` requires `app_id`.")
+                    if not has_app_secret:
+                        errors.append("feishu: `transport: long_connection` requires `app_secret` or `app_secret_env`.")
             elif name == "whatsapp":
                 if transport != "local_session":
                     errors.append("whatsapp: `transport` must stay `local_session`.")
@@ -1512,6 +1545,14 @@ Use **Test** when the file exposes runtime dependencies.
         return hints
 
     @staticmethod
+    def _codex_direct_hello_probe_command(*, profile: str = "") -> str:
+        profile_args = f" --profile {shlex.quote(profile)}" if profile else ""
+        return (
+            "printf 'Reply with exactly HELLO.' | "
+            f"codex --search{profile_args} exec --json --cd /tmp --skip-git-repo-check -"
+        )
+
+    @staticmethod
     def _missing_provider_env_guidance(
         *,
         profile: str,
@@ -1530,7 +1571,8 @@ Use **Test** when the file exposes runtime dependencies.
                     "Also add `requires_openai_auth = false` to that local provider profile so DeepScientist can remove conflicting `OPENAI_*` auth variables."
                 )
         guidance.append(
-            f"Before retrying DeepScientist, run a real request such as `codex exec --profile {profile} --json --cd /tmp --skip-git-repo-check -` and verify it returns `HELLO`."
+            "Before retrying DeepScientist, run a real request such as "
+            f"`{ConfigManager._codex_direct_hello_probe_command(profile=profile)}` and verify it returns `HELLO`."
         )
         return guidance
 
@@ -1570,7 +1612,52 @@ Use **Test** when the file exposes runtime dependencies.
             },
         )
 
-    def _codex_probe_failure_guidance(self, config: dict) -> tuple[list[str], list[str]]:
+    @staticmethod
+    def _codex_probe_text_looks_auth_related(stdout_text: str, stderr_text: str) -> bool:
+        haystack = f"{stdout_text}\n{stderr_text}".lower()
+        markers = (
+            "please login",
+            "not logged in",
+            "login required",
+            "authentication required",
+            "auth required",
+            "oauth",
+            "unauthenticated",
+            "missing credentials",
+            "no credentials",
+        )
+        return any(marker in haystack for marker in markers)
+
+    @staticmethod
+    def _codex_probe_text_looks_network_related(stdout_text: str, stderr_text: str) -> bool:
+        haystack = f"{stdout_text}\n{stderr_text}".lower()
+        markers = (
+            "connection refused",
+            "connection reset",
+            "connection timed out",
+            "network is unreachable",
+            "name or service not known",
+            "temporary failure in name resolution",
+            "dns",
+            "proxy",
+            "tls",
+            "certificate",
+            "ssl",
+            "timeout",
+            "timed out",
+            "econnreset",
+            "econnrefused",
+            "enotfound",
+        )
+        return any(marker in haystack for marker in markers)
+
+    def _codex_probe_failure_guidance(
+        self,
+        config: dict,
+        *,
+        stdout_text: str = "",
+        stderr_text: str = "",
+    ) -> tuple[list[str], list[str]]:
         profile = self._codex_profile_name(config)
         config_dir = str(config.get("config_dir") or "~/.codex").strip()
         metadata = active_provider_metadata_from_home(config_dir, profile=profile or None) if config_dir else {}
@@ -1582,7 +1669,7 @@ Use **Test** when the file exposes runtime dependencies.
                     f"Codex profile `{profile}` did not complete the startup hello probe successfully.",
                 ],
                 [
-                    f"Run `codex exec --profile {profile} --json --cd /tmp --skip-git-repo-check -` in a terminal and confirm that a real `HELLO` request succeeds.",
+                    f"Run `{self._codex_direct_hello_probe_command(profile=profile)}` in a terminal and confirm that a real `HELLO` request succeeds.",
                     "If the profile uses a custom provider, make sure its API key, Base URL, and model configuration are available to Codex.",
                     "If the provider expects the model from the Codex profile itself, set `model: inherit` in `~/DeepScientist/config/runners.yaml`.",
                     *provider_hints,
@@ -1590,14 +1677,49 @@ Use **Test** when the file exposes runtime dependencies.
                     "Then run `ds doctor` and start DeepScientist again.",
                 ],
             )
+        if self._codex_probe_text_looks_auth_related(stdout_text, stderr_text):
+            return (
+                [
+                    "Codex reported an authentication or first-run setup problem during the startup hello probe.",
+                    "Run `codex login` (or just `codex`) once and complete login before starting DeepScientist.",
+                ],
+                [
+                    "Run `codex login` (or just `codex`) in a terminal and complete login or first-run setup.",
+                    "Then run `printf 'Reply with exactly HELLO.' | codex --search exec --json --cd /tmp --skip-git-repo-check -` and confirm the real request succeeds.",
+                    "If login succeeds but the direct probe still fails, check the configured model, provider profile, proxy, and Codex account access.",
+                    "Then run `ds doctor` and start DeepScientist again.",
+                ],
+            )
+        if self._codex_model_unavailable(stdout_text, stderr_text):
+            return (
+                [
+                    "Codex authentication may be working, but the configured startup probe model was not accepted.",
+                ],
+                [
+                    "Run `printf 'Reply with exactly HELLO.' | codex --search exec --json --cd /tmp --skip-git-repo-check -` in the same shell and confirm the current Codex default model works.",
+                    "Set `runners.codex.model: inherit` in `~/DeepScientist/config/runners.yaml`, or set it to a model that your Codex account can actually use.",
+                    "Then run `ds doctor` and start DeepScientist again.",
+                ],
+            )
+        if self._codex_probe_text_looks_network_related(stdout_text, stderr_text):
+            return (
+                [
+                    "Codex CLI was found, but the real startup hello request appears to have failed at the network, proxy, TLS, or provider layer.",
+                ],
+                [
+                    "Run `printf 'Reply with exactly HELLO.' | codex --search exec --json --cd /tmp --skip-git-repo-check -` from the same shell and verify the request succeeds.",
+                    "If this host needs a proxy, export `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` before launching `ds`; for managed or supervised runs, also put required environment variables under `runners.codex.env`.",
+                    "Then run `ds doctor` and start DeepScientist again.",
+                ],
+            )
         return (
             [
-                "Run `codex login` (or just `codex`) once and complete login before starting DeepScientist.",
+                "Codex CLI was found, but its real startup hello request did not complete successfully.",
             ],
             [
-                "Run `codex login` (or just `codex`) in a terminal and complete login or first-run setup.",
-                "If `codex` is missing, install it explicitly with `npm install -g @openai/codex`.",
-                "If the configured model is not available to your Codex account, update `~/DeepScientist/config/runners.yaml` and try again.",
+                "Run `printf 'Reply with exactly HELLO.' | codex --search exec --json --cd /tmp --skip-git-repo-check -` in the same shell and inspect the Codex stderr/stdout.",
+                "If that direct command succeeds but `ds doctor` fails, compare `which codex`, `CODEX_HOME`, proxy variables, and `~/DeepScientist/config/runners.yaml`.",
+                "If the configured model is not available to your Codex account, set `runners.codex.model: inherit` or another accessible model.",
                 "Then run `ds doctor` and start DeepScientist again.",
             ],
         )
@@ -1791,13 +1913,20 @@ Use **Test** when the file exposes runtime dependencies.
 
         command, result, timeout_error = run_probe_once(effective_model)
         if timeout_error is not None:
+            stdout_text = str(timeout_error.stdout or "")
+            stderr_text = str(timeout_error.stderr or "")
             details.update(
                 {
                     "exit_code": None,
-                    "stdout_excerpt": self._compact_probe_text(timeout_error.stdout or ""),
-                    "stderr_excerpt": self._compact_probe_text(timeout_error.stderr or ""),
+                    "stdout_excerpt": self._compact_probe_text(stdout_text),
+                    "stderr_excerpt": self._compact_probe_text(stderr_text),
                     "probe_command": command,
                 }
+            )
+            failure_errors, failure_guidance = self._codex_probe_failure_guidance(
+                config,
+                stdout_text=stdout_text,
+                stderr_text=stderr_text,
             )
             return {
                 "ok": False,
@@ -1805,11 +1934,11 @@ Use **Test** when the file exposes runtime dependencies.
                 "warnings": base_warnings,
                 "errors": [
                     "Codex did not answer the startup hello probe within 90 seconds.",
-                    *self._codex_probe_failure_guidance(config)[0],
+                    *failure_errors,
                 ],
                 "details": details,
                 "guidance": [
-                    *self._codex_probe_failure_guidance(config)[1],
+                    *failure_guidance,
                     "If `codex` is missing on PATH, install it explicitly with `npm install -g @openai/codex`.",
                     "Confirm the configured model is available to your Codex setup. DeepScientist currently probes Codex with the configured runner model first.",
                 ],
@@ -1889,9 +2018,19 @@ Use **Test** when the file exposes runtime dependencies.
                 warnings.append("Codex returned stderr during the startup probe.")
             if details.get("model_fallback_attempted") and not details.get("model_fallback_used"):
                 warnings.append("DeepScientist also tried the current Codex default model, but that fallback probe did not succeed.")
-            errors.extend(self._codex_probe_failure_guidance(config)[0])
+            errors.extend(
+                self._codex_probe_failure_guidance(
+                    config,
+                    stdout_text=stdout_text,
+                    stderr_text=stderr_text,
+                )[0]
+            )
         missing_env_key = missing_provider_env_key_from_text(stdout_text, stderr_text) or configured_provider_env_key
-        failure_guidance = self._codex_probe_failure_guidance(config)[1]
+        failure_guidance = self._codex_probe_failure_guidance(
+            config,
+            stdout_text=stdout_text,
+            stderr_text=stderr_text,
+        )[1]
         if not ok and missing_env_key and profile:
             errors.append(
                 f"Codex profile `{profile}` requires environment variable `{missing_env_key}`, but DeepScientist did not receive it."
@@ -2108,11 +2247,10 @@ Use **Test** when the file exposes runtime dependencies.
                 "--no-session-persistence",
                 "--permission-mode",
                 permission_mode,
-                "--tools",
-                "",
             ]
             if requested_model.lower() not in {"", "inherit", "default", "claude-default"}:
                 command.extend(["--model", requested_model])
+            command.extend(["--tools", ""])
             result = subprocess.run(
                 command,
                 input="Reply with exactly HELLO.",
@@ -2157,7 +2295,7 @@ Use **Test** when the file exposes runtime dependencies.
             "errors": [] if ok else ["Claude Code did not complete the startup hello probe successfully."],
             "details": details,
             "guidance": [] if ok else [
-                "Run `claude -p --output-format json --tools ""` manually and confirm it returns `HELLO`.",
+                "Run `claude -p \"Reply with exactly HELLO.\" --output-format json --tools \"\"` manually and confirm it returns `HELLO`.",
                 "If Claude Code uses a custom account or credential path, point `runners.claude.config_dir` at the correct home.",
             ],
         }
@@ -2632,6 +2770,7 @@ Use **Test** when the file exposes runtime dependencies.
         defaults = default_payload(name, self.home)
         if name == "runners":
             normalized = self._deep_merge(defaults, prepared)
+            runtime_enabled_runners = self._runtime_enabled_runner_names()
             codex = normalized.get("codex")
             if isinstance(codex, dict):
                 if self._looks_like_legacy_codex_retry_profile(codex):
@@ -2652,6 +2791,10 @@ Use **Test** when the file exposes runtime dependencies.
                     claude.pop("approval_policy", None)
                 if "sandbox_mode" in claude:
                     claude.pop("sandbox_mode", None)
+            for runner_name in runtime_enabled_runners:
+                runner_config = normalized.get(runner_name)
+                if isinstance(runner_config, dict):
+                    runner_config["enabled"] = True
             return normalized
         if name == "connectors":
             normalized = deepcopy(defaults)
@@ -2696,12 +2839,42 @@ Use **Test** when the file exposes runtime dependencies.
             return normalized
         return self._deep_merge(defaults, prepared)
 
+    @staticmethod
+    def _normalize_runtime_runner_name(value: object) -> str:
+        normalized = str(value or "").strip().lower().replace("_", "-")
+        if normalized in {"claude-code", "claudecode"}:
+            return "claude"
+        if normalized in {"kimi-code", "kimicode"}:
+            return "kimi"
+        if normalized in {"open-code", "open code", "opencode-ai", "opencodeai"}:
+            return "opencode"
+        return normalized.replace("-", "")
+
+    @classmethod
+    def _runtime_enabled_runner_names(cls) -> set[str]:
+        names: set[str] = set()
+        raw_values = [
+            os.environ.get("DEEPSCIENTIST_DEFAULT_RUNNER"),
+            os.environ.get("DS_DEFAULT_RUNNER"),
+            os.environ.get("DEEPSCIENTIST_ENABLE_RUNNER"),
+            os.environ.get("DS_ENABLE_RUNNER"),
+            os.environ.get("DEEPSCIENTIST_ENABLE_RUNNERS"),
+            os.environ.get("DS_ENABLE_RUNNERS"),
+        ]
+        for raw_value in raw_values:
+            for item in str(raw_value or "").replace(";", ",").split(","):
+                normalized = cls._normalize_runtime_runner_name(item)
+                if normalized:
+                    names.add(normalized)
+        return names
+
     def _normalize_config_payload(self, payload: dict) -> dict:
         defaults = default_payload("config", self.home)
         normalized = self._deep_merge(defaults, payload)
         default_runner_override = str(
             os.environ.get("DEEPSCIENTIST_DEFAULT_RUNNER") or os.environ.get("DS_DEFAULT_RUNNER") or ""
         ).strip().lower()
+        default_runner_override = self._normalize_runtime_runner_name(default_runner_override)
         if default_runner_override:
             normalized["default_runner"] = default_runner_override
         bootstrap = normalized.get("bootstrap") if isinstance(normalized.get("bootstrap"), dict) else {}
@@ -2823,17 +2996,29 @@ Use **Test** when the file exposes runtime dependencies.
             raw_deepxiv.get("token_env", deepxiv.get("token_env", deepxiv_defaults.get("token_env", "DEEPXIV_TOKEN"))) or ""
         ).strip() or None
         try:
-            deepxiv["default_result_size"] = max(1, int(raw_deepxiv.get("default_result_size", deepxiv.get("default_result_size", deepxiv_defaults.get("default_result_size", 20))) or 90))
+            raw_result_size = raw_deepxiv.get(
+                "default_result_size",
+                deepxiv.get("default_result_size", deepxiv_defaults.get("default_result_size", 10)),
+            )
+            deepxiv["default_result_size"] = max(1, int(raw_result_size))
         except (TypeError, ValueError):
-            deepxiv["default_result_size"] = int(deepxiv_defaults.get("default_result_size", 20) or 10)
+            deepxiv["default_result_size"] = int(deepxiv_defaults.get("default_result_size", 10) or 10)
         try:
-            deepxiv["preview_characters"] = max(200, int(raw_deepxiv.get("preview_characters", deepxiv.get("preview_characters", deepxiv_defaults.get("preview_characters", 5000))) or 5000))
+            raw_preview_characters = raw_deepxiv.get(
+                "preview_characters",
+                deepxiv.get("preview_characters", deepxiv_defaults.get("preview_characters", 1200)),
+            )
+            deepxiv["preview_characters"] = max(200, int(raw_preview_characters))
         except (TypeError, ValueError):
-            deepxiv["preview_characters"] = int(deepxiv_defaults.get("preview_characters", 5000) or 1200)
+            deepxiv["preview_characters"] = int(deepxiv_defaults.get("preview_characters", 1200) or 1200)
         try:
-            deepxiv["request_timeout_seconds"] = max(3, int(raw_deepxiv.get("request_timeout_seconds", deepxiv.get("request_timeout_seconds", deepxiv_defaults.get("request_timeout_seconds", 90))) or 20))
+            raw_timeout = raw_deepxiv.get(
+                "request_timeout_seconds",
+                deepxiv.get("request_timeout_seconds", deepxiv_defaults.get("request_timeout_seconds", 20)),
+            )
+            deepxiv["request_timeout_seconds"] = max(3, int(raw_timeout))
         except (TypeError, ValueError):
-            deepxiv["request_timeout_seconds"] = int(deepxiv_defaults.get("request_timeout_seconds", 90) or 20)
+            deepxiv["request_timeout_seconds"] = int(deepxiv_defaults.get("request_timeout_seconds", 20) or 20)
         literature["deepxiv"] = deepxiv
         normalized["literature"] = literature
         return normalized

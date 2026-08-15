@@ -506,7 +506,6 @@
   .feed-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(145, 153, 165, 0.45) transparent;
-    scrollbar-gutter: stable;
   }
 
   .feed-scrollbar::-webkit-scrollbar {
@@ -542,6 +541,33 @@
 
   .modal-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(86, 91, 99, 0.7);
+  }
+
+  .benchstore-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(92, 104, 120, 0.42) transparent;
+  }
+
+  .benchstore-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: transparent;
+  }
+
+  .benchstore-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .benchstore-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(92, 104, 120, 0.42);
+    background-clip: content-box;
+    border-radius: 999px;
+    border: 2px solid transparent;
+  }
+
+  .benchstore-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(72, 84, 100, 0.58);
+    background-clip: content-box;
   }
 
   .markdown-body {
@@ -2763,4 +2789,22 @@
   border-bottom-color: rgba(255, 255, 255, 0.08);
   background: rgba(56, 139, 253, 0.16);
   color: #79c0ff;
+}
+
+@keyframes setup-mode-ready {
+  0% {
+    opacity: 0.82;
+    transform: scale(0.985);
+    box-shadow: 0 0 0 0 rgba(45, 42, 38, 0);
+  }
+  42% {
+    opacity: 1;
+    transform: scale(1.012);
+    box-shadow: 0 18px 46px -34px rgba(45, 42, 38, 0.42);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(45, 42, 38, 0);
+  }
 }

@@ -104,6 +104,8 @@ Current behavior:
 - outbound image, video, and file delivery works when the agent sends a real local file path
 - outbound main-experiment metric charts are sent automatically as native WeChat images
 
+If several quests are running, use Weixin for only one current main quest. See [34 Multitask Entry Guide](./34_MULTITASK_ORCHESTRATION_GUIDE.md) for the full entry choice.
+
 ![Quest-local media flow](../images/weixin/weixin-quest-media-flow.svg)
 
 ## 5. What the agent should do with Weixin media
@@ -151,6 +153,38 @@ Check:
 - DeepScientist is still running while you wait
 
 If the QR expires, DeepScientist refreshes it automatically.
+
+### QR code does not appear behind a proxy
+
+If DeepScientist is started with `ds --proxy ...`, or if the shell has
+`HTTP_PROXY`, `HTTPS_PROXY`, or `ALL_PROXY` set, the Weixin login and polling
+requests can inherit that proxy. Some local HTTP proxy tunnels work for model
+traffic but make the Weixin iLink QR login stall, fail to render the QR image, or
+wait forever after the phone confirmation.
+
+DeepScientist now depends on `httpx[socks]`, so `socks5://...` proxies install
+the required `socksio` transport support automatically. If an older installation
+still reports `Using SOCKS proxy, but the 'socksio' package is not installed`,
+update and reinstall DeepScientist, or temporarily run `pip install "httpx[socks]"`
+inside the active runtime.
+
+When this happens, keep the global proxy for other outbound traffic but bypass
+the Weixin iLink and CDN hosts with `NO_PROXY` and `no_proxy`:
+
+```bash
+export NO_PROXY="ilinkai.weixin.qq.com,novac2c.cdn.weixin.qq.com,127.0.0.1,localhost"
+export no_proxy="$NO_PROXY"
+ds --proxy http://127.0.0.1:7890
+```
+
+If you already have a `NO_PROXY` value, append these hosts instead of replacing
+the existing list.
+
+This keeps model or GitHub requests on the configured proxy while allowing the
+Weixin QR login, long polling, and media CDN requests to connect directly. If QR
+login still does not work, temporarily unset `HTTP_PROXY`, `HTTPS_PROXY`,
+`ALL_PROXY`, `http_proxy`, `https_proxy`, and `all_proxy`, then restart
+DeepScientist and retry the binding flow.
 
 ### I only see text, but not inbound media
 

@@ -3226,6 +3226,33 @@ def test_quest_create_handler_copilot_workspace_starts_idle_and_waits_for_user(t
     assert "Ready for your first instruction." in status_md
 
 
+def test_quest_create_handler_normalizes_copilot_autonomous_decision_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+
+    payload = app.handlers.quest_create(
+        {
+            "goal": "Copilot dirty policy quest",
+            "title": "Copilot dirty policy quest",
+            "startup_contract": {
+                "workspace_mode": "copilot",
+                "decision_policy": "autonomous",
+                "launch_mode": "custom",
+                "custom_profile": "freeform",
+            },
+            "auto_start": False,
+        }
+    )
+
+    assert payload["ok"] is True
+    snapshot = payload["snapshot"]
+    assert snapshot["workspace_mode"] == "copilot"
+    assert snapshot["startup_contract"]["decision_policy"] == "user_gated"
+    assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
+    assert snapshot["continuation_reason"] == "copilot_mode"
+
+
 def test_quest_settings_handler_updates_quest_yaml(temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
@@ -3258,7 +3285,10 @@ def test_quest_settings_handler_updates_workspace_mode_and_research_state(temp_h
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
     app = DaemonApp(temp_home)
-    quest = app.quest_service.create("workspace mode settings quest")
+    quest = app.quest_service.create(
+        "workspace mode settings quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "autonomous"},
+    )
     quest_id = quest["quest_id"]
 
     payload = app.handlers.quest_settings(
@@ -3277,6 +3307,7 @@ def test_quest_settings_handler_updates_workspace_mode_and_research_state(temp_h
     quest_yaml = read_yaml(temp_home / "quests" / quest_id / "quest.yaml", {})
     startup_contract = dict(quest_yaml.get("startup_contract") or {})
     assert startup_contract["workspace_mode"] == "copilot"
+    assert startup_contract["decision_policy"] == "user_gated"
 
     research_state = read_json(temp_home / "quests" / quest_id / ".ds" / "research_state.json", {})
     assert research_state["workspace_mode"] == "copilot"
@@ -3284,6 +3315,164 @@ def test_quest_settings_handler_updates_workspace_mode_and_research_state(temp_h
     runtime_state = read_json(temp_home / "quests" / quest_id / ".ds" / "runtime_state.json", {})
     assert runtime_state["continuation_policy"] == "wait_for_user_or_resume"
     assert runtime_state["continuation_reason"] == "copilot_mode"
+
+
+def test_quest_settings_handler_updates_decision_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "decision policy settings quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "user_gated"},
+    )
+    quest_id = quest["quest_id"]
+
+    payload = app.handlers.quest_settings(
+        quest_id,
+        {
+            "decision_policy": "autonomous",
+        },
+    )
+
+    assert isinstance(payload, dict)
+    assert payload["ok"] is True
+    quest_yaml = read_yaml(temp_home / "quests" / quest_id / "quest.yaml", {})
+    startup_contract = dict(quest_yaml.get("startup_contract") or {})
+    assert startup_contract["decision_policy"] == "autonomous"
+
+
+def test_quest_settings_handler_keeps_copilot_decision_policy_user_gated(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "copilot decision policy settings quest",
+        startup_contract={"workspace_mode": "copilot", "decision_policy": "user_gated"},
+    )
+    quest_id = quest["quest_id"]
+    quest_root = Path(quest["quest_root"])
+    app.quest_service.update_research_state(quest_root, workspace_mode="copilot")
+
+    payload = app.handlers.quest_settings(quest_id, {"decision_policy": "autonomous"})
+
+    assert isinstance(payload, dict)
+    assert payload["ok"] is True
+    assert payload["snapshot"]["workspace_mode"] == "copilot"
+    assert payload["snapshot"]["startup_contract"]["decision_policy"] == "user_gated"
+    assert payload["snapshot"]["continuation_policy"] != "auto"
+
+
+def test_quest_settings_decision_policy_autonomous_wakes_non_blocking_wait(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "decision policy wake quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "user_gated"},
+    )
+    quest_id = quest["quest_id"]
+    quest_root = Path(quest["quest_root"])
+    app.quest_service.update_research_state(quest_root, workspace_mode="autonomous")
+    app.quest_service.update_runtime_state(
+        quest_root=quest_root,
+        status="active",
+        continuation_policy="wait_for_user_or_resume",
+        continuation_reason="paper_bundle_submitted",
+    )
+
+    class ContinueRunner:
+        binary = ""
+
+        def __init__(self) -> None:
+            self.requests: list[dict[str, str]] = []
+
+        def run(self, request):
+            self.requests.append(
+                {
+                    "message": request.message,
+                    "turn_reason": request.turn_reason,
+                }
+            )
+            history_root = ensure_dir(request.quest_root / ".ds" / "codex_history" / request.run_id)
+            run_root = ensure_dir(request.quest_root / ".ds" / "runs" / request.run_id)
+            return RunResult(
+                ok=True,
+                run_id=request.run_id,
+                model=request.model,
+                output_text="decision policy continue ok",
+                exit_code=0,
+                history_root=history_root,
+                run_root=run_root,
+                stderr_text="",
+            )
+
+    runner = ContinueRunner()
+    app.runners["codex"] = runner
+
+    payload = app.handlers.quest_settings(quest_id, {"decision_policy": "autonomous"})
+
+    assert isinstance(payload, dict)
+    assert payload["ok"] is True
+    assert payload["snapshot"]["continuation_policy"] == "auto"
+
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if runner.requests:
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("decision policy switch did not schedule a continuation turn")
+
+    assert runner.requests[0]["turn_reason"] == "user_message"
+    assert runner.requests[0]["message"] == "Continue"
+
+
+def test_quest_settings_decision_policy_autonomous_keeps_blocking_wait(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "decision policy blocking wait quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "user_gated"},
+    )
+    quest_id = quest["quest_id"]
+    quest_root = Path(quest["quest_root"])
+    app.quest_service.update_research_state(quest_root, workspace_mode="autonomous")
+    app.quest_service.update_runtime_state(
+        quest_root=quest_root,
+        status="active",
+        continuation_policy="wait_for_user_or_resume",
+        continuation_reason="credential_required",
+    )
+
+    payload = app.handlers.quest_settings(quest_id, {"decision_policy": "autonomous"})
+
+    assert isinstance(payload, dict)
+    assert payload["ok"] is True
+    assert payload["snapshot"]["continuation_policy"] == "wait_for_user_or_resume"
+    assert payload["snapshot"]["continuation_reason"] == "credential_required"
+
+    quest_yaml = read_yaml(temp_home / "quests" / quest_id / "quest.yaml", {})
+    startup_contract = dict(quest_yaml.get("startup_contract") or {})
+    assert startup_contract["decision_policy"] == "autonomous"
+
+
+def test_quest_settings_handler_rejects_invalid_decision_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create("invalid decision policy quest")
+
+    status_code, payload = app.handlers.quest_settings(
+        quest["quest_id"],
+        {
+            "decision_policy": "ask-me-always",
+        },
+    )
+
+    assert status_code == 400
+    assert payload["ok"] is False
+    assert "decision policy" in str(payload["message"]).lower()
 
 
 def test_quest_settings_switch_to_autonomous_injects_continue_without_replaying_stale_user_message(
@@ -4980,6 +5169,57 @@ def test_chat_upload_and_send_materializes_web_attachment_into_userfiles(temp_ho
     pending = list(queue_payload.get("pending") or [])
     assert len(pending) == 1
     assert str((pending[0].get("attachments") or [])[0].get("path") or "") == str(final_path)
+
+
+def test_chat_import_copies_setup_attachment_into_target_draft(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    source_quest = app.quest_service.create("source setup attachment quest")
+    target_quest = app.quest_service.create("target launch quest")
+
+    app.handlers.chat_upload_create(
+        source_quest["quest_id"],
+        {
+            "draft_id": "draft-source-001",
+            "file_name": "notes.txt",
+            "mime_type": "text/plain",
+            "content_base64": base64.b64encode(b"setup attachment payload").decode("ascii"),
+        },
+    )
+    source_message = app.handlers.chat(
+        source_quest["quest_id"],
+        {
+            "text": "Please keep this setup note.",
+            "source": "web-react",
+            "client_message_id": "setup-client-001",
+            "attachment_draft_ids": ["draft-source-001"],
+        },
+    )
+    source_attachment = dict((source_message["message"].get("attachments") or [])[0])
+
+    imported = app.handlers.chat_upload_import(
+        target_quest["quest_id"],
+        {
+            "source_quest_id": source_quest["quest_id"],
+            "attachments": [
+                {
+                    "name": "notes.txt",
+                    "quest_relative_path": source_attachment["quest_relative_path"],
+                }
+            ],
+        },
+    )
+
+    assert imported["ok"] is True
+    assert imported["imported_count"] == 1
+    attachments = list(imported.get("attachments") or [])
+    assert len(attachments) == 1
+    draft_id = str(attachments[0]["draft_id"])
+    staged_path = Path(str(attachments[0]["path"]))
+    assert draft_id
+    assert staged_path.exists()
+    assert target_quest["quest_id"] in str(staged_path)
 
 
 def test_read_now_endpoint_consumes_unread_queue_and_restarts_quiet_turn(temp_home: Path) -> None:
@@ -6745,11 +6985,11 @@ def test_daemon_auto_resume_notifies_bound_connector(temp_home: Path) -> None:
 
     sent: list[tuple[str, dict]] = []
 
-    def fake_send_to_channel(channel_name, payload, *, connectors=None):  # noqa: ANN001
+    def fake_deliver_to_channel(channel_name, payload, *, connectors=None):  # noqa: ANN001
         sent.append((channel_name, dict(payload)))
-        return True
+        return {"ok": True, "queued": False, "transport": "fake"}
 
-    app.artifact_service._send_to_channel = fake_send_to_channel  # type: ignore[method-assign]
+    app.artifact_service._deliver_to_channel = fake_deliver_to_channel  # type: ignore[method-assign]
 
     recovered = app._resume_reconciled_quests()
     assert any(item["quest_id"] == quest_id for item in recovered)
@@ -6839,11 +7079,11 @@ def test_daemon_suppresses_auto_resume_after_repeated_crash_loop(temp_home: Path
 
     sent: list[tuple[str, dict]] = []
 
-    def fake_send_to_channel(channel_name, payload, *, connectors=None):  # noqa: ANN001
+    def fake_deliver_to_channel(channel_name, payload, *, connectors=None):  # noqa: ANN001
         sent.append((channel_name, dict(payload)))
-        return True
+        return {"ok": True, "queued": False, "transport": "fake"}
 
-    app.artifact_service._send_to_channel = fake_send_to_channel  # type: ignore[method-assign]
+    app.artifact_service._deliver_to_channel = fake_deliver_to_channel  # type: ignore[method-assign]
 
     recovered = app._resume_reconciled_quests()
     assert recovered == []
@@ -7046,11 +7286,14 @@ def test_daemon_reconcile_runtime_state_preserves_external_progress_policy_in_co
     assert snapshot["continuation_reason"] == "background_external_progress_active"
 
 
-def test_auto_continue_parks_after_repeated_unchanged_finalize_state(temp_home: Path) -> None:
+def test_autonomous_auto_continue_auto_resumes_repeated_unchanged_finalize_state(temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
     app = DaemonApp(temp_home)
-    quest = app.quest_service.create("finalize auto park quest")
+    quest = app.quest_service.create(
+        "finalize auto park quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "autonomous"},
+    )
     quest_id = quest["quest_id"]
     quest_root = Path(quest["quest_root"])
 
@@ -7070,8 +7313,150 @@ def test_auto_continue_parks_after_repeated_unchanged_finalize_state(temp_home: 
 
     app._normalize_status_after_turn(quest_id, turn_reason="auto_continue")
     second_snapshot = app.quest_service.snapshot(quest_id)
-    assert second_snapshot["continuation_policy"] == "wait_for_user_or_resume"
-    assert second_snapshot["continuation_reason"] == "unchanged_finalize_state"
+    assert second_snapshot["continuation_policy"] == "auto"
+    assert second_snapshot["continuation_reason"] == "unchanged_finalize_state_auto_resumed"
+    assert second_snapshot["waiting_notice"]["status"] == "auto_resumed"
+    assert second_snapshot["waiting_notice"]["reason"] == "unchanged_finalize_state"
+
+
+def test_user_gated_auto_continue_parks_after_repeated_unchanged_finalize_state(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "user gated finalize auto park quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "user_gated"},
+    )
+    quest_id = quest["quest_id"]
+    quest_root = Path(quest["quest_root"])
+
+    app.quest_service.update_settings(quest_id, active_anchor="finalize")
+    app.quest_service.set_continuation_state(
+        quest_root,
+        policy="auto",
+        anchor="finalize",
+        reason="finalize_loop_test",
+    )
+
+    app._normalize_status_after_turn(quest_id, turn_reason="auto_continue")
+    app._normalize_status_after_turn(quest_id, turn_reason="auto_continue")
+    snapshot = app.quest_service.snapshot(quest_id)
+
+    assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
+    assert snapshot["continuation_reason"] == "unchanged_finalize_state"
+
+
+def test_waiting_notice_is_sent_for_user_gated_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+    connectors = manager.load_named("connectors")
+    connectors["qq"]["enabled"] = True
+    connectors["qq"]["app_id"] = "1903299925"
+    connectors["qq"]["app_secret"] = "qq-secret"
+    write_yaml(manager.path_for("connectors"), connectors)
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "user gated waiting notice quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "user_gated", "user_language": "en"},
+    )
+    quest_root = Path(quest["quest_root"])
+    app.update_quest_binding(quest["quest_id"], "qq:direct:UserABC123", force=True)
+
+    sent: list[tuple[str, dict]] = []
+
+    def fake_deliver_to_channel(channel_name, payload, *, connectors=None):  # noqa: ANN001
+        sent.append((channel_name, dict(payload)))
+        return {"ok": True, "queued": False, "transport": "fake"}
+
+    app.artifact_service._deliver_to_channel = fake_deliver_to_channel  # type: ignore[method-assign]
+
+    result = app.artifact_service._set_waiting_or_auto_resume(
+        quest_root,
+        reason="paper_bundle_submitted",
+        anchor="decision",
+    )
+    snapshot = app.quest_service.snapshot(quest["quest_id"])
+
+    assert result["action"] == "waiting"
+    assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
+    assert snapshot["waiting_notice"]["status"] == "waiting"
+    assert any(
+        "Waiting for feedback" in payload.get("message", "") or "等待反馈" in payload.get("message", "")
+        for _, payload in sent
+    )
+
+
+def test_waiting_notice_auto_resumes_for_autonomous_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    manager = ConfigManager(temp_home)
+    manager.ensure_files()
+    connectors = manager.load_named("connectors")
+    connectors["qq"]["enabled"] = True
+    connectors["qq"]["app_id"] = "1903299925"
+    connectors["qq"]["app_secret"] = "qq-secret"
+    write_yaml(manager.path_for("connectors"), connectors)
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "autonomous waiting notice quest",
+        startup_contract={"workspace_mode": "autonomous", "decision_policy": "autonomous", "user_language": "en"},
+    )
+    quest_root = Path(quest["quest_root"])
+    app.update_quest_binding(quest["quest_id"], "qq:direct:UserABC123", force=True)
+
+    sent: list[tuple[str, dict]] = []
+
+    def fake_deliver_to_channel(channel_name, payload, *, connectors=None):  # noqa: ANN001
+        sent.append((channel_name, dict(payload)))
+        return {"ok": True, "queued": False, "transport": "fake"}
+
+    app.artifact_service._deliver_to_channel = fake_deliver_to_channel  # type: ignore[method-assign]
+
+    result = app.artifact_service._set_waiting_or_auto_resume(
+        quest_root,
+        reason="paper_bundle_submitted",
+        anchor="decision",
+    )
+    snapshot = app.quest_service.snapshot(quest["quest_id"])
+
+    assert result["action"] == "auto_resumed"
+    assert snapshot["continuation_policy"] == "auto"
+    assert snapshot["waiting_notice"]["status"] == "auto_resumed"
+    assert any(
+        "Auto-resumed" in payload.get("message", "") or "自动继续" in payload.get("message", "")
+        for _, payload in sent
+    )
+
+
+def test_copilot_waiting_notice_does_not_auto_resume_with_stale_autonomous_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "copilot stale autonomous policy wait quest",
+        startup_contract={"workspace_mode": "copilot", "decision_policy": "user_gated", "user_language": "en"},
+    )
+    quest_root = Path(quest["quest_root"])
+    app.quest_service.update_research_state(quest_root, workspace_mode="copilot")
+    quest_yaml_path = quest_root / "quest.yaml"
+    quest_yaml = read_yaml(quest_yaml_path, {})
+    startup_contract = dict(quest_yaml.get("startup_contract") or {})
+    startup_contract["decision_policy"] = "autonomous"
+    quest_yaml["startup_contract"] = startup_contract
+    write_yaml(quest_yaml_path, quest_yaml)
+
+    result = app.artifact_service._set_waiting_or_auto_resume(
+        quest_root,
+        reason="paper_bundle_submitted",
+        anchor="decision",
+    )
+    snapshot = app.quest_service.snapshot(quest["quest_id"])
+
+    assert result["action"] == "waiting"
+    assert snapshot["workspace_mode"] == "copilot"
+    assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
+    assert snapshot["waiting_notice"]["status"] == "waiting"
+    assert snapshot["waiting_notice"]["reason"] == "paper_bundle_submitted"
 
 
 def test_autonomous_auto_continue_keeps_running_without_external_progress(temp_home: Path) -> None:
@@ -7124,6 +7509,39 @@ def test_copilot_auto_continue_parks_without_external_progress(temp_home: Path) 
 
     assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
     assert snapshot["continuation_reason"] == "copilot_mode"
+
+
+def test_copilot_wait_state_does_not_auto_resume_with_stale_autonomous_policy(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "copilot stale autonomous policy daemon quest",
+        startup_contract={"workspace_mode": "copilot", "decision_policy": "user_gated"},
+    )
+    quest_id = quest["quest_id"]
+    quest_root = Path(quest["quest_root"])
+    app.quest_service.update_research_state(quest_root, workspace_mode="copilot")
+    quest_yaml_path = quest_root / "quest.yaml"
+    quest_yaml = read_yaml(quest_yaml_path, {})
+    startup_contract = dict(quest_yaml.get("startup_contract") or {})
+    startup_contract["decision_policy"] = "autonomous"
+    quest_yaml["startup_contract"] = startup_contract
+    write_yaml(quest_yaml_path, quest_yaml)
+    app.quest_service.update_runtime_state(
+        quest_root=quest_root,
+        status="active",
+        continuation_policy="wait_for_user_or_resume",
+        continuation_reason="copilot_mode",
+    )
+
+    snapshot, auto_resumed = app._auto_resume_wait_if_allowed(quest_id, app.quest_service.snapshot(quest_id))
+
+    assert auto_resumed is False
+    assert snapshot["workspace_mode"] == "copilot"
+    assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
+    assert snapshot["continuation_reason"] == "copilot_mode"
+    assert snapshot.get("waiting_notice") is None
 
 
 def test_auto_continue_switches_to_external_progress_monitoring_when_bash_runs_exist(temp_home: Path) -> None:
@@ -7394,6 +7812,147 @@ def test_daemon_retry_exhausts_after_five_attempts(temp_home: Path) -> None:
         and str(item.get("content") or "") == "Partial failed output."
         for item in app.quest_service.history(quest_id, limit=20)
     )
+
+
+def test_daemon_retry_exhaustion_records_provider_diagnosis_payload(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    app.runners_config["codex"].update(
+        {
+            "retry_on_failure": True,
+            "retry_max_attempts": 2,
+            "retry_initial_backoff_sec": 0,
+            "retry_backoff_multiplier": 2,
+            "retry_max_backoff_sec": 0,
+        }
+    )
+    quest = app.quest_service.create("retry exhausted provider diagnosis quest")
+    quest_id = quest["quest_id"]
+
+    class TransientProviderFailRunner:
+        binary = ""
+
+        def __init__(self) -> None:
+            self.requests = []
+
+        def run(self, request):
+            self.requests.append(request)
+            history_root = ensure_dir(request.quest_root / ".ds" / "codex_history" / request.run_id)
+            run_root = ensure_dir(request.quest_root / ".ds" / "runs" / request.run_id)
+            return RunResult(
+                ok=False,
+                run_id=request.run_id,
+                model=request.model,
+                output_text="unexpected status 503 Service Unavailable from upstream provider",
+                exit_code=1,
+                history_root=history_root,
+                run_root=run_root,
+                stderr_text="",
+            )
+
+    runner = TransientProviderFailRunner()
+    app.runners["codex"] = runner
+
+    payload = app.handlers.chat(quest_id, {"text": "Please continue.", "source": "tui-ink"})
+    assert payload["ok"] is True
+
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        snapshot = app.quest_service.snapshot(quest_id)
+        events = read_jsonl(Path(quest["quest_root"]) / ".ds" / "events.jsonl")
+        if (
+            any(item.get("type") == "runner.turn_error" for item in events)
+            and snapshot.get("retry_state") is None
+            and str(snapshot.get("display_status") or "").strip() == "error"
+        ):
+            break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("provider failure did not settle after retry budget exhaustion")
+
+    snapshot = app.quest_service.snapshot(quest_id)
+    events = read_jsonl(Path(quest["quest_root"]) / ".ds" / "events.jsonl")
+    retry_exhausted = [item for item in events if item.get("type") == "runner.turn_retry_exhausted"]
+    turn_errors = [item for item in events if item.get("type") == "runner.turn_error"]
+
+    assert len(runner.requests) == 2
+    assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
+    assert snapshot["continuation_reason"] == "external_codex_upstream_provider_error"
+    assert retry_exhausted
+    diagnosis = retry_exhausted[-1].get("diagnosis")
+    assert diagnosis["code"] == "codex_upstream_provider_error"
+    assert diagnosis["problem"]
+    assert diagnosis["why"]
+    assert any("provider" in line.lower() for line in diagnosis["fix"])
+    assert retry_exhausted[-1]["diagnosis_code"] == "codex_upstream_provider_error"
+    assert turn_errors[-1]["diagnosis_code"] == "codex_upstream_provider_error"
+
+
+def test_daemon_stops_retry_for_provider_account_blocker(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    app.runners_config["codex"].update(
+        {
+            "retry_on_failure": True,
+            "retry_max_attempts": 5,
+            "retry_initial_backoff_sec": 0,
+            "retry_backoff_multiplier": 2,
+            "retry_max_backoff_sec": 0,
+        }
+    )
+    quest = app.quest_service.create("provider account blocker quest")
+    quest_id = quest["quest_id"]
+
+    class AccountBlockerRunner:
+        binary = ""
+
+        def __init__(self) -> None:
+            self.requests = []
+
+        def run(self, request):
+            self.requests.append(request)
+            history_root = ensure_dir(request.quest_root / ".ds" / "codex_history" / request.run_id)
+            run_root = ensure_dir(request.quest_root / ".ds" / "runs" / request.run_id)
+            return RunResult(
+                ok=False,
+                run_id=request.run_id,
+                model=request.model,
+                output_text="unexpected status 403 Forbidden: account balance is negative, please recharge first",
+                exit_code=1,
+                history_root=history_root,
+                run_root=run_root,
+                stderr_text="",
+            )
+
+    runner = AccountBlockerRunner()
+    app.runners["codex"] = runner
+
+    payload = app.handlers.chat(quest_id, {"text": "Please continue.", "source": "tui-ink"})
+    assert payload["ok"] is True
+
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        snapshot = app.quest_service.snapshot(quest_id)
+        events = read_jsonl(Path(quest["quest_root"]) / ".ds" / "events.jsonl")
+        if any(item.get("type") == "runner.turn_error" for item in events):
+            if snapshot.get("retry_state") is None and str(snapshot.get("display_status") or "").strip() == "error":
+                break
+        time.sleep(0.05)
+    else:
+        raise AssertionError("provider account blocker did not settle into an immediate error state")
+
+    snapshot = app.quest_service.snapshot(quest_id)
+    events = read_jsonl(Path(quest["quest_root"]) / ".ds" / "events.jsonl")
+    turn_errors = [item for item in events if item.get("type") == "runner.turn_error"]
+
+    assert len(runner.requests) == 1
+    assert snapshot["retry_state"] is None
+    assert snapshot["continuation_policy"] == "wait_for_user_or_resume"
+    assert snapshot["continuation_reason"] == "non_retryable_runner_error"
+    assert not any(item.get("type") == "runner.turn_retry_scheduled" for item in events)
+    assert turn_errors[-1]["diagnosis_code"] == "codex_provider_account_error"
 
 
 def test_daemon_skips_retry_for_non_retryable_minimax_protocol_error(temp_home: Path) -> None:

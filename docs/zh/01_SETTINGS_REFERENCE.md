@@ -143,6 +143,7 @@ acp:
 - 作用：限制同时活跃的项目数量。
 - 推荐值：大多数情况下保持 `1`。
 - 风险：并发项目越多，资源竞争、连接器串扰和观察复杂度越高。
+- 多任务入口选择：少量 quest 可以任选入口；微信只绑定一个主 quest，QQ 建议最多 5 个左右；超过后建议主要用 Web 查看和操作。详见 [34 多任务入口选择](./34_MULTITASK_ORCHESTRATION_GUIDE.md)。
 
 **`daemon.ack_timeout_ms`**
 
@@ -199,6 +200,37 @@ acp:
 - 允许值：`both`、`web`、`tui`
 - 页面标签：`Default start mode`
 - 作用：决定 `ds` 默认打开 Web、TUI，或两者同时打开。
+
+### TUI debug 启动开关
+
+TUI debug 不是持久配置项，而是一次性启动级诊断开关。它用于检查当前 TUI surface、输入路由、Web 对照页和渲染摘要。
+
+启动方式：
+
+```bash
+ds --tui --debug
+ds --tui --debug --debug-log /tmp/deepscientist_tui_debug.jsonl
+```
+
+环境变量：
+
+- `TUI_DEBUG=1`
+- `DEEPSCIENTIST_TUI_DEBUG=1`
+- `TUI_DEBUG_LOG=/tmp/deepscientist_tui_debug.jsonl`
+- `DEEPSCIENTIST_TUI_DEBUG_LOG=/tmp/deepscientist_tui_debug.jsonl`
+
+默认日志路径：
+
+```text
+/tmp/deepscientist_tui_debug.jsonl
+```
+
+安全要求：
+
+- config editor buffer、password/secret/token 字段会在 debug JSONL 中脱敏。
+- debug JSONL 可以附到 issue 或回归报告里，但仍建议先搜索确认没有真实 token。
+- 终端录屏、tmux 日志或 `script` transcript 会捕获真实屏幕内容，不属于 debug JSONL 脱敏范围。
+- Web 端目前没有同级 `?debug=1` inspector；TUI 只提供 `web_analog` 对照。
 
 ### Logging
 
@@ -429,7 +461,7 @@ acp:
 
 `runners.yaml` 定义 DeepScientist 实际调用哪个 CLI runner、默认模型怎么选、失败后如何重试，以及不同 runner 的专属透传参数。
 
-当前内建 runner 有三种：
+当前内建 runner 有四种：
 
 - `codex`
   - OpenAI Codex CLI 路径，也包括已经在 Codex 里配置好的 provider-backed profile
@@ -439,6 +471,20 @@ acp:
   - 官方 Kimi Code CLI 路径，也包括已经在 `~/.kimi` 中工作的登录态和配置
 - `opencode`
   - OpenCode CLI 路径，也包括直接在 OpenCode 里管理的 provider/model 配置
+
+Settings 页面只负责把 DeepScientist 映射到一个已经可用的 CLI runner。Gemini、Ollama、MiniMax、GLM、百炼等 provider 的详细接入仍然先在对应 CLI 中完成：
+
+- Codex provider / profile：见 [15 Codex Provider 配置](./15_CODEX_PROVIDER_SETUP.md)
+- Claude Code / Anthropic-compatible / Ollama：见 [24 Claude Code 配置指南](./24_CLAUDE_CODE_PROVIDER_SETUP.md)
+- OpenCode / Gemini / Ollama：见 [25 OpenCode 配置指南](./25_OPENCODE_PROVIDER_SETUP.md)
+- vLLM、Ollama、SGLang 等本地模型后端总览：见 [21 本地模型后端指南](./21_LOCAL_MODEL_BACKENDS_GUIDE.md)
+
+推荐验证顺序永远是：
+
+1. 先让底层 CLI 自己能跑通，例如 `codex exec ...`、`claude -p ...`、`opencode run ...`
+2. 再在 Settings 里填写 `binary`、`config_dir`、`profile` / `model` 和 `env`
+3. 点击 `Test` 或运行 `ds doctor --runner <name>`
+4. 最后再启动真实 quest
 
 ### 结构
 
@@ -755,6 +801,7 @@ opencode:
 - 类型：`boolean`
 - 默认值：大多数 connector 为 `true`
 - 作用：私聊默认自动跟随当前活跃项目。
+- 多任务提醒：同时跑多个 quest 时，不要把所有任务都塞进同一个聊天入口。详见 [34 多任务入口选择](./34_MULTITASK_ORCHESTRATION_GUIDE.md)。
 
 ### `telegram`
 

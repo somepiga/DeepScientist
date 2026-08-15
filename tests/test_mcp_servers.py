@@ -380,6 +380,7 @@ def test_artifact_mcp_server_tools_cover_core_flows(temp_home: Path) -> None:
         tools = await server.list_tools()
         assert [tool.name for tool in tools] == [
             "record",
+            "science",
             "checkpoint",
             "git",
             "prepare_branch",
@@ -389,6 +390,10 @@ def test_artifact_mcp_server_tools_cover_core_flows(temp_home: Path) -> None:
             "resolve_runtime_refs",
             "get_paper_contract",
             "get_paper_contract_health",
+            "validate_manuscript_coverage",
+            "validate_academic_outline",
+            "validate_manuscript_language",
+            "compile_outline_to_writing_plan",
             "get_quest_state",
             "get_global_status",
             "get_research_map_status",
@@ -421,6 +426,27 @@ def test_artifact_mcp_server_tools_cover_core_flows(temp_home: Path) -> None:
         assert tool_map["read_quest_documents"].annotations.readOnlyHint is True
         assert tool_map["get_conversation_context"].annotations.readOnlyHint is True
         assert tool_map["get_research_map_status"].annotations.readOnlyHint is True
+
+        science_result = _unwrap_tool_result(
+            await server.call_tool(
+                "science",
+                {
+                    "action": "record_node",
+                    "node_type": "science.package_check",
+                    "node_id": "pkg_numpy_check",
+                    "title": "NumPy environment check",
+                    "status": "passed",
+                    "domain": "scientific_python",
+                    "package_id": "numpy",
+                    "key_results": [{"label": "import", "value": "passed"}],
+                    "evidence_paths": [str(quest_root / "validation" / "environment" / "numpy_doctor.json")],
+                },
+            )
+        )
+        assert science_result["ok"] is True
+        assert science_result["recorded"] == "science.package_check"
+        assert science_result["record"]["evidence_paths"] == ["validation/environment/numpy_doctor.json"]
+        assert Path(science_result["artifact_path"]).exists()
 
         research_map_result = _unwrap_tool_result(
             await server.call_tool(
@@ -830,6 +856,166 @@ def test_artifact_mcp_server_tools_cover_core_flows(temp_home: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_artifact_mcp_server_repeated_outline_read_returns_delta_marker(temp_home: Path) -> None:
+    async def scenario() -> None:
+        ensure_home_layout(temp_home)
+        ConfigManager(temp_home).ensure_files()
+        quest = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).create(
+            "mcp repeated outline read quest"
+        )
+        quest_root = Path(quest["quest_root"])
+        context = McpContext(
+            home=temp_home,
+            quest_id=quest["quest_id"],
+            quest_root=quest_root,
+            run_id="run-read-cache",
+            active_anchor="write",
+            conversation_id="quest:test",
+            agent_role="pi",
+            worker_id="worker-main",
+            worktree_root=None,
+            team_mode="single",
+        )
+        server = build_artifact_server(context)
+
+        first = _unwrap_tool_result(await server.call_tool("list_paper_outlines", {}))
+        second = _unwrap_tool_result(await server.call_tool("list_paper_outlines", {}))
+
+        assert first["ok"] is True
+        assert first.get("delta_marker") is not True
+        assert first["read_cache"]["cache_hit"] is False
+        assert second["ok"] is True
+        assert second["delta_marker"] is True
+        assert second["delta_kind"] == "unchanged_read_cache"
+        assert second["read_cache"]["cache_hit"] is True
+        assert second["read_cache"]["saved_bytes"] > 0
+
+    asyncio.run(scenario())
+
+
+def test_artifact_mcp_server_repeated_full_quest_state_uses_read_cache_delta(temp_home: Path) -> None:
+    async def scenario() -> None:
+        ensure_home_layout(temp_home)
+        ConfigManager(temp_home).ensure_files()
+        quest = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).create(
+            "mcp repeated full quest state read"
+        )
+        quest_root = Path(quest["quest_root"])
+        context = McpContext(
+            home=temp_home,
+            quest_id=quest["quest_id"],
+            quest_root=quest_root,
+            run_id="run-full-state-cache",
+            active_anchor="baseline",
+            conversation_id="quest:test",
+            agent_role="pi",
+            worker_id="worker-main",
+            worktree_root=None,
+            team_mode="single",
+        )
+        server = build_artifact_server(context)
+
+        first = _unwrap_tool_result(await server.call_tool("get_quest_state", {"detail": "full"}))
+        second = _unwrap_tool_result(await server.call_tool("get_quest_state", {"detail": "full"}))
+
+        assert first["ok"] is True
+        assert first["compacted"] is True
+        assert first["evidence_packet"]["full_detail_requested"] is True
+        assert first["read_cache"]["cache_hit"] is False
+        assert second["ok"] is True
+        assert second["delta_marker"] is True
+        assert second["delta_kind"] == "unchanged_read_cache"
+        assert second["read_cache"]["cache_hit"] is True
+        assert Path(second["evidence_packet"]["sidecar_path"]).exists()
+
+    asyncio.run(scenario())
+
+
+def test_artifact_mcp_server_repeated_global_status_uses_read_cache_sidecar_ref(temp_home: Path) -> None:
+    async def scenario() -> None:
+        ensure_home_layout(temp_home)
+        ConfigManager(temp_home).ensure_files()
+        quest = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).create(
+            "mcp repeated global status read"
+        )
+        quest_root = Path(quest["quest_root"])
+        context = McpContext(
+            home=temp_home,
+            quest_id=quest["quest_id"],
+            quest_root=quest_root,
+            run_id="run-global-status-cache",
+            active_anchor="decision",
+            conversation_id="quest:test",
+            agent_role="pi",
+            worker_id="worker-main",
+            worktree_root=None,
+            team_mode="single",
+        )
+        server = build_artifact_server(context)
+
+        first = _unwrap_tool_result(await server.call_tool("get_global_status", {"detail": "full"}))
+        second = _unwrap_tool_result(await server.call_tool("get_global_status", {"detail": "full"}))
+
+        assert first["ok"] is True
+        assert first["compacted"] is True
+        assert first["read_cache"]["cache_hit"] is False
+        assert Path(first["evidence_packet"]["sidecar_path"]).exists()
+        assert second["ok"] is True
+        assert second["delta_marker"] is True
+        assert second["delta_kind"] == "unchanged_read_cache"
+        assert second["read_cache"]["cache_hit"] is True
+        assert Path(second["evidence_packet"]["sidecar_path"]).exists()
+        assert second["evidence_packet"]["sidecar_path"] == first["evidence_packet"]["sidecar_path"]
+
+    asyncio.run(scenario())
+
+
+def test_bash_exec_read_result_records_fingerprint_and_cache_hit(temp_home: Path) -> None:
+    async def scenario() -> None:
+        ensure_home_layout(temp_home)
+        ConfigManager(temp_home).ensure_files()
+        quest = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).create(
+            "mcp repeated bash read quest"
+        )
+        quest_root = Path(quest["quest_root"])
+        _write_fake_bash_session(
+            temp_home,
+            quest_root,
+            "bash-001",
+            log_lines=["alpha", "beta"],
+            status="completed",
+        )
+        context = McpContext(
+            home=temp_home,
+            quest_id=quest["quest_id"],
+            quest_root=quest_root,
+            run_id="run-bash-read-cache",
+            active_anchor="baseline",
+            conversation_id="quest:test",
+            agent_role="pi",
+            worker_id="worker-main",
+            worktree_root=None,
+            team_mode="single",
+        )
+        server = build_bash_exec_server(context)
+
+        first = _unwrap_tool_result(await server.call_tool("bash_exec", {"mode": "read", "id": "bash-001"}))
+        second = _unwrap_tool_result(await server.call_tool("bash_exec", {"mode": "read", "id": "bash-001"}))
+
+        assert first["bash_id"] == "bash-001"
+        assert first["command_fingerprint"]
+        assert first["cwd"]
+        assert first["read_cache"]["cache_hit"] is False
+        assert first["read_cache"]["source_mtime_ns"] > 0
+        assert second["ok"] is True
+        assert second["delta_marker"] is True
+        assert second["read_cache"]["cache_hit"] is True
+        assert second["command_fingerprint"] == first["command_fingerprint"]
+        assert Path(second["evidence_packet"]["sidecar_path"]).exists()
+
+    asyncio.run(scenario())
+
+
 def test_artifact_overwrite_baseline_tool_refreshes_confirmed_ref(temp_home: Path) -> None:
     async def scenario() -> None:
         ensure_home_layout(temp_home)
@@ -892,6 +1078,96 @@ def test_artifact_overwrite_baseline_tool_refreshes_confirmed_ref(temp_home: Pat
     asyncio.run(scenario())
 
 
+def test_artifact_mcp_create_analysis_campaign_returns_guided_fix_steps_for_missing_outline(temp_home: Path) -> None:
+    async def scenario() -> None:
+        ensure_home_layout(temp_home)
+        ConfigManager(temp_home).ensure_files()
+        quest = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).create(
+            "mcp missing outline guidance quest"
+        )
+        quest_root = Path(quest["quest_root"])
+        context = McpContext(
+            home=temp_home,
+            quest_id=quest["quest_id"],
+            quest_root=quest_root,
+            run_id="run-mcp-missing-outline-guidance",
+            active_anchor="baseline",
+            conversation_id="quest:test",
+            agent_role="pi",
+            worker_id="worker-main",
+            worktree_root=None,
+            team_mode="single",
+        )
+        server = build_artifact_server(context)
+        artifact = ArtifactService(temp_home)
+
+        baseline_root = quest_root / "baselines" / "local" / "mcp-outline-gate"
+        baseline_root.mkdir(parents=True, exist_ok=True)
+        (baseline_root / "README.md").write_text("# MCP outline gate baseline\n", encoding="utf-8")
+        artifact.confirm_baseline(
+            quest_root,
+            baseline_path=str(baseline_root),
+            baseline_id="mcp-outline-gate",
+            summary="Outline gate baseline",
+            metrics_summary={"acc": 0.8},
+            primary_metric={"metric_id": "acc", "value": 0.8},
+            metric_contract=_detailed_metric_contract(["acc"], primary_metric_id="acc"),
+        )
+        artifact.submit_idea(
+            quest_root,
+            mode="create",
+            title="Need writing-facing analysis",
+            problem="The analysis campaign should guide the next fix when no outline is selected.",
+            hypothesis="Returning guidance is better than a bare exception.",
+            mechanism="Attach concrete next actions to the MCP error payload.",
+            decision_reason="Prepare the route before writing-facing analysis.",
+        )
+        artifact.submit_paper_outline(
+            quest_root,
+            mode="candidate",
+            title="Candidate outline only",
+            detailed_outline={"title": "Candidate outline only"},
+        )
+
+        result = _unwrap_tool_result(
+            await server.call_tool(
+                "create_analysis_campaign",
+                {
+                    "campaign_title": "Missing outline guidance",
+                    "campaign_goal": "This should fail with explicit next steps.",
+                    "research_questions": ["RQ-main"],
+                    "experimental_designs": ["ED-main"],
+                    "todo_items": [
+                        {
+                            "todo_id": "todo-001",
+                            "slice_id": "slice-001",
+                            "title": "Slice 001",
+                            "research_question": "RQ-main",
+                            "experimental_design": "ED-main",
+                            "completion_condition": "Complete one slice.",
+                        }
+                    ],
+                    "slices": [
+                        {
+                            "slice_id": "slice-001",
+                            "title": "Slice 001",
+                            "goal": "Run one writing-facing slice.",
+                        }
+                    ],
+                },
+            )
+        )
+
+        assert result["ok"] is False
+        assert "selected_outline_ref" in result["message"]
+        assert "submit_paper_outline" in "\n".join(result["guidance"])
+        assert "analysis-lite" in "\n".join(result["guidance"])
+        assert result["outline_candidates"]
+        assert any(item["name"].startswith("artifact.submit_paper_outline") for item in result["suggested_artifact_calls"])
+
+    asyncio.run(scenario())
+
+
 def test_artifact_prepare_github_issue_tool_returns_route_effect(
     temp_home: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -915,17 +1191,22 @@ def test_artifact_prepare_github_issue_tool_returns_route_effect(
             custom_profile="settings_issue",
         )
         server = build_artifact_server(context)
+        captured_kwargs: dict[str, object] = {}
 
-        monkeypatch.setattr(
-            "deepscientist.mcp.server._prepare_github_issue_payload_via_daemon",
-            lambda home, **kwargs: {
+        def fake_prepare_issue(home: Path, **kwargs):
+            captured_kwargs.update(kwargs)
+            return {
                 "ok": True,
                 "title": "GPU scheduling issue on local daemon",
                 "body_markdown": "# Summary\n\nGPU scheduling issue on local daemon\n",
                 "issue_url_base": "https://github.com/ResearAI/DeepScientist/issues/new",
                 "repo_url": "https://github.com/ResearAI/DeepScientist",
                 "generated_at": "2026-04-14T00:00:00+00:00",
-            },
+            }
+
+        monkeypatch.setattr(
+            "deepscientist.mcp.server._prepare_github_issue_payload_via_daemon",
+            fake_prepare_issue,
         )
 
         result = _unwrap_tool_result(
@@ -934,6 +1215,7 @@ def test_artifact_prepare_github_issue_tool_returns_route_effect(
                 {
                     "summary": "GPU scheduling issue on local daemon",
                     "user_notes": "Generated from MCP test.",
+                    "include_system_quirks": True,
                 },
             )
         )
@@ -943,6 +1225,7 @@ def test_artifact_prepare_github_issue_tool_returns_route_effect(
         assert result["ui_effects"][0]["name"] == "route:navigate"
         assert result["ui_effects"][0]["data"]["to"] == "/settings/issues"
         assert result["ui_effects"][0]["data"]["issueDraft"]["title"] == result["title"]
+        assert captured_kwargs["include_system_quirks"] is True
 
     asyncio.run(scenario())
 
@@ -1005,6 +1288,16 @@ def test_start_setup_prepare_profile_artifact_server_exposes_only_prepare_form_t
                         "goal": "Run the benchmark faithfully.",
                         "need_research_paper": True,
                     },
+                    "session_patch": {
+                        "recommended_workspace_mode": "copilot",
+                        "launch_readiness": "needs_confirmation",
+                        "missing_confirmations": ["Clarify whether paid APIs are allowed."],
+                        "science_package_cards": ["science/references/packages/pyscf.md"],
+                        "fit_assessment": {
+                            "verdict": "copilot_recommended",
+                            "summary": "Human collaboration is still needed before an autonomous launch is safe.",
+                        },
+                    },
                     "message": "Prepared the launch form.",
                 },
             )
@@ -1014,6 +1307,8 @@ def test_start_setup_prepare_profile_artifact_server_exposes_only_prepare_form_t
         assert result["suggested_form"]["title"] == "Bench Demo Autonomous Research"
         assert result["ui_effects"][0]["name"] == "start_setup:patch"
         assert result["ui_effects"][0]["data"]["patch"]["goal"] == "Run the benchmark faithfully."
+        assert result["session_patch"]["recommended_workspace_mode"] == "copilot"
+        assert result["session_patch"]["science_package_cards"] == ["science/references/packages/pyscf.md"]
         persisted = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).read_quest_yaml(quest_root)
         startup_contract = persisted.get("startup_contract") if isinstance(persisted.get("startup_contract"), dict) else {}
         start_setup_session = (
@@ -1025,6 +1320,108 @@ def test_start_setup_prepare_profile_artifact_server_exposes_only_prepare_form_t
         assert suggested_form["title"] == "Bench Demo Autonomous Research"
         assert suggested_form["goal"] == "Run the benchmark faithfully."
         assert suggested_form["need_research_paper"] is True
+        assert start_setup_session["recommended_workspace_mode"] == "copilot"
+        assert start_setup_session["fit_assessment"]["verdict"] == "copilot_recommended"
+        assert start_setup_session["science_package_cards"] == ["science/references/packages/pyscf.md"]
+
+    asyncio.run(scenario())
+
+
+def test_artifact_mcp_compacts_paper_write_tool_returns(temp_home: Path) -> None:
+    async def scenario() -> None:
+        ensure_home_layout(temp_home)
+        ConfigManager(temp_home).ensure_files()
+        quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+        quest = quest_service.create("mcp compact paper write quest")
+        quest_root = Path(quest["quest_root"])
+        context = McpContext(
+            home=temp_home,
+            quest_id=quest["quest_id"],
+            quest_root=quest_root,
+            run_id="run-mcp-compact-paper",
+            active_anchor="write",
+            conversation_id="quest:test",
+            agent_role="pi",
+            worker_id="worker-main",
+            worktree_root=None,
+            team_mode="single",
+        )
+        server = build_artifact_server(context)
+
+        candidate = _unwrap_tool_result(
+            await server.call_tool(
+                "submit_paper_outline",
+                {
+                    "mode": "candidate",
+                    "outline_id": "outline-compact",
+                    "title": "Compact outline",
+                    "note": "Keep the MCP return small.",
+                    "detailed_outline": {
+                        "title": "Compact outline",
+                        "research_questions": ["RQ-compact"],
+                        "experimental_designs": ["Exp-compact"],
+                        "contributions": ["C-compact"],
+                    },
+                },
+            )
+        )
+        assert candidate["ok"] is True
+        assert candidate["tool_name"] == "submit_paper_outline"
+        assert candidate["outline_id"] == "outline-compact"
+        assert candidate["paths"]["outline_path"].endswith("paper/outlines/candidates/outline-compact.json")
+        assert candidate["artifact_delta"]["sidecar_rel_path"].startswith("paper/artifact_deltas/")
+        assert Path(quest_service.active_workspace_root(quest_root) / candidate["artifact_delta"]["sidecar_rel_path"]).exists()
+        assert not {"record", "artifact", "interaction", "paper_line_state"} & set(candidate)
+        assert "sidecar_path" not in candidate["artifact_delta"]
+
+        selected = _unwrap_tool_result(
+            await server.call_tool(
+                "submit_paper_outline",
+                {
+                    "mode": "select",
+                    "outline_id": "outline-compact",
+                    "selected_reason": "Use the compact outline.",
+                },
+            )
+        )
+        assert selected["ok"] is True
+        assert selected["mode"] == "select"
+        assert selected["outline_id"] == "outline-compact"
+        assert selected["paths"]["selected_outline_path"] == "paper/selected_outline.json"
+        assert selected["paths"]["outline_manifest_path"] == "paper/outline/manifest.json"
+        assert selected["artifact_delta"]["delta_kind"] == "paper_outline_selected"
+        assert not {"record", "artifact", "interaction", "paper_line_state"} & set(selected)
+
+        paper_workspace = quest_service.active_workspace_root(quest_root)
+        paper_root = paper_workspace / "paper"
+        paper_root.mkdir(parents=True, exist_ok=True)
+        (paper_root / "draft.md").write_text("# Draft\n", encoding="utf-8")
+        (paper_root / "writing_plan.md").write_text("# Plan\n", encoding="utf-8")
+        (paper_root / "references.bib").write_text("@article{demo, title={Demo}}\n", encoding="utf-8")
+        (paper_root / "build").mkdir(parents=True, exist_ok=True)
+        write_json(paper_root / "build" / "compile_report.json", {"ok": True})
+        (paper_root / "paper.pdf").write_bytes(b"%PDF-1.4\n%paper\n")
+
+        bundle = _unwrap_tool_result(
+            await server.call_tool(
+                "submit_paper_bundle",
+                {
+                    "title": "Compact bundle",
+                    "summary": "Compact bundle return.",
+                    "pdf_path": "paper/paper.pdf",
+                },
+            )
+        )
+        assert bundle["ok"] is True
+        assert bundle["tool_name"] == "submit_paper_bundle"
+        assert bundle["package_type"] == "draft_checkpoint"
+        assert bundle["selected_outline_ref"] == "outline-compact"
+        assert bundle["paths"]["manifest_path"] == "paper/paper_bundle_manifest.json"
+        assert bundle["paths"]["paper_line_state_path"] == "paper/paper_line_state.json"
+        assert bundle["artifact_delta"]["delta_kind"] == "draft_checkpoint"
+        assert Path(quest_service.active_workspace_root(quest_root) / bundle["artifact_delta"]["sidecar_rel_path"]).exists()
+        assert not {"manifest", "artifact", "interaction", "paper_line_state", "continuation"} & set(bundle)
+        assert "sidecar_path" not in bundle["artifact_delta"]
 
     asyncio.run(scenario())
 

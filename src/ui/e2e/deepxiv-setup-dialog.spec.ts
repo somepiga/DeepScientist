@@ -103,8 +103,8 @@ async function openAutonomousDialog(page: import('@playwright/test').Page) {
   await page.goto('/')
   await expect(page.locator('[data-onboarding-id="landing-hero"]')).toBeVisible({ timeout: 30_000 })
   await page.locator('[data-onboarding-id="landing-start-research"]').click()
-  await expect(page.locator('[data-onboarding-id="experiment-launch-dialog"]')).toBeVisible({ timeout: 30_000 })
-  await page.locator('[data-onboarding-id="launch-mode-autonomous-card"]').click()
+  await expect(page.locator('[data-onboarding-id="start-research-intake"]')).toBeVisible({ timeout: 30_000 })
+  await page.getByRole('button', { name: 'Manual autonomous' }).click()
   await expect(page.getByRole('dialog')).toBeVisible({ timeout: 20_000 })
 }
 

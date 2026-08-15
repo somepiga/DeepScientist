@@ -40,11 +40,16 @@
   <a href="docs/en/12_GUIDED_WORKFLOW_TOUR.md">Product Tour</a> •
   <a href="docs/en/15_CODEX_PROVIDER_SETUP.md">Codex Setup</a> •
   <a href="docs/en/24_CLAUDE_CODE_PROVIDER_SETUP.md">Claude Setup</a> •
+  <a href="docs/en/27_KIMI_CODE_PROVIDER_SETUP.md">Kimi Setup</a> •
   <a href="docs/en/25_OPENCODE_PROVIDER_SETUP.md">OpenCode Setup</a>
 </p>
 
 <p align="center">
   Maintainers: <a href="docs/en/22_BENCHSTORE_YAML_REFERENCE.md">BenchStore YAML Guide</a>
+</p>
+
+<p align="center">
+  <strong>May 12 update:</strong> v1.6.0 is available with Claude Code, OpenCode, Kimi Code, BenchStore, and science evidence workflows.
 </p>
 
 ![deepscientist_install](https://github.com/user-attachments/assets/d8244944-4f70-4e08-94e3-002b74ce70fb)
@@ -255,9 +260,13 @@ If that sounds like the way you want to work, DeepScientist is worth trying now.
 
 ## 🚀 Get Started In 30 Seconds
 
-If you want to try it right now, here is the shortest path:
+If you want to try it right now, choose one of these two paths: run the npm commands yourself, or ask the coding tool you already use to install it for you.
 
 Platform note: DeepScientist fully supports Linux and macOS. Native Windows support is currently experimental (strongly recommend WSL2).
+
+### Option 1: Manual Install With npm
+
+Use this path when you already know which runner you want and prefer to control the install, login, and launch commands yourself.
 
 DeepScientist ships four built-in runners:
 
@@ -289,6 +298,15 @@ ds doctor --runner claude
 ds --here --runner claude
 ```
 
+If Kimi Code already works directly in your shell, use this lane:
+
+```bash
+npm install -g @researai/deepscientist
+kimi --version
+ds doctor --runner kimi
+ds --here --runner kimi
+```
+
 If OpenCode already works directly in your shell, use this lane:
 
 ```bash
@@ -297,6 +315,11 @@ opencode --version
 ds doctor --runner opencode
 ds --here --runner opencode
 ```
+
+If you want to connect Gemini or Ollama, first use the runner-specific docs instead of guessing DeepScientist fields:
+
+- Gemini: prefer [OpenCode Setup](docs/en/25_OPENCODE_PROVIDER_SETUP.md)
+- Ollama: choose Codex, Claude Code, or OpenCode with [Local Model Backends Guide](docs/en/21_LOCAL_MODEL_BACKENDS_GUIDE.md)
 
 To stop the managed local daemon and all currently running agents:
 
@@ -311,6 +334,17 @@ git clone https://github.com/ResearAI/DeepScientist.git
 cd DeepScientist
 bash install.sh
 ds
+```
+
+### Option 2: Let A Coding Tool Install It
+
+Use this path when you already work inside Codex, Claude Code, OpenCode, Cursor, or another coding agent. There are only two steps:
+
+1. Launch the coding tool in a directory where you are comfortable installing DeepScientist.
+2. Copy and send this prompt:
+
+```text
+Please install and launch DeepScientist on this machine. The official repo is https://github.com/ResearAI/DeepScientist and the docs start at https://github.com/ResearAI/DeepScientist/blob/main/docs/en/README.md . First inspect Node.js/npm, git, Python, OS, and shell environment. If global npm install is appropriate, run npm install -g @researai/deepscientist and verify ds --help. If source install is safer, git clone https://github.com/ResearAI/DeepScientist.git, cd DeepScientist, read the README, and run bash install.sh. After installation, confirm at least one runner works locally, such as codex, claude, opencode, or kimi; authenticate that CLI first, then run ds doctor --runner <name>, start with ds --here, and report the local URL plus the exact config docs I should read next.
 ```
 
 If you plan to edit the UI or TUI from source, also install the workspace dependencies:
@@ -338,8 +372,9 @@ If `which codex` still prints nothing after that, fix the npm global bin path fi
 
 Important runner note:
 
-- DeepScientist can fall back to the npm-bundled helper copy for `codex`
-- DeepScientist does not set up Claude Code or OpenCode for you; for those two paths, make `claude` or `opencode` work first, then run `ds doctor --runner <name>`
+- DeepScientist can fall back to npm-bundled helper copies for `codex`, `claude`, and `opencode` when they are installed with the package. Kimi Code is treated as an external CLI unless a compatible local `kimi` helper is present.
+- Runner authentication and provider configuration still belong to the underlying CLI. Make `codex`, `claude`, `kimi`, or `opencode` work once in your shell, then run `ds doctor --runner <name>`.
+- You can also start DeepScientist first with the default runner and switch/configure Claude Code, Kimi Code, or OpenCode later from the web workspace settings.
 
 After startup, the default local address is:
 
@@ -364,6 +399,7 @@ If this is your first run, prefer an isolated environment, a non-root user, and 
 - [00 Quick Start](docs/en/00_QUICK_START.md)
 - [15 Codex Provider Setup](docs/en/15_CODEX_PROVIDER_SETUP.md)
 - [24 Claude Code Setup](docs/en/24_CLAUDE_CODE_PROVIDER_SETUP.md)
+- [27 Kimi Code Setup](docs/en/27_KIMI_CODE_PROVIDER_SETUP.md)
 - [25 OpenCode Setup](docs/en/25_OPENCODE_PROVIDER_SETUP.md)
 - [09 Doctor](docs/en/09_DOCTOR.md)
 
@@ -382,11 +418,13 @@ If this is your first run, prefer an isolated environment, a non-root user, and 
 ### 🖥 I mainly work on servers and terminals
 
 - [05 TUI Guide](docs/en/05_TUI_GUIDE.md)
+  Includes `ds --tui --debug`, redacted debug JSONL, and Web/TUI comparison guidance.
 
 ### 🔌 I want to connect my own models or external collaboration channels
 
 - [15 Codex Provider Setup](docs/en/15_CODEX_PROVIDER_SETUP.md)
 - [24 Claude Code Setup](docs/en/24_CLAUDE_CODE_PROVIDER_SETUP.md)
+- [27 Kimi Code Setup](docs/en/27_KIMI_CODE_PROVIDER_SETUP.md)
 - [25 OpenCode Setup](docs/en/25_OPENCODE_PROVIDER_SETUP.md)
 - [21 Local Model Backends Guide](docs/en/21_LOCAL_MODEL_BACKENDS_GUIDE.md)
 - [Weixin Connector Guide](docs/en/10_WEIXIN_CONNECTOR_GUIDE.md)
@@ -458,6 +496,7 @@ Useful links:
 - Paper: `https://openreview.net/forum?id=cZFgsLq8Gs`
 - Repository citation metadata: [CITATION.cff](CITATION.cff)
 - Citation and attribution guidance: [docs/en/26_CITATION_AND_ATTRIBUTION.md](docs/en/26_CITATION_AND_ATTRIBUTION.md)
+- Acknowledgements, including optional FermiLink science-workflow attribution: [docs/en/99_ACKNOWLEDGEMENTS.md](docs/en/99_ACKNOWLEDGEMENTS.md)
 - Name and logo usage: [TRADEMARK.md](TRADEMARK.md)
 
 Suggested acknowledgment text:
@@ -486,7 +525,7 @@ If this feels like the research workflow you have been waiting for, give the pro
 Welcome to join the WeChat group for discussion.
 
 <p align="center">
-  <img src="assets/readme/wechat8.jpg" alt="DeepScientist WeChat group" width="360" />
+  <img src="assets/readme/wechat15.jpg" alt="DeepScientist WeChat group" width="360" />
 </p>
 
 ## More From ResearAI

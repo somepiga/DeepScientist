@@ -50,6 +50,7 @@ Turn the current objective, board state, and bottleneck into a small differentia
 4. Run a broad, history-aware literature search before proposing serious ideas.
    Use `references/related-work-playbook.md`, `references/research-history-playbook.md`, and `references/literature-survey-template.md`.
    Cover direct in-domain frontier papers, foundational papers, strongest nearby competitors, and cross-domain papers whose mechanisms may translate into the current task.
+   If the runtime prompt explicitly enables cross-quest recall, follow that injected policy before going outside; otherwise stay inside the current quest's memory/artifacts and explicit user-provided files. See playbook §2.1 for the full source-order protocol.
    If DeepXiv is available, use it for broad paper-centric discovery and citation expansion; otherwise use search engines and citation chaining directly.
    Do not promote or even seriously shortlist a new idea until the durable survey and closest-prior-work comparison are updated enough to judge novelty and feasibility honestly.
    For an `algorithmic_sota` line, formal promotion also requires a structured `novelty_audit`: mechanism-and-claim signature, at least three stable direct-neighbor references, one marked strongest overlap, explicit overlap and delta for every neighbor, direct/adjacent/temporal coverage, durable survey paths, an outside-family alternative, a falsification plan, and a `clear` collision verdict.
@@ -232,8 +233,8 @@ When multiple routes survive, prefer the most differentiated route that is still
 When the route already looks likely to become a paper-facing line, seed one lightweight structured outline candidate during idea work.
 Use `artifact.submit_paper_outline(mode='candidate', ...)` for that seed instead of leaving the future paper structure only in prose.
 Use `references/outline-seeding-example.md` for the minimum acceptable shape.
-The idea-stage outline candidate is not the full paper line yet, but it should already name the likely `research_questions`, `experimental_designs`, and the first section-level evidence needs that later supplementary slices must satisfy.
-Keep that seed minimal and executable: a small section skeleton plus expected evidence items is better than a long narrative outline with no concrete evidence hooks.
+The idea-stage outline candidate is not the full paper line yet, but it should already name the likely one-sentence paper idea, scoped claims, `research_questions`, `experimental_designs`, and the first section-level evidence needs that later supplementary slices must satisfy.
+Keep that seed minimal and executable: a short `paper_view` plus expected evidence items is better than a long narrative outline with no concrete evidence hooks.
 If the current research head, strongest measured branch, or active runtime refs are unclear after resume, call `artifact.get_quest_state(detail='summary')` and `artifact.list_research_branches(...)` before choosing a foundation.
 If the current brief / plan / status wording matters for direction choice, call `artifact.read_quest_documents(...)`.
 If earlier user conversation materially changes the direction-selection target, call `artifact.get_conversation_context(...)` before locking the next idea.

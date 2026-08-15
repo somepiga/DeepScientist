@@ -56,6 +56,9 @@ Secure the lightest trustworthy comparator, make the comparison contract explici
 ## Constraints
 
 - Routes, templates, filenames, smoke tests, and environment choices are tactics; the hard requirement is objective evidence sufficient to accept, waive, block, or switch the route.
+- Do not treat templates, filenames, `uv`, smoke tests, detached runs, or the phase order as required paths.
+- Durable records are required in substance, not in fixed filenames.
+- `PLAN.md`, `CHECKLIST.md`, `setup.md`, `execution.md`, `verification.md`, `analysis_plan.md`, and `REPRO_CHECKLIST.md` are allowed compatibility surfaces, not mandatory success paths.
 - `<baseline_root>/json/metric_contract.json` is the canonical accepted comparison contract.
 - Accepted baselines still require `artifact.confirm_baseline(...)`.
 - Waived baselines still require `artifact.waive_baseline(...)`.
@@ -109,12 +112,19 @@ not:
 Default to the lightest baseline path that can still support a fair downstream comparison.
 Default to a fast path when it can establish trust with less work.
 Do not restart broad discovery or front-load a full codebase audit when the comparator, command path, and metric contract are already concrete.
+When this applies, do not front-load a full codebase audit.
+In that fast-path state, do not restart broad baseline discovery by default.
+Do not require a fresh memory pass for every fast-path validation; use memory when it prevents repeated work or clarifies stale route state.
+In short, do not require a fresh memory pass for every fast-path validation.
+A bounded smoke test is usually helpful only when command path, environment viability, evaluator wiring, or output schema is still unclear.
+Treat smoke/pilot work as a `0-2` default budget, and remember not to repeat an unchanged check without new evidence.
 When resuming a previously blocked or ambiguous route, recover the relevant memory before trusting the old path again.
 
 If runtime already exposes `requested_baseline_ref` or a matching `confirmed_baseline_ref`, default to reuse-and-verify.
 Escalate to fuller audit, reproduction, or repair only when no concrete comparator, command path, or core comparability surface can be trusted yet.
 
 For route examples and boundary cases, read `references/route-selection.md`, `references/artifact-flow-examples.md`, and `references/boundary-cases.md`.
+Use `references/baseline-plan-template.md` and `references/baseline-checklist-template.md` when a baseline route is complex enough to need durable planning surfaces.
 
 ## Acceptance targets
 
@@ -141,6 +151,7 @@ A baseline is successful only when all applicable gates are true:
 - the baseline gate is opened with `artifact.confirm_baseline(...)`, or intentionally bypassed with `artifact.waive_baseline(...)`
 
 Once a comparison-ready baseline is durably confirmed, baseline should usually stop immediately.
+Once a comparison-ready baseline is durably confirmed, baseline should usually stop immediately and hand off to the next scientific step.
 Any extra baseline work after that must name one explicit unresolved comparison risk it is meant to remove.
 
 ## Route success criteria
@@ -213,6 +224,7 @@ Before declaring a baseline usable, make the core comparison contract explicit:
 - known deviations from the source reference
 
 `<baseline_root>/json/metric_contract.json` is the canonical accepted comparison contract.
+The comparison-ready minimum still requires `<baseline_root>/json/metric_contract.json`.
 A core contract is enough to confirm a `comparison_ready` baseline; expand it later when paper claims, registry publication, or variant-heavy comparison need more coverage.
 
 The accepted baseline artifact should include at least:

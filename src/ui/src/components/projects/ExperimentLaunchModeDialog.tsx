@@ -131,6 +131,7 @@ export function ExperimentLaunchModeDialog({
       description={t.body}
       onClose={onClose}
       dataOnboardingId="experiment-launch-dialog"
+      closeButtonDataOnboardingId="experiment-launch-close"
       className={cn(LAUNCH_DIALOG_SHELL_CLASS, 'h-auto lg:max-h-[78svh]')}
     >
       <div className="feed-scrollbar h-full min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7">

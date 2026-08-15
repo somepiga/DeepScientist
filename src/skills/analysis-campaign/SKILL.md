@@ -43,6 +43,18 @@ Answer the smallest evidence question that changes, confirms, or blocks a parent
 6. Aggregate only the decision-relevant findings and route the next step.
    End in continue, write, experiment, idea, decision, blocker, or stop.
 
+## Paper-facing analysis quantity reminder
+
+For manuscript-support campaigns, first audit `artifact.get_paper_contract(detail='full')` and, when a draft exists, `artifact.validate_manuscript_coverage(detail='full')`.
+
+- A mature empirical manuscript usually needs 5-10 ready paper-facing experiment/analysis groups total, with 4-8 reviewer-facing analysis jobs in the outline when the paper is full empirical. Fewer is acceptable only for an early/narrow outline with an explicit waiver.
+- If the user requested a concrete analysis count, such as 4-8 analyses, treat it as a tracked target; report the completed/mapped count and any explicit waiver before returning to full-paper writing.
+- Do not pad the count with stale methods, abandoned methods, unrelated baseline repairs, or old exploratory rows. Each slice must identify the current method or claim it supports.
+- If legacy-method analysis is intentionally included, mark it as baseline/comparator/negative evidence and keep it separate from current-method support.
+- Paper-facing slice outputs must separate the `manuscript_takeaway` from internal setup, user instructions, worktree paths, command history, and artifact provenance.
+- Do not encode local throughput shorthand such as `64 + 64` as a manuscript takeaway; record exact per-endpoint settings only as reproducibility/protocol detail when needed.
+- If the count is below the needed range, create the smallest claim-critical frontier rather than pretending the manuscript is ready.
+
 ## AVOID / pitfalls
 
 - Do not disguise a new main experiment as an analysis slice.
@@ -63,6 +75,10 @@ Answer the smallest evidence question that changes, confirms, or blocks a parent
 - Campaign design must be conditioned on the current execution envelope, not an idealized future machine.
 - If a slice would materially improve soundness but is infeasible now, record the blocker and choose the best runnable lower-cost alternative or narrower proxy.
 - If a slice is paper-relevant, its result must be bound back into the current paper contract rather than left only in `experiments/analysis-results/*` or chat.
+- Writing-facing slices must carry write-back metadata: `paper_role`, `section_id`, `item_id`, `claim_links`, method/comparator id, display target, and main/appendix role.
+- Writing-facing campaign metadata should keep `selected_outline_ref`, `research_questions`, `experimental_designs`, and `todo_items` explicit; map results back to `paper/paper_experiment_matrix.md` with `exp_id`, `section_id`, `item_id`, `claim_links`, and `paper_role`.
+- Classify paper evidence as claim-carrying, supporting, or auxiliary; keep stable support separate from contradiction, and record `comparison_baselines`, `evaluation_summary`, `takeaway`, and `comparability` when comparisons matter.
+- Include highlight-validation, efficiency or cost, robustness, failure, and limitation checks only when they answer the parent claim or reviewer question.
 
 ## Validation
 
@@ -90,7 +106,9 @@ It may choose a one-slice check, a lightweight durable report, an artifact-backe
 It may choose slice order, workspace layout, filenames, monitoring strategy, and whether a smoke test, direct verification, or full run is the right first move.
 It may also shrink, reorder, or replace slices to fit the real hardware and runtime envelope, as long as the resulting campaign still answers the parent evidence question honestly.
 
-Do not treat `PLAN.md`, `CHECKLIST.md`, `artifact.create_analysis_campaign(...)`, one-slice campaigns, returned worktrees, `evaluation_summary`, smoke tests, detached runs, paper-matrix files, `tqdm`, or a fixed phase order as required paths.
+Do not treat `PLAN.md`, `CHECKLIST.md`, `artifact.create_analysis_campaign(...)`, one-slice campaigns, returned worktrees, `evaluation_summary`, smoke tests, detached runs, or paper-matrix updates as universal required paths.
+Do not treat paper-matrix files, `tqdm`, or a fixed phase order as required paths either.
+`PLAN.md`, `CHECKLIST.md`, `paper/paper_experiment_matrix.md`, and local matrix/checklist files are allowed control surfaces, not mandatory success paths.
 They are tactics.
 The hard requirement is traceable evidence that changes, confirms, or blocks the evidence boundary of the parent claim and leaves an explicit next route.
 
@@ -189,7 +207,9 @@ For concrete paper-facing cases:
 - if a selected outline exists, map paper-ready slices to named `research_question` and `experimental_design` fields when those fields exist
 - if `paper/paper_experiment_matrix.md` exists and the campaign is directly supporting the paper, read it before launching or reordering the slice set
 - for writing-facing campaigns, prefer stable ids such as `exp_id`, `todo_id`, or `slice_id` over free-form notes
-- paper-ready slices should carry the available write-back fields such as `paper_role`, `section_id`, `item_id`, and `claim_links` when those fields exist in the paper contract
+- paper-ready slices should carry the available write-back fields such as `paper_role`, `section_id`, `item_id`, `claim_links`, `analysis_role`, `reviewer_question`, `target_display`, `main_or_appendix`, and `failure_interpretation` when those fields exist in the paper contract
+- paper-ready slices should record whether they support the latest method, an older comparator, a failure mode, or an appendix-only sanity check
+- paper-ready slices should label implementation/setup details as `reproducibility_detail` or `internal_only` when they should not become main-text prose
 - after every completed paper-ready slice, update or verify the relevant paper experiment matrix, section notes, evidence ledger, or active paper-line summary
 
 Do not leave a slice "completed" while the paper contract still looks stale and that slice is meant to unblock the paper.
