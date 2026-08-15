@@ -28,7 +28,6 @@ import { RegistrySettingsForm } from '@/components/settings/RegistrySettingsForm
 import { translateSettingsCatalogText, translateSettingsHelpMarkdown } from '@/components/settings/settingsCatalogI18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { HintDot } from '@/components/ui/hint-dot'
 import { Input } from '@/components/ui/input'
 import { client } from '@/lib/api'
 import { useAdminOpsStore } from '@/lib/stores/admin-ops'
@@ -80,92 +79,89 @@ const OPERATIONS_ORDER: Array<
 
 const SETTINGS_META = {
   config: {
-    label: { en: 'Runtime', zh: '运行时' },
-    hint: { en: 'Home paths, git, logging, and daemon defaults.', zh: '主目录路径、git、日志与 daemon 默认设置。' },
+    label: { zh: '运行时' },
+    hint: { zh: '主目录路径、git、日志与 daemon 默认设置。' },
   },
   runners: {
-    label: { en: 'Models', zh: '运行器' },
-    hint: { en: 'Runner selection, model defaults, and execution policy.', zh: '运行器选择、模型默认值与执行策略。' },
+    label: { zh: '运行器' },
+    hint: { zh: '运行器选择、模型默认值与执行策略。' },
   },
   connectors: {
-    label: { en: 'Connectors', zh: '连接器' },
+    label: { zh: '连接器' },
     hint: {
-      en: 'Native connector transports, discovered runtime targets, and legacy callback fallbacks.',
       zh: '原生连接器传输方式、运行时发现目标，以及旧式回调兜底配置。',
     },
   },
   baselines: {
-    label: { en: 'Baselines', zh: '基线' },
+    label: { zh: '基线' },
     hint: {
-      en: 'Reusable baseline registry entries and lifecycle management.',
       zh: '可复用基线条目及其生命周期管理。',
     },
   },
   deepxiv: {
-    label: { en: 'DeepXiv', zh: 'DeepXiv' },
+    label: { zh: 'DeepXiv' },
     hint: {
-      en: 'Configure the DeepXiv literature route, local token policy, and prompt gating behavior.',
       zh: '配置 DeepXiv 文献路线、本地 token 策略，以及 prompt 的启用 / 禁用规则。',
     },
   },
   plugins: {
-    label: { en: 'Extensions', zh: '扩展' },
-    hint: { en: 'Optional plugins and local extension discovery.', zh: '可选插件与本地扩展发现。' },
+    label: { zh: '扩展' },
+    hint: { zh: '可选插件与本地扩展发现。' },
   },
   mcp_servers: {
-    label: { en: 'MCP', zh: 'MCP' },
-    hint: { en: 'External MCP servers and access policy.', zh: '外部 MCP 服务与访问策略。' },
+    label: { zh: 'MCP' },
+    hint: { zh: '外部 MCP 服务与访问策略。' },
   },
 } satisfies Record<SettingsSectionName, { label: Record<Locale, string>; hint: Record<Locale, string> }>
 
 const OPERATIONS_META = {
   summary: {
-    label: { en: 'Summary', zh: '摘要' },
-    hint: { en: 'Start here for a quick health check, a few key signals, and the next useful admin actions.', zh: '先从这里快速判断系统是否健康、当前重点在哪，以及下一步该进入哪个运维页面。' },
+    label: { zh: '摘要' },
+    hint: { zh: '先从这里快速判断系统是否健康、当前重点在哪，以及下一步该进入哪个运维页面。' },
   },
   runtime: {
-    label: { en: 'Sessions & Hardware', zh: '会话与硬件' },
-    hint: { en: 'Use this page when you need to confirm the hardware boundary or inspect live session output.', zh: '当你需要确认硬件边界，或排查正在运行的会话输出时，进入这里。' },
+    label: { zh: '会话与硬件' },
+    hint: { zh: '当你需要确认硬件边界，或排查正在运行的会话输出时，进入这里。' },
   },
   connectors_health: {
-    label: { en: 'Connector Health', zh: '连接器健康' },
-    hint: { en: 'Check this page when messages stop flowing, bindings look wrong, or a connector feels unstable.', zh: '当消息没有正常流转、绑定看起来不对，或某个连接器表现异常时，来这里排查。' },
+    label: { zh: '连接器健康' },
+    hint: { zh: '当消息没有正常流转、绑定看起来不对，或某个连接器表现异常时，来这里排查。' },
   },
   diagnostics: {
-    label: { en: 'Diagnostics', zh: '诊断' },
-    hint: { en: 'Run doctor, inspect failures, and verify whether the runtime tools you depend on are actually available.', zh: '在这里运行 doctor、查看失败原因，并确认你依赖的运行时工具是否真的可用。' },
+    label: { zh: '诊断' },
+    hint: { zh: '在这里运行 doctor、查看失败原因，并确认你依赖的运行时工具是否真的可用。' },
   },
   errors: {
-    label: { en: 'Errors', zh: '错误' },
-    hint: { en: 'A single place to review the errors most likely to explain why the system feels broken.', zh: '把最可能解释“为什么系统不对劲”的错误集中放在一起，方便快速判断。' },
+    label: { zh: '错误' },
+    hint: { zh: '把最可能解释“为什么系统不对劲”的错误集中放在一起，方便快速判断。' },
   },
   issues: {
-    label: { en: 'Issue Report', zh: '问题报告' },
-    hint: { en: 'Use the local evidence already collected here to draft a clearer issue report before you submit it.', zh: '把本地已经收集到的运行时证据整理成更清晰的问题报告，再决定是否提交。' },
+    label: { zh: '问题报告' },
+    hint: { zh: '把本地已经收集到的运行时证据整理成更清晰的问题报告，再决定是否提交。' },
   },
   logs: {
-    label: { en: 'Logs', zh: '日志' },
-    hint: { en: 'Open log tails only when you need raw evidence that the summary and diagnostics pages cannot explain.', zh: '只有当摘要页和诊断页还解释不清时，再来看原始日志证据。' },
+    label: { zh: '日志' },
+    hint: { zh: '只有当摘要页和诊断页还解释不清时，再来看原始日志证据。' },
   },
   quests: {
-    label: { en: 'Quests', zh: 'Quests' },
-    hint: { en: 'Move from fleet-level overview into one quest, then inspect or adjust it in more detail.', zh: '从系统总览下钻到某个 quest，再继续查看、控制或调整它。' },
+    label: { zh: 'Quests' },
+    hint: { zh: '从系统总览下钻到某个 quest，再继续查看、控制或调整它。' },
   },
   repairs: {
-    label: { en: 'Repairs', zh: '修复' },
-    hint: { en: 'Keep track of repair attempts, reopen them when needed, and avoid losing the repair context.', zh: '把修复尝试及其上下文保留下来，需要时可以重新打开继续处理。' },
+    label: { zh: '修复' },
+    hint: { zh: '把修复尝试及其上下文保留下来，需要时可以重新打开继续处理。' },
   },
   controllers: {
-    label: { en: 'Controllers', zh: '控制器' },
-    hint: { en: 'Use this page when you want the system to help enforce routine governance checks for you.', zh: '当你希望系统帮你执行一些例行治理检查时，进入这里设置和运行控制器。' },
+    label: { zh: '控制器' },
+    hint: { zh: '当你希望系统帮你执行一些例行治理检查时，进入这里设置和运行控制器。' },
   },
   stats: {
-    label: { en: 'Stats', zh: '统计' },
-    hint: { en: 'Open this page when you need the fuller distributions and trend charts behind the summary page.', zh: '当你需要从摘要页继续下钻，看更完整的分布和趋势时，打开这里。' },
+    label: { zh: '统计' },
+    hint: { zh: '当你需要从摘要页继续下钻，看更完整的分布和趋势时，打开这里。' },
   },
   search: {
-    label: { en: 'Search', zh: '搜索' },
-    hint: { en: 'Use search when you remember a signal, note, or event summary but not the exact quest it belongs to.', zh: '当你记得某个线索、笔记或事件摘要，但不记得它属于哪个 quest 时，用这里来找。' },
+    label: { zh: '搜索' },
+    hint: { zh: '当你记得某个线索、笔记或事件摘要，但不记得它属于哪个 quest 时，用这里来找。' },
   },
 } satisfies Record<
   Exclude<SettingsSectionName, ConfigDocumentName>,
@@ -174,41 +170,14 @@ const OPERATIONS_META = {
 
 const SPECIAL_META = {
   deepxiv: {
-    label: { en: 'DeepXiv', zh: 'DeepXiv' },
+    label: { zh: 'DeepXiv' },
     hint: {
-      en: 'Configure the DeepXiv literature provider, guided registration screenshot, and prompt gating behavior.',
       zh: '配置 DeepXiv 文献能力、引导式注册截图，以及 prompt 的启用 / 禁用规则。',
     },
   },
 } satisfies Record<'deepxiv', { label: Record<Locale, string>; hint: Record<Locale, string> }>
 
 const copy = {
-  en: {
-    title: 'Settings',
-    files: 'Settings',
-    admin: 'Admin',
-    adminHint: 'This agent mainly helps you locate settings or runtime problems, then continue into the more detailed admin pages when needed.',
-    copilot: 'Admin Copilot',
-    openCopilot: 'Open Fresh Copilot',
-    closeCopilot: 'Close Copilot',
-    search: 'Search',
-    noFile: 'Pick a category.',
-    saved: 'Saved.',
-    noHealth: 'No connector snapshot.',
-    daemon: 'Daemon',
-    connectors: 'Connectors',
-    enabled: 'Enabled',
-    idle: 'Idle',
-    dirty: 'Dirty',
-    check: 'Check',
-    reference: 'Notes',
-    loading: 'Loading',
-    qqAutoBound: 'QQ openid detected and saved automatically.',
-    connectorDeleted: 'Connector profile deleted.',
-    connectorBindingSaved: 'Connector binding updated.',
-    baselineDeleted: 'Baseline deleted.',
-    literatureTools: 'Literature tools',
-  },
   zh: {
     title: '设置',
     files: '设置',
@@ -259,7 +228,7 @@ function compareSettings(a: ConfigFileEntry, b: ConfigFileEntry) {
   return normalizedIndexA - normalizedIndexB
 }
 
-function configLabel(name: SettingsSectionName, locale: Locale) {
+function configLabel(name: ConfigDocumentName, locale: Locale) {
   return SETTINGS_META[name].label[locale]
 }
 
@@ -273,40 +242,28 @@ function sectionLabel(name: SettingsSectionName, locale: Locale) {
   return configLabel(name as ConfigDocumentName, locale)
 }
 
-function connectorBindingTransitionMessage(transition: unknown, questId?: string | null, locale: Locale = 'en') {
+function connectorBindingTransitionMessage(transition: unknown, questId?: string | null, locale: Locale = 'zh') {
   if (!transition || typeof transition !== 'object') {
-    return locale === 'zh' ? copy.zh.connectorBindingSaved : copy.en.connectorBindingSaved
+    return copy.zh.connectorBindingSaved
   }
   const payload = transition as Record<string, unknown>
   const mode = String(payload.mode || '').trim().toLowerCase()
   const previousLabel = String(payload.previous_label || '').trim()
   const currentLabel = String(payload.current_label || '').trim()
   const resolvedQuestId = String(questId || payload.quest_id || '').trim()
-  if (locale === 'zh') {
-    if (mode === 'switch' && previousLabel && currentLabel && resolvedQuestId) {
-      return `已将 ${resolvedQuestId} 从 ${previousLabel} 切换到 ${currentLabel}。`
-    }
-    if (mode === 'bind' && currentLabel && resolvedQuestId) {
-      return `已将 ${resolvedQuestId} 绑定到 ${currentLabel}。`
-    }
-    if (mode === 'disconnect' && resolvedQuestId) {
-      return `${resolvedQuestId} 已切换为仅本地。`
-    }
-    return copy.zh.connectorBindingSaved
-  }
   if (mode === 'switch' && previousLabel && currentLabel && resolvedQuestId) {
-    return `Switched ${resolvedQuestId} from ${previousLabel} to ${currentLabel}.`
+    return `已将 ${resolvedQuestId} 从 ${previousLabel} 切换到 ${currentLabel}。`
   }
   if (mode === 'bind' && currentLabel && resolvedQuestId) {
-    return `Bound ${resolvedQuestId} to ${currentLabel}.`
+    return `已将 ${resolvedQuestId} 绑定到 ${currentLabel}。`
   }
   if (mode === 'disconnect' && resolvedQuestId) {
-    return `${resolvedQuestId} is now local only.`
+    return `${resolvedQuestId} 已切换为仅本地。`
   }
-  return copy.en.connectorBindingSaved
+  return copy.zh.connectorBindingSaved
 }
 
-function configHint(name: SettingsSectionName, locale: Locale) {
+function configHint(name: ConfigDocumentName, locale: Locale) {
   return SETTINGS_META[name].hint[locale]
 }
 
@@ -1006,7 +963,7 @@ export function SettingsPage({
                   >
                     <span className="flex items-center gap-2">
                       <span className="text-sm font-medium">{configLabel(name, locale)}</span>
-                      <HintDot label={configHint(name, locale)} />
+                      
                     </span>
                   </button>
                 )
@@ -1080,7 +1037,7 @@ export function SettingsPage({
               >
                 <span className="flex items-center gap-2">
                   <span className="text-sm font-medium">{sectionLabel('deepxiv', locale)}</span>
-                  <HintDot label={sectionHint('deepxiv', locale)} />
+                  
                 </span>
               </button>
             </div>
@@ -1113,7 +1070,7 @@ export function SettingsPage({
                     >
                       <span className="flex items-center gap-2">
                         <span className="text-sm font-medium">{item.label}</span>
-                        <HintDot label={item.hint} />
+                        
                       </span>
                     </button>
                   ))}
@@ -1162,7 +1119,7 @@ export function SettingsPage({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-semibold tracking-tight">{selectedMeta.label[locale]}</h1>
-                        <HintDot label={selectedMeta.hint[locale]} />
+                        
                         {selectedAnchorId && !dockOpen ? (
                           <button
                             type="button"

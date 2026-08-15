@@ -68,7 +68,7 @@ export function useI18n(namespace: I18nNamespace) {
       const source = I18N_MESSAGES[namespace][language]?.[key]
       if (typeof source === 'string') return interpolate(source, variables)
 
-      const fallbackSource = I18N_MESSAGES[namespace].en?.[key]
+      const fallbackSource = I18N_MESSAGES[namespace]['zh-CN']?.[key]
       if (typeof fallbackSource === 'string') return interpolate(fallbackSource, variables)
 
       if (fallback && fallback.trim()) return interpolate(fallback, variables)

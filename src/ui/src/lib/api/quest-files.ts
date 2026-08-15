@@ -1,6 +1,4 @@
 import { client as questClient } from '@/lib/api'
-import { openDemoDocumentAsFileNode } from '@/demo/adapter'
-import { isDemoProjectId } from '@/demo/projects'
 import type { FileAPIResponse, FileNode, FileTextPreviewResponse, FileTreeResponse } from '@/lib/types/file'
 import { transformToFileNode } from '@/lib/types/file'
 import type { ExplorerNode, ExplorerPayload, OpenDocumentPayload, QuestDocumentAssetUploadPayload } from '@/types'
@@ -513,13 +511,6 @@ export async function openQuestDocumentAsFileNode(
   projectId: string,
   documentId: string
 ): Promise<FileNode> {
-  if (isDemoProjectId(projectId)) {
-    const demoNode = openDemoDocumentAsFileNode(projectId, documentId)
-    if (!demoNode) {
-      throw new Error(`Cannot resolve demo file node for document ${documentId}`)
-    }
-    return demoNode
-  }
   const document = await questClient.openDocument(projectId, documentId)
   const node = buildQuestFileNodeFromDocument(projectId, document)
   if (!node) {

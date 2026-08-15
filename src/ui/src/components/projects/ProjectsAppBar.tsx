@@ -1,4 +1,4 @@
-import { Languages, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,7 @@ export function ProjectsAppBar({
   search?: string
   onSearchChange?: (value: string) => void
 }) {
-  const { locale, toggleLocale, t } = useI18n()
+  const { t } = useI18n()
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme)
   const resolvedTitle = title || t('projectsTitle')
   const resolvedSubtitle = subtitle || (title ? undefined : t('sharedApiHint'))
@@ -85,11 +85,6 @@ export function ProjectsAppBar({
           </nav>
 
           <SystemUpdateButton />
-
-          <Button variant="secondary" size="sm" onClick={toggleLocale} className="rounded-full">
-            <Languages className="h-4 w-4" />
-            {locale === 'zh' ? 'English' : '中文'}
-          </Button>
         </div>
       </div>
     </header>

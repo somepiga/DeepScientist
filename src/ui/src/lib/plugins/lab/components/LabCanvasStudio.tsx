@@ -451,7 +451,6 @@ export default function LabCanvasStudio({
       <LabDetailSection
         first
         title="Overall"
-        hint="Select a quest node to enter its canvas. After that, click a branch, event, or stage node to inspect its durable detail state here."
       >
         <div className="flex flex-wrap items-center gap-2">
           <LabStatusPill>Home</LabStatusPill>
@@ -469,19 +468,17 @@ export default function LabCanvasStudio({
 
       <LabDetailSection
         title="Operational Status"
-        hint="Keep this panel focused on high-signal canvas state rather than dashboard clutter."
       >
         <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-          <LabOverviewMetric icon={<GitBranch className="h-4 w-4" />} label="Quests" value={quests.length} hint="Durable research repositories tracked in this project." />
-          <LabOverviewMetric icon={<Bot className="h-4 w-4" />} label="Agents" value={agents.length} hint="Live agent instances visible to the Lab surface." />
-          <LabOverviewMetric icon={<Sparkles className="h-4 w-4" />} label="Pending" value={pendingDecisionCount} hint="User decisions or unresolved blocking items." />
-          <LabOverviewMetric icon={<RefreshCw className="h-4 w-4" />} label="CLI" value={formatStateLabel(cliStatus)} hint="Shared runtime binding for this project workspace." />
+          <LabOverviewMetric icon={<GitBranch className="h-4 w-4" />} label="Quests" value={quests.length} />
+          <LabOverviewMetric icon={<Bot className="h-4 w-4" />} label="Agents" value={agents.length} />
+          <LabOverviewMetric icon={<Sparkles className="h-4 w-4" />} label="Pending" value={pendingDecisionCount} />
+          <LabOverviewMetric icon={<RefreshCw className="h-4 w-4" />} label="CLI" value={formatStateLabel(cliStatus)} />
         </div>
       </LabDetailSection>
 
       <LabDetailSection
         title="Next Step"
-        hint="The Lab plugin is now canvas-first. Explorer handles navigation, center tabs handle content, and this rail only summarizes context."
       >
         <LabFactRows
           items={[
@@ -501,7 +498,6 @@ export default function LabCanvasStudio({
     return (
       <LabDetailSection
         title="Agent"
-        hint="Current agent focus selected from the overview canvas."
       >
         <div className="flex items-center gap-3">
           <div
@@ -561,7 +557,6 @@ export default function LabCanvasStudio({
         <LabDetailSection
           first
           title="Overall"
-          hint={questDetail?.description?.trim() || questDetail?.summary?.trim() || 'No quest description yet.'}
         >
           <div className="flex flex-wrap items-center gap-2">
             <LabStatusPill>{formatStateLabel(questDetail?.status)}</LabStatusPill>
@@ -573,10 +568,10 @@ export default function LabCanvasStudio({
             {questDetail?.title || selectedQuestId}
           </div>
           <div className="mt-5 grid gap-x-8 gap-y-5 sm:grid-cols-2">
-            <LabOverviewMetric icon={<GitBranch className="h-4 w-4" />} label="Branches" value={questSummary?.topology?.branchCount ?? 0} hint={`Head ${questSummary?.topology?.headBranch || questDetail?.git_head_branch || 'main'}`} />
-            <LabOverviewMetric icon={<Bot className="h-4 w-4" />} label="Running Agents" value={questRuntime?.runningAgents ?? 0} hint="Live agents attached to this quest." />
-            <LabOverviewMetric icon={<Sparkles className="h-4 w-4" />} label="Pending Questions" value={Math.max(0, Number(questDetail?.pending_question_count ?? 0))} hint="Open decisions or direct user replies still waiting." />
-            <LabOverviewMetric icon={<RefreshCw className="h-4 w-4" />} label="Push Status" value={pushStatus} hint={questDetail?.last_event_at ? `Last event ${formatRelativeTime(questDetail.last_event_at)}` : 'No event timestamp yet.'} />
+            <LabOverviewMetric icon={<GitBranch className="h-4 w-4" />} label="Branches" value={questSummary?.topology?.branchCount ?? 0} />
+            <LabOverviewMetric icon={<Bot className="h-4 w-4" />} label="Running Agents" value={questRuntime?.runningAgents ?? 0} />
+            <LabOverviewMetric icon={<Sparkles className="h-4 w-4" />} label="Pending Questions" value={Math.max(0, Number(questDetail?.pending_question_count ?? 0))} />
+            <LabOverviewMetric icon={<RefreshCw className="h-4 w-4" />} label="Push Status" value={pushStatus} />
           </div>
         </LabDetailSection>
 
@@ -584,7 +579,6 @@ export default function LabCanvasStudio({
           <>
             <LabDetailSection
               title="Selection"
-              hint={selection.summary || 'No structured summary is attached to this node yet.'}
             >
               <div className="flex flex-wrap items-center gap-2">
                 {selectionSemantic ? (
@@ -624,7 +618,6 @@ export default function LabCanvasStudio({
 
             <LabDetailSection
               title="Trace"
-              hint="Durable actions, artifact payloads, and commit evidence attached to the selected node."
             >
               <LabNodeTraceDetail
                 projectId={projectId}
@@ -639,7 +632,6 @@ export default function LabCanvasStudio({
         ) : (
           <LabDetailSection
             title="Operational Status"
-            hint="Quest-level runtime, topology, and governance signals."
           >
             <LabFactRows
               items={[

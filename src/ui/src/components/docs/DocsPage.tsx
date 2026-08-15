@@ -12,18 +12,6 @@ import { cn } from '@/lib/utils'
 import type { Locale, OpenDocumentPayload, QuestDocument } from '@/types'
 
 const copy = {
-  en: {
-    title: 'Docs',
-    repoTitle: 'Docs',
-    search: 'Search',
-    empty: 'No match.',
-    loading: 'Loading...',
-    openHint: 'Pick a file.',
-    outline: 'Outline',
-    shortcuts: 'Links',
-    shortcutsHint: 'Jump to the matching settings category.',
-    pathHint: 'Current file path.',
-  },
   zh: {
     title: '文档',
     repoTitle: '文档',
@@ -51,7 +39,6 @@ type HeadingEntry = {
 }
 
 const DOCS_LANG_PREFIX: Record<Locale, string> = {
-  en: 'en/',
   zh: 'zh/',
 }
 
@@ -66,11 +53,11 @@ type GroupedDoc = {
 }
 
 const CONFIG_SHORTCUTS: ConfigShortcut[] = [
-  { id: 'config', title: { en: 'Runtime', zh: '运行时' }, configName: 'config' },
-  { id: 'runners', title: { en: 'Models', zh: '模型' }, configName: 'runners' },
-  { id: 'connectors', title: { en: 'Connectors', zh: '连接器' }, configName: 'connectors' },
-  { id: 'plugins', title: { en: 'Extensions', zh: '扩展' }, configName: 'plugins' },
-  { id: 'mcp_servers', title: { en: 'MCP', zh: 'MCP' }, configName: 'mcp_servers' },
+  { id: 'config', title: { zh: '运行时' }, configName: 'config' },
+  { id: 'runners', title: { zh: '模型' }, configName: 'runners' },
+  { id: 'connectors', title: { zh: '连接器' }, configName: 'connectors' },
+  { id: 'plugins', title: { zh: '扩展' }, configName: 'plugins' },
+  { id: 'mcp_servers', title: { zh: 'MCP' }, configName: 'mcp_servers' },
 ]
 
 function parseHeadings(content: string): HeadingEntry[] {
@@ -105,12 +92,12 @@ function stripLangPrefix(documentId: string): string {
 }
 
 function resolveDocsForLocale(items: QuestDocument[], locale: Locale): { items: QuestDocument[]; prefix: string } {
-  const desiredPrefix = DOCS_LANG_PREFIX[locale] ?? 'en/'
+  const desiredPrefix = DOCS_LANG_PREFIX[locale] ?? 'zh/'
   const localized = items.filter((item) => item.document_id?.startsWith(desiredPrefix))
   if (localized.length > 0) {
     return { items: localized, prefix: desiredPrefix }
   }
-  const fallbackPrefix = DOCS_LANG_PREFIX.en
+  const fallbackPrefix = DOCS_LANG_PREFIX.zh
   const fallback = items.filter((item) => item.document_id?.startsWith(fallbackPrefix))
   if (fallback.length > 0) {
     return { items: fallback, prefix: fallbackPrefix }

@@ -136,7 +136,6 @@ function StageSection({
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-black/[0.06] pb-3 dark:border-white/[0.08]">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h3>
-          {hint ? <div className="mt-1 text-sm leading-6 text-muted-foreground">{hint}</div> : null}
         </div>
       </div>
       {children}
@@ -251,9 +250,6 @@ function StageSummaryGrid({ items }: { items: StageSummaryCard[] }) {
           <div className="mt-2 break-words text-sm font-medium leading-6 text-foreground">
             {item.value}
           </div>
-          {item.hint ? (
-            <div className="mt-2 break-words text-xs leading-5 text-muted-foreground">{item.hint}</div>
-          ) : null}
         </div>
       ))}
     </div>
@@ -1073,7 +1069,6 @@ export function QuestStageSurface({
             {(contextCards.length || branchContextFacts.length) && (
               <StageSection
                 title="Context Snapshot"
-                hint="This page keeps only overall context. Open concrete files and full patches from the linked files."
               >
                 {contextCards.length ? <StageSummaryGrid items={contextCards} /> : null}
                 {branchContextFacts.length ? (
@@ -1095,7 +1090,6 @@ export function QuestStageSurface({
             {stageEvaluationSummaryCards.length ? (
               <StageSection
                 title="Evaluation Summary"
-                hint="This is the compact structured judgment attached to the latest recorded result."
               >
                 <StageSummaryGrid items={stageEvaluationSummaryCards} />
               </StageSection>
@@ -1104,7 +1098,6 @@ export function QuestStageSurface({
             {(latexRootPath || pdfPath || paper.selected_outline || countArray(paper.outline_candidates)) && (
           <StageSection
             title="Paper Workspace"
-            hint="This page stays minimal: use these controls to open the real PDF, LaTeX workspace, and durable paper files."
           >
             <StageSummaryGrid items={paperSummaryCards} />
             <div className="mt-5 flex flex-wrap gap-2">
@@ -1261,7 +1254,7 @@ export function QuestStageSurface({
             ) : null}
 
             {(ideaMethodBrief || Object.keys(ideaSelectionScores).length || ideaMechanismFamily || ideaChangeLayer || ideaSourceLens) ? (
-          <StageSection title="Method Layer" hint="This is the optimization-facing method object attached to the idea or branch.">
+          <StageSection title="Method Layer">
             <div className="grid gap-4">
               <StageKeyValueList
                 items={[
@@ -1277,7 +1270,7 @@ export function QuestStageSurface({
             ) : null}
 
             {ideaMarkdown ? (
-          <StageSection title="Idea Document" hint="This is the durable idea document submitted through artifact tools.">
+          <StageSection title="Idea Document">
             <StageInlineContent title="Idea Markdown" value={ideaMarkdown} />
           </StageSection>
             ) : null}
@@ -1288,7 +1281,6 @@ export function QuestStageSurface({
               experimentTraceActions.length) ? (
           <StageSection
             title="Main Experiment Record"
-            hint="This section renders the durable experiment narrative and result payload directly in the tab."
           >
             <div className="grid gap-4">
               <StageInlineContent title="Run Narrative" value={experimentRunMarkdown} />
@@ -1302,7 +1294,6 @@ export function QuestStageSurface({
             {latestArtifactPayload != null ? (
           <StageSection
             title="Latest Artifact Payload"
-            hint="This shows the raw recorded artifact payload so the stage page can be checked directly against the durable JSON keys and values."
           >
             <StageKeyValueList
               items={[
@@ -1336,7 +1327,6 @@ export function QuestStageSurface({
               countArray(analysis.slices)) && (
               <StageSection
                 title="Supplementary Experiment Protocol"
-                hint="This tab contains the full supplementary experiment contract and inline durable markdown for the campaign and slices."
               >
                 {analysisCharterMarkdown || analysisTodoManifestMarkdown || analysisSummaryMarkdown || analysisTraceMarkdown ? (
                   <div className="mb-6 grid gap-3">
@@ -1423,7 +1413,6 @@ export function QuestStageSurface({
         {availableTabs.includes('draft') && selectedTab === 'draft' ? (
           <StageSection
             title="Draft"
-            hint="This is the longer idea draft used to stabilize the route before execution."
           >
             <div className="flex flex-wrap gap-2 border-b border-black/[0.06] pb-4 dark:border-white/[0.08]">
               {draftDocumentId ? (

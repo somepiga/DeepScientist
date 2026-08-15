@@ -37,7 +37,6 @@ import {
   Braces,
   Terminal,
   X,
-  GraduationCap,
 } from 'lucide-react'
 import { useFileTreeStore } from '@/lib/stores/file-tree'
 import { useTabsStore, useActiveTab } from '@/lib/stores/tabs'
@@ -80,11 +79,7 @@ import { SearchIcon, SettingsIcon, SparklesIcon, LayoutIcon } from '@/components
 import { CopilotDockOverlay } from '@/components/workspace/CopilotDockOverlay'
 import { COPILOT_DOCK_DEFAULTS, useCopilotDockState } from '@/hooks/useCopilotDockState'
 import { useI18n } from '@/lib/i18n/useI18n'
-import { useOnboardingStore } from '@/lib/stores/onboarding'
 import { useMobileViewport } from '@/lib/hooks/useMobileViewport'
-import { tutorialDemoScenarios } from '@/demo/scenarios/quickstart'
-import { resetDemoRuntime } from '@/demo/runtime'
-import { useDemoQuestWorkspace } from '@/demo/useDemoQuestWorkspace'
 import { WorkspaceTooltipLayer } from '@/components/workspace/WorkspaceTooltipLayer'
 import { QuestCopilotDockPanel } from '@/components/workspace/QuestCopilotDockPanel'
 import { QuestWorkspaceSurface } from '@/components/workspace/QuestWorkspaceSurface'
@@ -117,7 +112,6 @@ interface WorkspaceLayoutProps {
   projectId: string
   projectName?: string
   projectSource?: string | null
-  demoScenarioId?: string | null
   readOnly?: boolean
 }
 
@@ -977,9 +971,6 @@ function Navbar({
   const { t } = useI18n('workspace')
   const router = useRouter()
   const openTab = useTabsStore((state) => state.openTab)
-  const tutorialLanguage = useOnboardingStore((state) => state.language)
-  const restartTutorial = useOnboardingStore((state) => state.restartTutorial)
-  const openTutorialChooser = useOnboardingStore((state) => state.openChooser)
   const readOnlyMode = Boolean(readOnly)
   const { addToast } = useToast()
   const updateProject = useUpdateProject()
@@ -1092,18 +1083,6 @@ function Navbar({
     router.push('/')
   }, [onExitHome, router])
 
-  const handleReplayTutorial = React.useCallback(() => {
-    const tutorialPath = `/projects/${projectId}`
-    if (projectId.startsWith('demo-')) {
-      resetDemoRuntime(projectId)
-    }
-    if (tutorialLanguage === 'zh' || tutorialLanguage === 'en') {
-      restartTutorial(tutorialPath, tutorialLanguage)
-      return
-    }
-    openTutorialChooser('manual')
-  }, [openTutorialChooser, projectId, restartTutorial, tutorialLanguage])
-
   return (
     <>
       <nav className={cn('navbar', collapsed && 'is-collapsed')} data-onboarding-id="workspace-navbar">
@@ -1126,15 +1105,6 @@ function Navbar({
               data-tooltip={leftVisible ? t('navbar_hide_explorer') : t('navbar_show_explorer')}
             >
               <LayoutIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleReplayTutorial}
-              className="ghost-btn navbar-roll-btn hidden sm:inline-flex"
-              aria-label={tutorialLanguage === 'zh' ? '教程' : 'Tutorial'}
-              data-tooltip={tutorialLanguage === 'zh' ? '教程' : 'Tutorial'}
-            >
-              <GraduationCap className="h-4 w-4" />
             </button>
             {!readOnlyMode && (
               <button
@@ -1297,15 +1267,6 @@ function Navbar({
                 size="sm"
                 enabled={!readOnlyMode}
               />
-              <button
-                type="button"
-                className="ghost-btn hidden sm:inline-flex"
-                onClick={handleReplayTutorial}
-                aria-label={tutorialLanguage === 'zh' ? '教程' : 'Tutorial'}
-                data-tooltip={tutorialLanguage === 'zh' ? '教程' : 'Tutorial'}
-              >
-                <GraduationCap className="h-4 w-4" />
-              </button>
               <button
                 className="ghost-btn"
                 onClick={handleOpenCli}
@@ -1652,7 +1613,6 @@ function LeftPanel({
   onEnterLab,
   onExitHome,
   localQuestMode = false,
-  demoMode = false,
   workspaceTreeSyncKey = null,
   workspaceScopeContextKey = null,
   revealedFileScope = null,
@@ -1665,7 +1625,6 @@ function LeftPanel({
   onEnterLab?: () => void
   onExitHome?: () => void
   localQuestMode?: boolean
-  demoMode?: boolean
   workspaceTreeSyncKey?: string | null
   workspaceScopeContextKey?: string | null
   revealedFileScope?: { label: string | null; nodes: FileNode[]; token: number } | null
@@ -2345,7 +2304,7 @@ function LeftPanel({
   const isArxivView = activeExplorer === 'arxiv'
   const isFilesView = activeExplorer === 'files'
   const isScopeView = activeExplorer === 'scope'
-  const showArxivExplorerPanel = Boolean(projectId) && (demoMode || supportsArxiv())
+  const showArxivExplorerPanel = Boolean(projectId) && supportsArxiv()
   const hasScopedExplorer = Boolean(
     manualScopedExplorer || effectiveScopedExplorerSelection || effectiveScopedExplorerLoading || effectiveScopedExplorerNodes.length > 0
   )
@@ -3414,24 +3373,17 @@ export function WorkspaceLayout({
   projectId,
   projectName,
   projectSource = null,
-  demoScenarioId = null,
   readOnly = false,
 }: WorkspaceLayoutProps) {
   const { t } = useI18n('workspace')
   const { t: tCommon } = useI18n('common')
   const router = useRouter()
   const readOnlyMode = Boolean(readOnly)
-  const isDemoProject = projectSource === 'demo'
   const isLocalQuestProject = projectSource === 'quest'
   // `/projects/:id` is now local-first. Treat unknown project sources on this route as quest workspaces.
-  const isQuestRouteProject = isLocalQuestProject || (!isDemoProject && isQuestRuntimeSurface())
-  const isQuestLikeProject = isQuestRouteProject || isDemoProject
+  const isQuestRouteProject = isLocalQuestProject || isQuestRuntimeSurface()
+  const isQuestLikeProject = isQuestRouteProject
   const questWorkspace = useQuestWorkspace(isQuestRouteProject ? projectId : null)
-  const tutorialLanguage = useOnboardingStore((state) => state.language)
-  const demoLocale = tutorialLanguage === 'zh' ? 'zh' : 'en'
-  const demoScenario =
-    isDemoProject && demoScenarioId ? tutorialDemoScenarios[demoScenarioId as keyof typeof tutorialDemoScenarios] ?? null : null
-  const demoWorkspace = useDemoQuestWorkspace(projectId, demoScenario, demoLocale)
   const workspaceTreeSyncKey = React.useMemo(() => {
     if (!isLocalQuestProject) return null
     const snapshot = questWorkspace.snapshot as Record<string, unknown> | null
@@ -3464,7 +3416,7 @@ export function WorkspaceLayout({
     return key.trim() ? key : null
   }, [isLocalQuestProject, questWorkspace.snapshot])
   const isMobileViewport = useMobileViewport()
-  const isMobileQuestShell = Boolean(isQuestRouteProject && !isDemoProject && isMobileViewport)
+  const isMobileQuestShell = Boolean(isQuestRouteProject && isMobileViewport)
   const workspaceProjectTitle =
     projectName ??
     (isQuestRouteProject ? questWorkspace.snapshot?.title : null) ??
@@ -4245,7 +4197,6 @@ export function WorkspaceLayout({
               onClose={() => setShowLeft(false)}
               readOnly={readOnlyMode}
               localQuestMode={isQuestLikeProject}
-              demoMode={isDemoProject}
               workspaceTreeSyncKey={workspaceTreeSyncKey}
               workspaceScopeContextKey={workspaceScopeContextKey}
               revealedFileScope={revealedFileScope}
@@ -4261,7 +4212,7 @@ export function WorkspaceLayout({
               projectId={projectId}
               readOnly={readOnlyMode}
               localQuestMode={isQuestLikeProject}
-              workspace={isDemoProject ? (demoWorkspace as any) : questWorkspace}
+              workspace={questWorkspace}
               safePaddingLeft={
                 applyCopilotPadding && copilotDock.state.side === 'left'
                   ? copilotDock.state.width + COPILOT_DOCK_DEFAULTS.gap + COPILOT_DOCK_DEFAULTS.edgeInset
@@ -4288,7 +4239,7 @@ export function WorkspaceLayout({
                   title={workspaceProjectTitle}
                   readOnly={readOnlyMode}
                   prefill={copilotPrefill}
-                  workspace={isDemoProject ? (demoWorkspace as any) : questWorkspace}
+                  workspace={questWorkspace}
                 />
               }
               hideNewChat

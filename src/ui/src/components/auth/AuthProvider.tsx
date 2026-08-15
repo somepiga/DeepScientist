@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { BookOpen, FolderOpen, Languages, Settings2 } from 'lucide-react'
+import { BookOpen, FolderOpen, Settings2 } from 'lucide-react'
 import { useReducedMotion } from 'framer-motion'
 
 import HeroScene from '@/components/landing/HeroScene'
@@ -50,38 +50,21 @@ type AuthCopy = {
   backgroundBody: string
 }
 
-function authCopy(locale: 'en' | 'zh'): AuthCopy {
-  if (locale === 'zh') {
-    return {
-      title: '输入本地访问密码',
-      subtitle: 'DeepScientist 已启用本地密码模式。输入启动时生成的 16 位密码后才能继续使用。',
-      placeholder: '请输入 16 位密码',
-      submit: '继续',
-      loading: '正在验证本地访问权限…',
-      invalid: '密码不正确，请重试。',
-      unavailable: '当前无法连接本地 daemon，请确认 `ds` 正在运行。',
-      helperTitle: '如何查看或关闭密码',
-      helperViewToken: '查看密码：回到启动 `ds` 的终端输出，或执行 `ds --status`。',
-      helperDisableAuth: '关闭密码：重新启动时使用 `ds --auth false`。',
-      backgroundEyebrow: '本地优先科研工作区',
-      backgroundTitle: 'DeepScientist 会先锁住本地入口，再继续打开研究工作区。',
-      backgroundBody: '输入本次启动生成的本地访问密码后，首页、项目列表和工作区才会继续加载。',
-    }
-  }
+function authCopy(): AuthCopy {
   return {
-    title: 'Enter the Local Access Password',
-    subtitle: 'DeepScientist is running in local password mode. Enter the generated 16-character password to continue.',
-    placeholder: 'Enter the 16-character password',
-    submit: 'Continue',
-    loading: 'Checking local access…',
-    invalid: 'The password is not valid.',
-    unavailable: 'The local daemon is unavailable. Confirm that `ds` is running.',
-    helperTitle: 'How to view or disable the password',
-    helperViewToken: 'View the password in the terminal where `ds` was started, or run `ds --status`.',
-    helperDisableAuth: 'Disable the password on the next launch with `ds --auth false`.',
-    backgroundEyebrow: 'Local-first research workspace',
-    backgroundTitle: 'DeepScientist locks the local browser entry before opening the research workspace.',
-    backgroundBody: 'Enter the password generated for this launch, then the landing page, quest list, and workspace will continue to load.',
+    title: '输入本地访问密码',
+    subtitle: 'DeepScientist 已启用本地密码模式。输入启动时生成的 16 位密码后才能继续使用。',
+    placeholder: '请输入 16 位密码',
+    submit: '继续',
+    loading: '正在验证本地访问权限…',
+    invalid: '密码不正确，请重试。',
+    unavailable: '当前无法连接本地 daemon，请确认 `ds` 正在运行。',
+    helperTitle: '如何查看或关闭密码',
+    helperViewToken: '查看密码：回到启动 `ds` 的终端输出，或执行 `ds --status`。',
+    helperDisableAuth: '关闭密码：重新启动时使用 `ds --auth false`。',
+    backgroundEyebrow: '本地优先科研工作区',
+    backgroundTitle: 'DeepScientist 会先锁住本地入口，再继续打开研究工作区。',
+    backgroundBody: '输入本次启动生成的本地访问密码后，首页、项目列表和工作区才会继续加载。',
   }
 }
 
@@ -106,10 +89,9 @@ async function probeAuth(candidateToken?: string | null) {
 
 function AuthLockScreen(props: {
   copy: AuthCopy
-  locale: 'en' | 'zh'
+  locale: 'zh'
   initialValue: string
   error: string | null
-  onToggleLocale: () => void
   onSubmit: (token: string) => Promise<void>
 }) {
   const [token, setToken] = React.useState(props.initialValue)
@@ -161,16 +143,6 @@ function AuthLockScreen(props: {
               <span className="text-sm font-semibold tracking-tight text-[#2D2A26]">DeepScientist</span>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled
-                className="h-9 rounded-full border-black/10 bg-white/60 text-[#2D2A26]/80 opacity-100"
-                onClick={props.onToggleLocale}
-              >
-                <Languages className="mr-2 h-4 w-4" />
-                {props.locale === 'zh' ? 'English' : '中文'}
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -240,16 +212,6 @@ function AuthLockScreen(props: {
           <div className="space-y-3 text-left">
             <div className="flex items-start justify-between gap-4">
               <h2 className="text-[1.85rem] font-semibold tracking-tight text-black">{props.copy.title}</h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-full border-black/10 bg-white text-[#2D2A26] hover:bg-white/90"
-                onClick={props.onToggleLocale}
-              >
-                <Languages className="mr-2 h-4 w-4" />
-                {props.locale === 'zh' ? 'English' : '中文'}
-              </Button>
             </div>
             <p className="text-sm leading-7 text-black/72">{props.copy.subtitle}</p>
           </div>
@@ -284,9 +246,9 @@ function AuthLockScreen(props: {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { locale, toggleLocale } = useI18n()
+  const { locale } = useI18n()
   const config = React.useMemo(() => runtimeAuthConfig(), [])
-  const copy = React.useMemo(() => authCopy(locale), [locale])
+  const copy = React.useMemo(() => authCopy(), [])
   const [ready, setReady] = React.useState(!config.enabled)
   const [authenticated, setAuthenticated] = React.useState(!config.enabled)
   const [token, setToken] = React.useState<string | null>(() => readStoredBrowserAuthToken())
@@ -408,7 +370,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           locale={locale}
           initialValue={initialInputValueRef.current}
           error={error}
-          onToggleLocale={toggleLocale}
           onSubmit={async (candidate) => {
             try {
               await handleLogin(candidate)

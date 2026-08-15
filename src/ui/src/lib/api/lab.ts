@@ -1,14 +1,4 @@
 import { client as questClient } from '@/lib/api'
-import {
-  getDemoLabLayout,
-  getDemoLabQuestGraph,
-  listDemoLabAgents,
-  listDemoLabMemory,
-  listDemoLabPapers,
-  listDemoLabQuestEvents,
-  saveDemoLabLayout,
-} from '@/demo/adapter'
-import { isDemoProjectId } from '@/demo/projects'
 import { isQuestRuntimeSurface, shouldUseQuestProject } from '@/lib/runtime/quest-runtime'
 import { safeJsonStringify } from '@/lib/safe-json'
 import type {
@@ -3184,9 +3174,6 @@ export async function listLabAgents(
   projectId: string,
   options?: LabRequestOptions
 ): Promise<LabListResponse<LabAgentInstance>> {
-  if (isDemoProjectId(projectId)) {
-    return listDemoLabAgents(projectId) ?? { items: [] }
-  }
   if (await shouldUseLocalQuestLab(projectId)) {
     const summary = await loadLocalQuestSummary(projectId)
     return { items: [mapQuestSummaryToLabAgent(summary)] }
@@ -3661,17 +3648,6 @@ export async function getLabQuestGraph(
   questId: string,
   params?: { view?: 'branch' | 'event' | 'stage'; search?: string; atEventId?: string | null }
 ): Promise<LabQuestGraphResponse> {
-  if (isDemoProjectId(projectId)) {
-    const payload = getDemoLabQuestGraph(projectId, { view: params?.view })
-    if (!payload) {
-      throw new Error(`Unknown demo graph for ${projectId}`)
-    }
-    const layout = getDemoLabLayout(projectId)
-    return {
-      ...payload,
-      layout_json: layout?.layout_json ?? payload.layout_json ?? null,
-    }
-  }
   if (await shouldUseLocalQuestLab(projectId)) {
     const requestedView = params?.view ?? 'branch'
     const [summary, branches, layoutState, nodeTraces] = await Promise.all([
@@ -4319,13 +4295,6 @@ export async function listLabQuestEvents(
     includePayload?: boolean
     }
   ): Promise<LabQuestEventListResponse> {
-  if (isDemoProjectId(projectId)) {
-    const payload = listDemoLabQuestEvents(projectId, { limit: params?.limit })
-    if (!payload) {
-      throw new Error(`Unknown demo quest events for ${projectId}`)
-    }
-    return payload
-  }
   if (await shouldUseLocalQuestLab(projectId)) {
     const summary = await loadLocalQuestSummary(projectId)
     const artifacts = await loadLocalQuestArtifacts(projectId)
@@ -4733,9 +4702,6 @@ export async function updateLabQuestLayout(
   questId: string,
   layoutJson: Record<string, unknown>
 ): Promise<LabQuestLayoutResponse> {
-  if (isDemoProjectId(projectId)) {
-    return saveDemoLabLayout(projectId, layoutJson)
-  }
   if (await shouldUseLocalQuestLab(projectId)) {
     return questClient.updateLayout(projectId, {
       layout_json: layoutJson,
@@ -4801,9 +4767,6 @@ export async function listLabPapers(
   projectId: string,
   params?: { questId?: string | null }
 ): Promise<LabListResponse<LabPaper>> {
-  if (isDemoProjectId(projectId)) {
-    return listDemoLabPapers(projectId) ?? { items: [] }
-  }
   if (await shouldUseLocalQuestLab(projectId)) {
     return { items: [] }
   }
@@ -5043,26 +5006,6 @@ export async function listLabMemory(
     typeof params?.limit === 'number'
       ? Math.max(1, Math.min(100, Math.trunc(params.limit)))
       : undefined
-  if (isDemoProjectId(projectId)) {
-    const payload = listDemoLabMemory(projectId) ?? { items: [] }
-    let items = payload.items
-    if (params?.kind) {
-      items = items.filter((item) => item.kind === params.kind)
-    }
-    if (params?.query) {
-      const query = params.query.toLowerCase()
-      items = items.filter((item) =>
-        `${item.title || ''} ${item.summary || ''}`.toLowerCase().includes(query)
-      )
-    }
-    if (params?.branchName) {
-      items = items.filter((item) => item.branch_name === params.branchName)
-    }
-    if (params?.stageKey) {
-      items = items.filter((item) => item.stage_key === params.stageKey)
-    }
-    return { items: items.slice(0, normalizedLimit ?? 50) }
-  }
   if (await shouldUseLocalQuestLab(projectId)) {
     const cards = await questClient.memory(projectId)
     let items = cards.map(mapMemoryCardToEntry)

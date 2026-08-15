@@ -127,7 +127,7 @@ export function CreateCopilotProjectDialog(props: {
   onCreated: (questId: string) => void
 }) {
   const { locale } = useI18n()
-  const t = locale === 'zh' ? copy.zh : copy.en
+  const t = copy.zh
   const [title, setTitle] = React.useState('')
   const [template, setTemplate] = React.useState<ProjectTemplateId>('blank')
   const [backgroundStyle, setBackgroundStyle] = React.useState<ProjectBackgroundStyleId>('paper')

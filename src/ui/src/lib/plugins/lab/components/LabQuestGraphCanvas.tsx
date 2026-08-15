@@ -27,7 +27,6 @@ import { ChevronDown, Clock, FileText, GitBranch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { isDemoProjectId } from '@/demo/projects'
 import {
   getLabQuestGraph,
   listLabQuestEvents,
@@ -272,7 +271,6 @@ const PAPERS_PANEL_HEIGHT = 420
 const GRAPH_POLL_MS = 30000
 const PANEL_POLL_MS = 30000
 const BACKGROUND_POLL_MS = 45000
-const DEMO_POLL_MS = 1200
 const PROJECTION_POLL_MS = 1000
 
 const projectionState = (payload?: { projection_status?: { state?: string | null } | null } | null) =>
@@ -2842,10 +2840,9 @@ function LabQuestGraphCanvasInner({
 }: LabQuestGraphCanvasProps) {
   const graphFetcher = fetchGraph ?? getLabQuestGraph
   const eventFetcher = fetchEvents ?? listLabQuestEvents
-  const isDemoProject = isDemoProjectId(projectId)
-  const graphPollMs = isDemoProject ? DEMO_POLL_MS : liveRun ? 5000 : GRAPH_POLL_MS
-  const panelPollMs = isDemoProject ? DEMO_POLL_MS : liveRun ? 8000 : PANEL_POLL_MS
-  const backgroundPollMs = isDemoProject ? DEMO_POLL_MS : liveRun ? 12000 : BACKGROUND_POLL_MS
+  const graphPollMs = liveRun ? 5000 : GRAPH_POLL_MS
+  const panelPollMs = liveRun ? 8000 : PANEL_POLL_MS
+  const backgroundPollMs = liveRun ? 12000 : BACKGROUND_POLL_MS
   const { t } = useI18n('lab')
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme)
   const edgePalette = React.useMemo(() => resolveEdgePalette(resolvedTheme), [resolvedTheme])

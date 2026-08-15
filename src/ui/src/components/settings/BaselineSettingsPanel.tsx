@@ -8,35 +8,6 @@ import { ConfirmModal } from '@/components/ui/modal'
 import type { BaselineRegistryEntry, Locale } from '@/types'
 
 const copy = {
-  en: {
-    title: 'Reusable baselines',
-    hint: 'Published baselines that can be attached to quests before new work starts.',
-    actionsTitle: 'Quick routes',
-    actionsHint: 'Use these entry points first, then inspect or clean up concrete baseline records below.',
-    attachTitle: 'Attach published baseline',
-    attachBody: 'Open the start flow and choose an existing baseline before new research begins.',
-    attachCta: 'Start research',
-    publishTitle: 'Publish from a quest',
-    publishBody: 'Open the quest table, enter a quest detail page, and publish the accepted baseline into the shared registry.',
-    publishCta: 'Open quests',
-    freshTitle: 'Start without baseline',
-    freshBody: 'Use the same start flow when you intentionally want a fresh route instead of binding a reusable baseline.',
-    freshCta: 'Open blank launch',
-    empty: 'No reusable baselines have been published yet.',
-    summaryFallback: 'No summary provided.',
-    status: 'Status',
-    sourceMode: 'Source',
-    availability: 'Availability',
-    sourceQuest: 'Source quest',
-    variants: 'Variants',
-    updatedAt: 'Updated',
-    openSourceQuest: 'Open source quest',
-    deleteTitle: 'Delete this baseline?',
-    deleteDescription:
-      'This removes the baseline from the registry, clears bound quest references, and deletes materialized copies so future agent turns cannot attach or reuse it.',
-    deleteConfirm: 'Delete baseline',
-    cancel: 'Cancel',
-  },
   zh: {
     title: 'Baseline 列表',
     hint: '这里显示所有可复用的已发布 baseline，新建 quest 时可以直接绑定它们。',
@@ -147,7 +118,6 @@ export function BaselineSettingsPanel({
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight">{t.title}</h2>
-            <div className="mt-2 text-sm text-muted-foreground">{t.hint}</div>
           </div>
           <Badge variant="secondary">{sortedEntries.length}</Badge>
         </div>

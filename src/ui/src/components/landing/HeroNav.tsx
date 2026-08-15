@@ -1,21 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { BookOpen, GraduationCap, Languages, Settings2, Sparkles } from 'lucide-react'
+import { BookOpen, Settings2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SystemUpdateButton } from '@/components/system-update/SystemUpdateButton'
 import { BRAND_LOGO_SMALL_SRC } from '@/lib/constants/assets'
 import { useI18n } from '@/lib/i18n'
-import { useOnboardingStore } from '@/lib/stores/onboarding'
 import { cn } from '@/lib/utils'
 import { LocalAuthTokenButton } from './LocalAuthTokenButton'
 
 export default function HeroNav(props: {
   onOpenBenchStore?: () => void
 }) {
-  const { locale, toggleLocale, t } = useI18n()
-  const restartTutorial = useOnboardingStore((state) => state.restartTutorial)
-  const openChooser = useOnboardingStore((state) => state.openChooser)
+  const { t } = useI18n()
 
   return (
     <header
@@ -49,28 +46,6 @@ export default function HeroNav(props: {
         <div className="flex items-center gap-2">
           <SystemUpdateButton />
           <LocalAuthTokenButton />
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 rounded-full border-black/10 bg-white/60 text-[#2D2A26] hover:bg-white/90"
-            onClick={toggleLocale}
-          >
-            <Languages className="mr-2 h-4 w-4" />
-            {locale === 'zh' ? 'English' : '中文'}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden h-9 rounded-full border-black/10 bg-white/60 text-[#2D2A26] hover:bg-white/90 sm:inline-flex"
-            onClick={() => {
-              const nextLanguage = locale === 'zh' ? 'zh' : 'en'
-              restartTutorial('/', nextLanguage)
-            }}
-            data-onboarding-id="landing-replay-tutorial"
-          >
-            <GraduationCap className="mr-2 h-4 w-4" />
-            {locale === 'zh' ? '教程' : 'Tutorial'}
-          </Button>
           <Button
             variant="outline"
             size="sm"

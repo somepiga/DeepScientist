@@ -21,7 +21,6 @@ import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { HintDot } from '@/components/ui/hint-dot'
 import { Input } from '@/components/ui/input'
 import { ConfirmModal, Modal, ModalFooter } from '@/components/ui/modal'
 import { Textarea } from '@/components/ui/textarea'
@@ -83,205 +82,6 @@ function TruncatedLine({
 type ConnectorConfigMap = Record<string, Record<string, unknown>>
 
 const copy = {
-  en: {
-    title: 'Connectors',
-    subtitle: 'Bind accounts and review runtime state from one place.',
-    enabled: 'Enabled',
-    disabled: 'Disabled',
-    testTarget: 'Test target',
-    chatType: 'Type',
-    direct: 'Direct',
-    group: 'Group',
-    chatId: 'Chat ID',
-    qqChatIdHint: 'Use QQ user `openid` or group `group_openid`, not a QQ number.',
-    probeText: 'Message',
-    probePlaceholder: 'Optional probe message…',
-    save: 'Save',
-    saving: 'Saving…',
-    portal: 'Portal',
-    emptyValidation: 'No issues.',
-    emptyTest: 'No issues.',
-    snapshot: 'Runtime',
-    transportLabel: 'Transport',
-    connection: 'Connection',
-    auth: 'Auth',
-    lastMode: 'Mode',
-    queues: 'Queues',
-    queueIn: 'in',
-    queueOut: 'out',
-    bindings: 'Bindings',
-    boundTarget: 'Bound target',
-    defaultTarget: 'Default target',
-    discoveredTargets: 'Discovered targets',
-    lastSeen: 'Last seen',
-    noSnapshot: 'No snapshot.',
-    noTargets: 'No runtime targets yet.',
-    recentActivity: 'Recent activity',
-    noEvents: 'No connector events yet.',
-    inbound: 'Inbound',
-    outbound: 'Outbound',
-    ignored: 'Ignored',
-    deliveryOk: 'Delivered',
-    deliveryQueued: 'Queued',
-    deliveryFailed: 'Failed',
-    useTarget: 'Use',
-    ok: 'Ready',
-    needsWork: 'Needs work',
-    showLegacy: 'Show legacy fields',
-    hideLegacy: 'Hide legacy fields',
-    routingTitle: 'Routing',
-    routingSubtitle: 'Choose where milestone and decision updates go.',
-    routingEmpty: 'Enable a connector first.',
-    routingAutoSingle: 'One active connector. It becomes the default target automatically.',
-    primaryConnector: 'Primary',
-    deliveryPolicy: 'Policy',
-    fanoutAll: 'All',
-    primaryOnly: 'Primary',
-    primaryPlusLocal: 'Primary + local',
-    selected: 'Selected',
-    localMirror: 'Local UI/TUI can still mirror updates in mixed mode.',
-    fieldHintPrefix: 'How to fill:',
-    overviewTitle: 'Connector catalog',
-    overviewSubtitle: 'Open one connector at a time. Each detail page is reduced to a step-by-step setup flow.',
-    openConnector: 'Open setup',
-    backToCatalog: 'Back to connectors',
-    docs: 'Docs',
-    localGuide: 'Guide',
-    quickChecks: 'Before you start',
-    requiredFields: 'Key fields',
-    openOfficialDocs: 'Official docs',
-    openLocalDocs: 'Full guide',
-    stepChecklist: 'What to do',
-    stepFields: 'Fill in this step',
-    stepSaveHint: 'Save after finishing this step.',
-    stepProbeHint: 'After the platform-side action is done, return here and check the runtime snapshot.',
-    blockedTitle: 'Before you continue',
-    missingFields: 'Missing now',
-    saveConnectorFirst: 'Save this connector before moving to the next step.',
-    sendPlatformMessageFirst: 'Go to the platform, send one real message or mention, then return here.',
-    enableConnectorFirst: 'Fill the missing credentials first.',
-    detailSubtitle: 'Complete one connector from Step 1 onward instead of editing every platform in one long page.',
-    stepSaveAction: 'Save this connector',
-    connectorReference: 'Connector docs',
-    useDiscoveredTargets: 'Use the runtime-discovered target whenever possible.',
-    setupFlow: 'Setup flow',
-    nextAction: 'Next action',
-    bindConnectorTitle: 'Add connector',
-    boundTargetsTitle: 'Detected IDs',
-    boundTargetsHint: 'After the first real message reaches DeepScientist, detected conversation IDs will appear here for later selection.',
-    openGuidedSetup: 'Start guided setup',
-    wizardClose: 'Close',
-    wizardBack: 'Back',
-    wizardContinue: 'Continue',
-    wizardDone: 'Done',
-    wizardSaveContinue: 'Save and continue',
-    boundQuestLabel: 'Quest',
-    notBoundYet: 'Not currently bound to another project.',
-    qqStepPlatform: 'Create QQ bot',
-    qqStepCredentials: 'Save connector settings',
-    qqStepBind: 'Send first private message',
-    qqStepSuccess: 'Check and confirm',
-    qqQuickSetup: 'Quick setup',
-    qqStepAdvanced: 'Advanced',
-    qqStepDone: 'Done',
-    qqStepCurrent: 'Current',
-    qqStepPending: 'Pending',
-    qqPlatformHint: 'Create the QQ bot first, then copy the App ID and App Secret into Settings.',
-    qqPlatformChecklist1: 'Open the QQ bot platform and create the bot.',
-    qqPlatformChecklist2: 'Save the App ID and App Secret immediately.',
-    qqPlatformChecklist3: 'Do not fill OpenID manually before the first private message arrives.',
-    qqSaveNow: 'Save credentials',
-    qqSaveFirst: 'Save the App ID and App Secret first.',
-    qqAfterSave: 'After saving, send `/help` or any private message to the bot from QQ.',
-    qqWaitingOpenId: 'Waiting for the first QQ private message.',
-    qqOpenIdDetected: 'OpenID detected and saved automatically.',
-    qqConnectedSummary: 'QQ is ready for direct chat, auto-binding, and milestone delivery.',
-    qqMilestoneDefaults: 'Milestone delivery is enabled by default. Only change these switches if you want less outbound push.',
-    qqAdvancedHint: 'Group mention policy, gateway restart, command prefix, auto-binding, and milestone delivery.',
-    qqDetectedOpenId: 'Detected OpenID',
-    qqDetectedOpenIdHint: 'This value appears after the first private QQ message reaches the built-in gateway.',
-    qqBindChecklistTitle: 'What to do next',
-    qqBindChecklist1: 'Open QQ and send one private message to the bot.',
-    qqBindChecklist2: 'Wait for DeepScientist to detect the OpenID and save it.',
-    qqBindChecklist3: 'Return here and confirm the detected OpenID is no longer empty.',
-    qqProbeLockedUntilOpenId: 'The probe unlocks after the first QQ private message is detected.',
-    qqNeedOpenIdFirst: 'Send the first QQ private message so DeepScientist can detect and save the OpenID.',
-    weixinAddConnector: 'Bind WeChat',
-    weixinRebindConnector: 'Rebind WeChat',
-    weixinBindHint: 'DeepScientist generates a QR code, you scan it with WeChat, and the connector is saved automatically after confirmation.',
-    weixinCurrentBinding: 'Current WeChat binding',
-    weixinAccountId: 'Bot account',
-    weixinLoginUserId: 'Owner account',
-    weixinNotBoundYet: 'Not bound yet.',
-    weixinQrModalTitle: 'Scan With WeChat',
-    weixinQrLoading: 'Generating WeChat QR code…',
-    weixinQrHint1: 'Open WeChat on the phone that will own this binding and scan this QR code.',
-    weixinQrHint2: 'Confirm the login inside WeChat. DeepScientist saves the connector automatically after success.',
-    weixinQrHint3: '',
-    weixinBindingSuccessTitle: 'WeChat connected',
-    weixinBindingSuccessBody: 'The WeChat connector was saved automatically.',
-    weixinBindingFailedTitle: 'WeChat binding failed',
-    weixinDeleteAction: 'Delete WeChat',
-    weixinDeleteTitle: 'Delete WeChat binding',
-    weixinDeleteConfirm: 'This will clear the saved WeChat bot token and account binding from DeepScientist.',
-    weixinDeleteSuccessTitle: 'WeChat deleted',
-    weixinDeleteSuccessBody: 'The WeChat connector binding was removed.',
-    lingzhuQuickSetup: 'Quick setup',
-    lingzhuStepEndpoint: 'Gateway endpoint',
-    lingzhuStepPlatform: 'Generate binding values',
-    lingzhuStepProbe: 'Test, verify, and save',
-    lingzhuNeedPublicIp: 'Lingzhu requires a public IP or public domain. The popup auto-generates values from the current DeepScientist web address, but only a public URL can be registered on Rokid.',
-    lingzhuUseLocalDefaults: 'Use current web address',
-    lingzhuGenerateAk: 'Generate AK',
-    lingzhuGeneratedValues: 'Generated values',
-    lingzhuLocalHealthUrl: 'DeepScientist health URL',
-    lingzhuLocalSseUrl: 'DeepScientist SSE URL',
-    lingzhuPublicSseUrl: 'External SSE URL',
-    lingzhuPublicHint: 'The custom agent URL is generated from the current DeepScientist web address. Only a public URL can be registered on Rokid.',
-    lingzhuOpenclawConfig: 'OpenClaw config snippet',
-    lingzhuCurl: 'Probe curl',
-    lingzhuSupportedCommands: 'Supported commands',
-    lingzhuSnapshotHint: 'The runtime probe checks local reachability only. It does not prove that your public IP is already exposed correctly.',
-    lingzhuRunProbe: 'Run Lingzhu probe',
-    lingzhuProbeResult: 'Lingzhu probe',
-    lingzhuNoProbeYet: 'Run the probe after saving the AK and endpoint values.',
-    lingzhuAgentIdHint: 'Use the same agent id on both OpenClaw and Lingzhu.',
-    lingzhuPlatformReminder: 'Open the popup, copy the generated values into the Rokid form, then click Save here to finish.',
-    lingzhuCompleteEndpointFirst: 'The current DeepScientist web address has not been generated yet.',
-    lingzhuSavePlatformValuesFirst: 'Save the generated URL, AK, and agent values before checking the runtime snapshot.',
-    lingzhuAddConnector: 'Add Lingzhu (Rokid Glasses)',
-    lingzhuPlatformUrl: 'Rokid platform',
-    lingzhuOpenPlatform: 'Open platform',
-    lingzhuGeneratedForRokid: 'Generated fields for Rokid binding',
-    lingzhuRokidBindHint: 'DeepScientist generates these values automatically. Copy them into the Rokid custom agent form, then click Save here to finish binding.',
-    lingzhuCurrentBindingValues: 'Current Lingzhu values',
-    lingzhuAkPersistenceHint: 'The Custom agent AK is generated randomly. Click Save to persist it, and keep the same AK on the Rokid platform and DeepScientist.',
-    lingzhuCustomAgentId: 'Custom agent ID',
-    lingzhuCustomAgentUrl: 'Custom agent URL',
-    lingzhuCustomAgentAk: 'Custom agent AK',
-    lingzhuAgentName: 'Agent name',
-    lingzhuCategory: 'Category',
-    lingzhuCapabilitySummary: 'Capability summary',
-    lingzhuOpeningMessage: 'Opening message',
-    lingzhuInputType: 'Input type',
-    lingzhuIcon: 'Icon',
-    lingzhuCategoryWork: 'Work',
-    lingzhuInputTypeText: 'Text',
-    lingzhuCopyValue: 'Copy',
-    lingzhuCopiedValue: 'Copied',
-    lingzhuIconHint: 'Upload the DeepScientist logo on the Rokid platform. If the platform accepts a URL, you can copy the logo URL below.',
-    lingzhuCopyLogoUrl: 'Copy logo URL',
-    lingzhuBindingGuideTitle: 'How to bind Rokid Glasses',
-    lingzhuBindingGuide1: 'Open the Rokid platform and go to Project Development -> Third-party Agent -> Create.',
-    lingzhuBindingGuide2: 'Choose `Custom Agent`, then paste the generated agent ID, public URL, and AK.',
-    lingzhuBindingGuide3: 'Use the default values below for agent name, category, capability summary, opening message, and input type.',
-    lingzhuBindingGuide4: 'Upload the DeepScientist logo as the icon. The custom agent URL must be publicly reachable.',
-    lingzhuBindingGuide5: 'After the Rokid form is filled, return here and click Save to finish binding.',
-    lingzhuBindingGuide6: 'When giving a new task from the glasses, start with `我现在的任务是 ...`. Only that prefix is treated as a fresh DeepScientist instruction.',
-    lingzhuBindingGuide7: 'If the connection drops, ask again without that prefix, such as `找DeepScientist` or `继续`. DeepScientist will replay buffered progress updates instead of resubmitting the task.',
-    lingzhuCurrentAddress: 'Current DeepScientist web address',
-    lingzhuManualOverrides: 'Manual overrides and debug',
-  },
   zh: {
     title: '连接器',
     subtitle: '在一个面板里完成账号绑定，并查看运行时状态。',
@@ -739,17 +539,8 @@ function fieldHint(field: ConnectorField, locale: Locale) {
   return pieces.filter(Boolean).join(' ')
 }
 
-function FieldHelp({ field, locale }: { field: ConnectorField; locale: Locale }) {
-  const t = normalizedCopy[locale]
-  return (
-    <div className="space-y-1 text-xs leading-5 text-muted-foreground">
-      <div>{translateSettingsCatalogText(locale, field.description)}</div>
-      <div>
-        <span className="font-medium text-foreground/80">{t.fieldHintPrefix}</span>{' '}
-        {translateSettingsCatalogText(locale, field.whereToGet)}
-      </div>
-    </div>
-  )
+function FieldHelp(_: { field: ConnectorField; locale: Locale }) {
+  return null
 }
 
 function ConnectorEventRow({ event, locale }: { event: ConnectorRecentEvent; locale: Locale }) {
@@ -821,7 +612,7 @@ function ConnectorFieldControl({
         <label className="flex min-h-[44px] items-center justify-between gap-4">
           <span className="flex items-center gap-2 text-sm font-medium">
             <span>{translateSettingsCatalogText(locale, field.label)}</span>
-            <HintDot label={fieldHint(field, locale)} />
+            
           </span>
           <input
             type="checkbox"
@@ -843,7 +634,7 @@ function ConnectorFieldControl({
       <div className="rounded-[22px] border border-black/[0.08] bg-white/[0.52] p-4 dark:border-white/[0.12] dark:bg-white/[0.04]">
         <label className="flex items-center gap-2 text-sm font-medium">
           <span>{translateSettingsCatalogText(locale, field.label)}</span>
-          <HintDot label={fieldHint(field, locale)} />
+          
         </label>
         <select
           value={String(value || '')}
@@ -879,7 +670,7 @@ function ConnectorFieldControl({
     <div className="rounded-[22px] border border-black/[0.08] bg-white/[0.52] p-4 dark:border-white/[0.12] dark:bg-white/[0.04]">
       <label className="flex items-center gap-2 text-sm font-medium">
         <span>{translateSettingsCatalogText(locale, field.label)}</span>
-        <HintDot label={fieldHint(field, locale)} />
+        
       </label>
       {field.kind === 'list' ? (
         <Textarea
@@ -2075,7 +1866,6 @@ function ConnectorCard({
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t.bindConnectorTitle}</div>
               <h4 className="mt-2 text-lg font-semibold tracking-tight">{localizedGuideText(locale, guide.summary)}</h4>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">{translateSettingsCatalogText(locale, entry.subtitle)}</p>
             </div>
             {nextStep ? <StepStateBadge state={nextStep.state} locale={locale} /> : null}
           </div>
@@ -3466,7 +3256,6 @@ function ConnectorCard({
                   <CopyableValueCard
                     label={t.lingzhuCustomAgentUrl}
                     value={publicSseUrl}
-                    hint={t.lingzhuPublicHint}
                     copyLabel={t.lingzhuCopyValue}
                     copiedLabel={t.lingzhuCopiedValue}
                     copied={copiedValueKey === 'current-custom-agent-url'}
@@ -3477,7 +3266,6 @@ function ConnectorCard({
                   <CopyableValueCard
                     label={t.lingzhuCustomAgentAk}
                     value={authAk}
-                    hint={t.lingzhuAkPersistenceHint}
                     copyLabel={t.lingzhuCopyValue}
                     copiedLabel={t.lingzhuCopiedValue}
                     copied={copiedValueKey === 'current-custom-agent-ak'}
@@ -3526,7 +3314,6 @@ function ConnectorCard({
                     key={field.key}
                     label={field.label}
                     value={field.value}
-                    hint={field.hint}
                     multiline={field.multiline}
                     copyLabel={t.lingzhuCopyValue}
                     copiedLabel={t.lingzhuCopiedValue}
@@ -3789,9 +3576,7 @@ function ConnectorCard({
                   {translateSettingsCatalogText(locale, entry.label)}
                 </h3>
                 <AnchorJumpButton anchorId={cardAnchorId} onJumpToAnchor={onJumpToAnchor} />
-                <HintDot
-                  label={`${translateSettingsCatalogText(locale, entry.subtitle)} ${translateSettingsCatalogText(locale, entry.deliveryNote)}`.trim()}
-                />
+                
                 <span className="text-xs text-muted-foreground">{enabled ? t.enabled : t.disabled}</span>
               </div>
             </div>
@@ -4056,7 +3841,7 @@ export function ConnectorSettingsForm({
     <section className="border-b border-black/[0.08] pb-6 dark:border-white/[0.08]">
       <div id="connectors-routing" className="mb-3 flex items-center gap-2 text-sm font-medium">
         <span>{t.routingTitle}</span>
-        <HintDot label={t.routingSubtitle} />
+        
         <AnchorJumpButton anchorId="connectors-routing" onJumpToAnchor={onJumpToAnchor} />
       </div>
 
@@ -4134,14 +3919,14 @@ export function ConnectorSettingsForm({
               </Button>
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-semibold tracking-tight">{translateSettingsCatalogText(locale, selectedEntry.label)}</h2>
-                <HintDot label={localizedGuideText(locale, connectorGuideCatalog[selectedEntry.name].summary)} />
+                
               </div>
               <div className="mt-2 text-sm text-muted-foreground">{t.detailSubtitle}</div>
             </>
           ) : (
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-semibold tracking-tight">{t.overviewTitle}</h2>
-              <HintDot label={t.overviewSubtitle} />
+              
             </div>
           )}
         </div>

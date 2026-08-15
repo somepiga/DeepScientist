@@ -193,28 +193,6 @@ const COMMON_FIELDS: RunnerField[] = [
 ]
 
 const copy = {
-  en: {
-    selectionTitle: 'Global runner',
-    selectionBody: 'Choose exactly one active runner for the whole local product. This changes the default runner and disables the remaining runners for new work.',
-    active: 'Active',
-    ready: 'Ready',
-    save: 'Save',
-    saving: 'Saving…',
-    validate: 'Check',
-    validating: 'Checking…',
-    test: 'Test',
-    testing: 'Testing…',
-    envTitle: 'Environment variables',
-    envEmptyKey: 'KEY',
-    envEmptyValue: 'value',
-    addEnv: 'Add variable',
-    saved: 'Runner selection saved.',
-    validation: 'Validation',
-    testResult: 'Test',
-    noIssues: 'No issues.',
-    selectedConfig: 'Selected runner config',
-    runtimeScope: 'Affects Settings agent, BenchStore SetupAgent, and standard DeepScientist quests.',
-  },
   zh: {
     selectionTitle: '全局 Runner',
     selectionBody: '整个本地产品只保留一个激活中的 runner。这里的选择会同时修改默认 runner，并把其余 runner 置为非激活状态。',

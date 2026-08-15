@@ -12,7 +12,6 @@ import {
 import { useMemo } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { HintDot } from '@/components/ui/hint-dot'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -34,52 +33,6 @@ type ConfigDocumentName = 'config' | 'runners' | 'plugins' | 'mcp_servers'
 type StructuredConfig = Record<string, unknown>
 
 const copy = {
-  en: {
-    save: 'Save',
-    saving: 'Saving…',
-    validate: 'Check',
-    validating: 'Checking…',
-    test: 'Test',
-    testing: 'Testing…',
-    validation: 'Check',
-    testResult: 'Test',
-    emptyValidation: 'No issues.',
-    emptyTest: 'No issues.',
-    probeSummary: 'Probe summary',
-    resolvedBinary: 'Resolved binary',
-    exitCode: 'Exit code',
-    stdout: 'Stdout',
-    stderr: 'Stderr',
-    runnerId: 'Runner ID',
-    serverId: 'Server ID',
-    connectorsTitle: 'Connectors',
-    addRunner: 'Add runner',
-    addServer: 'Add server',
-    remove: 'Remove',
-    ok: 'Ready',
-    needsWork: 'Needs work',
-    envTitle: 'Environment variables',
-    envSubtitle: 'Optional per-entry env overrides.',
-    envKey: 'Key',
-    envValue: 'Value',
-    noServers: 'No external MCP servers yet. Add one card when you need an external namespace.',
-    commandList: 'Command',
-    argsHint: 'One item per line or comma-separated.',
-    stdioNote: 'For `stdio`, fill the command list. For HTTP transports, fill the URL.',
-    howToFill: 'How to fill',
-    structuredFormHint: 'Structured form editing. Each item explains what it controls and how to fill it.',
-    runnerIdHint: 'Stable runner id used in `config.default_runner` and runtime selection.',
-    customRunnerEntry: 'Custom runner entry.',
-    serverIdHint: 'Stable external MCP namespace id. This is what the runner will see.',
-    mcpEnabled: 'Enabled',
-    mcpEnabledDesc: 'Only enabled external MCP servers should be exposed to projects or runners.',
-    mcpTransport: 'Transport',
-    mcpTransportDesc: 'Use `stdio` for local processes and `streamable_http` for remote MCP services.',
-    mcpUrl: 'URL',
-    mcpUrlDesc: 'Required for HTTP-based transports. Leave empty for pure `stdio` processes.',
-    mcpWorkingDirectory: 'Working directory',
-    mcpWorkingDirectoryDesc: 'Optional process working directory used when starting a local `stdio` MCP server.',
-  },
   zh: {
     save: '保存',
     saving: '保存中…',
@@ -266,17 +219,8 @@ function ResultNotice({
   )
 }
 
-function FieldHelp({ field, locale }: { field: SettingsField; locale: Locale }) {
-  const t = copy[locale]
-  return (
-    <div className="space-y-1 text-xs leading-5 text-muted-foreground">
-      <div>{translateSettingsCatalogText(locale, field.description)}</div>
-      <div>
-        <span className="font-medium text-foreground/80">{t.howToFill}:</span>{' '}
-        {translateSettingsCatalogText(locale, field.whereToGet)}
-      </div>
-    </div>
-  )
+function FieldHelp(_: { field: SettingsField; locale: Locale }) {
+  return null
 }
 
 function StructuredFieldControl({
@@ -299,9 +243,7 @@ function StructuredFieldControl({
         <label className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-2 text-sm font-medium">
             <span>{translateSettingsCatalogText(locale, field.label)}</span>
-            <HintDot
-              label={`${translateSettingsCatalogText(locale, field.description)} ${translateSettingsCatalogText(locale, field.whereToGet)}`.trim()}
-            />
+            
           </span>
           <input
             type="checkbox"
@@ -321,9 +263,7 @@ function StructuredFieldControl({
     <div className="rounded-[22px] border border-black/[0.08] bg-white/[0.52] p-4 dark:border-white/[0.12] dark:bg-white/[0.04]">
       <label className="mb-2 flex items-center gap-2 text-sm font-medium">
         <span>{translateSettingsCatalogText(locale, field.label)}</span>
-        <HintDot
-          label={`${translateSettingsCatalogText(locale, field.description)} ${translateSettingsCatalogText(locale, field.whereToGet)}`.trim()}
-        />
+        
       </label>
       {field.kind === 'select' ? (
         <select
@@ -379,7 +319,7 @@ function SectionBlock({
       <div className="mb-4">
         <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           <span>{translateSettingsCatalogText(locale, section.title)}</span>
-          <HintDot label={translateSettingsCatalogText(locale, section.description)} />
+          
         </div>
         <div className="text-sm text-muted-foreground">{translateSettingsCatalogText(locale, section.description)}</div>
       </div>
@@ -437,7 +377,7 @@ function KeyValueEditor({
     <div className="rounded-[22px] border border-black/[0.08] bg-white/[0.52] p-4 dark:border-white/[0.12] dark:bg-white/[0.04]">
       <div className="mb-2 flex items-center gap-2 text-sm font-medium">
         <span>{t.envTitle}</span>
-        <HintDot label={t.envSubtitle} />
+        
       </div>
       <div className="space-y-3">
         {rows.map(([key, rowValue], index) => (

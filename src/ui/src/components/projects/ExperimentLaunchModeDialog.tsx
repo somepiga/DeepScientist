@@ -119,11 +119,10 @@ function ModeChoiceCard(props: {
 
 export function ExperimentLaunchModeDialog({
   open,
-  locale,
   onClose,
   onSelectMode,
 }: ExperimentLaunchModeDialogProps) {
-  const t = String(locale || '').startsWith('zh') ? copy.zh : copy.en
+  const t = copy.zh
 
   return (
     <OverlayDialog

@@ -3,7 +3,6 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, usePa
 
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { DocsPage } from '@/components/docs/DocsPage'
-import { OnboardingOverlay } from '@/components/onboarding/OnboardingOverlay'
 import { SettingsPage, type ConfigDocumentName, type SettingsSectionName } from '@/components/settings/SettingsPage'
 import type { ConnectorName } from '@/components/settings/connectorCatalog'
 import { I18nProvider, useI18n } from '@/lib/i18n'
@@ -206,7 +205,6 @@ function AppRoutes() {
         <Route path="/admin/stats" element={<Navigate to="/settings/stats" replace />} />
         <Route path="/admin/search" element={<Navigate to="/settings/search" replace />} />
         <Route path="/admin/repairs" element={<Navigate to="/settings/repairs" replace />} />
-        <Route path="/tutorial/demo/:scenarioId" element={<Navigate to="/projects/demo-memory" replace />} />
         <Route path="/docs/*" element={<DocsRoutePage />} />
         <Route path="/settings/summary" element={<SettingsRoutePage />} />
         <Route path="/settings/connector" element={<SettingsRoutePage />} />
@@ -229,7 +227,6 @@ function AppRoutes() {
         <Route path="/settings/:configName" element={<SettingsRoutePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <OnboardingOverlay />
     </>
   )
 }

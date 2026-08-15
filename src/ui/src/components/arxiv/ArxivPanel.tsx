@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { BookOpen, ChevronDown, Loader2, Search } from "lucide-react";
-import { isDemoProjectId } from "@/demo/projects";
 import { acquireSocket } from "@/lib/plugins/notebook/lib/socket";
 import { useArxivStore } from "@/lib/stores/arxiv-store";
 import { useFileTreeStore } from "@/lib/stores/file-tree";
@@ -47,7 +46,6 @@ async function emitWithAck(
 }
 
 function useArxivSocket(projectId: string, readOnly: boolean) {
-  const isDemoProject = isDemoProjectId(projectId);
   const refresh = useArxivStore((s) => s.refresh);
   const markImported = useArxivStore((s) => s.markImported);
   const markFailed = useArxivStore((s) => s.markFailed);
@@ -74,7 +72,6 @@ function useArxivSocket(projectId: string, readOnly: boolean) {
 
   React.useEffect(() => {
     if (!projectId) return;
-    if (isDemoProject) return;
     const { socket, release } = acquireSocket();
 
     const handleImported = (payload: any) => {
@@ -142,7 +139,7 @@ function useArxivSocket(projectId: string, readOnly: boolean) {
       socket.emit("space:leave", { spaceType: "workspace", spaceId: projectId });
       release();
     };
-  }, [isDemoProject, projectId, readOnly, refresh, markImported, markFailed, setBatchProgress]);
+  }, [projectId, readOnly, refresh, markImported, markFailed, setBatchProgress]);
 }
 
 export function ArxivPanel({

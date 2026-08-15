@@ -35,19 +35,6 @@ import type {
   WorkflowPayload,
 } from '@/types'
 import { apiClient } from '@/lib/api/client'
-import {
-  getDemoGitCompare,
-  getDemoExplorerPayload,
-  getDemoBaselineCompare,
-  getDemoGitBranches,
-  getDemoGitDiffFile,
-  getDemoMetricsTimeline,
-  getDemoStageView,
-  listDemoDocuments,
-  listDemoMemory,
-  openDemoDocument,
-} from '@/demo/adapter'
-import { isDemoProjectId } from '@/demo/projects'
 import { authHeaders } from '@/lib/auth'
 
 type ConfigStructuredPayload = Record<string, unknown>
@@ -277,13 +264,6 @@ export const client = {
       baseline_gate?: string | null
     }
   ) => {
-    if (isDemoProjectId(questId)) {
-      const demoPayload = getDemoStageView(questId, payload)
-      if (!demoPayload) {
-        throw new Error(`Unknown demo stage view for ${questId}`)
-      }
-      return Promise.resolve(demoPayload)
-    }
     return api<QuestStageViewPayload>(`/api/quests/${questId}/stage-view`, {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -293,13 +273,6 @@ export const client = {
     questId: string,
     options?: { revision?: string | null; mode?: string | null; profile?: string | null }
   ) => {
-    if (isDemoProjectId(questId)) {
-      const payload = getDemoExplorerPayload(questId)
-      if (!payload) {
-        throw new Error(`Unknown demo explorer payload for ${questId}`)
-      }
-      return Promise.resolve(payload)
-    }
     const params = new URLSearchParams()
     if (options?.revision) {
       params.set('revision', options.revision)
@@ -453,54 +426,19 @@ export const client = {
       body: JSON.stringify(payload),
     }),
   memory: (questId: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = listDemoMemory(questId)
-      if (!payload) {
-        throw new Error(`Unknown demo memory payload for ${questId}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<MemoryCard[]>(`/api/quests/${questId}/memory`)
   },
   documents: (questId: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = listDemoDocuments(questId)
-      if (!payload) {
-        throw new Error(`Unknown demo documents payload for ${questId}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<QuestDocument[]>(`/api/quests/${questId}/documents`)
   },
   graph: (questId: string) => api<GraphPayload>(`/api/quests/${questId}/graph`),
   metricsTimeline: (questId: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = getDemoMetricsTimeline(questId)
-      if (!payload) {
-        throw new Error(`Unknown demo metrics timeline for ${questId}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<MetricsTimelinePayload>(`/api/quests/${questId}/metrics/timeline`)
   },
   baselineCompare: (questId: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = getDemoBaselineCompare(questId)
-      if (!payload) {
-        throw new Error(`Unknown demo baseline compare payload for ${questId}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<BaselineComparePayload>(`/api/quests/${questId}/baselines/compare`)
   },
   gitBranches: (questId: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = getDemoGitBranches(questId)
-      if (!payload) {
-        throw new Error(`Unknown demo git branches for ${questId}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<GitBranchesPayload>(`/api/quests/${questId}/git/branches`)
   },
   gitLog: (questId: string, ref: string, base?: string, limit = 30) =>
@@ -508,13 +446,6 @@ export const client = {
       `/api/quests/${questId}/git/log?ref=${encodeURIComponent(ref)}${base ? `&base=${encodeURIComponent(base)}` : ''}&limit=${limit}`
     ),
   gitCompare: (questId: string, base: string, head: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = getDemoGitCompare(questId, base, head)
-      if (!payload) {
-        throw new Error(`Unknown demo git compare ${base} -> ${head}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<GitComparePayload>(
       `/api/quests/${questId}/git/compare?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}`
     )
@@ -522,13 +453,6 @@ export const client = {
   gitCommit: (questId: string, sha: string) =>
     api<GitCommitDetailPayload>(`/api/quests/${questId}/git/commit?sha=${encodeURIComponent(sha)}`),
   gitDiffFile: (questId: string, base: string, head: string, path: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = getDemoGitDiffFile(questId, base, head, path)
-      if (!payload) {
-        throw new Error(`Unknown demo git diff ${base} -> ${head} for ${path}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<GitDiffPayload>(
       `/api/quests/${questId}/git/diff-file?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}&path=${encodeURIComponent(path)}`
     )
@@ -542,13 +466,6 @@ export const client = {
   gitCommitFile: (questId: string, sha: string, path: string) =>
     api<GitDiffPayload>(`/api/quests/${questId}/git/commit-file?sha=${encodeURIComponent(sha)}&path=${encodeURIComponent(path)}`),
   openDocument: (questId: string, documentId: string) => {
-    if (isDemoProjectId(questId)) {
-      const payload = openDemoDocument(questId, documentId)
-      if (!payload) {
-        throw new Error(`Unknown demo document ${documentId}`)
-      }
-      return Promise.resolve(payload)
-    }
     return api<OpenDocumentPayload>(`/api/quests/${questId}/documents/open`, {
       method: 'POST',
       body: JSON.stringify({ document_id: documentId }),

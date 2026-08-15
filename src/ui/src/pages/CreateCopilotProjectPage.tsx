@@ -21,7 +21,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { ConnectorSnapshot } from '@/types'
 
-type CopilotLocale = 'en' | 'zh'
+type CopilotLocale = 'zh'
 
 const copy = {
   en: {
@@ -89,28 +89,6 @@ const copy = {
 } as const
 
 const templateLocaleCopy: Record<CopilotLocale, Record<ProjectTemplateId, { label: string; description: string; defaultTitle: string }>> = {
-  en: {
-    blank: {
-      label: 'Blank workspace',
-      description: 'A quiet general-purpose copilot surface. Decide the flow later.',
-      defaultTitle: 'New Copilot Workspace',
-    },
-    experiment: {
-      label: 'Experiment board',
-      description: 'A good default for implementation, debugging, and running experiments from chat.',
-      defaultTitle: 'Experiment Copilot',
-    },
-    literature: {
-      label: 'Literature desk',
-      description: 'A reading-first surface for paper comparison, note taking, and collecting evidence.',
-      defaultTitle: 'Literature Copilot',
-    },
-    analysis: {
-      label: 'Analysis deck',
-      description: 'A log- and result-oriented surface for review, diagnosis, and follow-up checks.',
-      defaultTitle: 'Analysis Copilot',
-    },
-  },
   zh: {
     blank: {
       label: '空白工作区',
@@ -136,13 +114,6 @@ const templateLocaleCopy: Record<CopilotLocale, Record<ProjectTemplateId, { labe
 }
 
 const accentLocaleLabels: Record<CopilotLocale, Record<ProjectAccentId, string>> = {
-  en: {
-    graphite: 'Graphite',
-    sage: 'Sage',
-    clay: 'Clay',
-    mist: 'Mist',
-    rose: 'Rose',
-  },
   zh: {
     graphite: '石墨',
     sage: '鼠尾草',
@@ -198,7 +169,7 @@ function buildConnectorItems(connectors: ConnectorSnapshot[], locale: CopilotLoc
 export function CreateCopilotProjectPage() {
   const navigate = useNavigate()
   const { locale } = useI18n()
-  const uiLocale: CopilotLocale = locale === 'zh' ? 'zh' : 'en'
+  const uiLocale: CopilotLocale = 'zh'
   const t = copy[uiLocale]
   const [title, setTitle] = React.useState('')
   const [template, setTemplate] = React.useState<ProjectTemplateId>('blank')

@@ -10,12 +10,6 @@ import { apiClient } from "./client";
 import { downloadCliFile, readCliFile, writeCliFile } from "@/lib/api/cli";
 import { getCliFileName, parseCliFileId } from "@/lib/api/cli-file-id";
 import {
-  buildDemoFileTree,
-  getDemoFile,
-  getDemoFileContent,
-  isDemoFileId,
-} from "@/demo/adapter";
-import {
   buildQuestFileIdFromDocument,
   createQuestFolder,
   deleteQuestNodes,
@@ -83,10 +77,6 @@ export async function getFileTree(
   projectId: string,
   options: { force?: boolean } = {}
 ): Promise<FileTreeResponse> {
-  const demoTree = buildDemoFileTree(projectId);
-  if (demoTree) {
-    return demoTree;
-  }
   return await getQuestFileTree(projectId, options);
 }
 
@@ -170,13 +160,6 @@ function flattenFileTree(nodes: FileAPIResponse[]): FileAPIResponse[] {
  * Get file details
  */
 export async function getFile(fileId: string): Promise<FileAPIResponse> {
-  if (isDemoFileId(fileId)) {
-    const demoFile = getDemoFile(fileId);
-    if (!demoFile) {
-      throw new Error(`Unknown demo file \`${fileId}\`.`);
-    }
-    return demoFile;
-  }
   if (isQuestNodeId(fileId)) {
     return await getQuestFile(fileId);
   }
@@ -335,13 +318,6 @@ export async function restoreFiles(fileIds: string[]): Promise<void> {
  * Get file content as text
  */
 export async function getFileContent(fileId: string): Promise<string> {
-  if (isDemoFileId(fileId)) {
-    const demoContent = getDemoFileContent(fileId);
-    if (demoContent == null) {
-      throw new Error(`Unknown demo file content for \`${fileId}\`.`);
-    }
-    return demoContent;
-  }
   const cliRef = parseCliFileId(fileId);
   if (cliRef) {
     const response = await readCliFile(cliRef.projectId, cliRef.serverId, cliRef.path);

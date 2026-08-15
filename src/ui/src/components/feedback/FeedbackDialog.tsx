@@ -173,7 +173,6 @@ export function FeedbackDialog({
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             className="bg-white/70 border border-white/30 text-black placeholder:text-black/60 min-h-[160px]"
-            hint={includePageContext ? `Page: ${pagePath}` : undefined}
             error={formError || undefined}
           />
 

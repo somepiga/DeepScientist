@@ -8,12 +8,6 @@ import type { Locale } from "@/types"
 import { DeepXivSetupDialog } from "./DeepXivSetupDialog"
 
 const copy = {
-  en: {
-    title: "DeepXiv",
-    eyebrow: "Literature provider",
-    summary: "Configure DeepXiv through a short setup flow: register, paste the token, confirm the defaults, and optionally preview a live `transformers` retrieval.",
-    start: "Start setup",
-  },
   zh: {
     title: "DeepXiv",
     eyebrow: "文献能力提供方",

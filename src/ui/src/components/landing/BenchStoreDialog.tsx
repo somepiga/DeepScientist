@@ -917,11 +917,11 @@ function sortEntries(entries: BenchEntry[], mode: SortMode) {
 
 function BenchArtwork({
   entry,
-  locale,
+  locale = "zh",
   className,
 }: {
   entry: BenchEntry;
-  locale: "en" | "zh";
+  locale?: "en" | "zh";
   className?: string;
 }) {
   const palette = React.useMemo(

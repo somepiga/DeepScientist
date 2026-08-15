@@ -1,7 +1,7 @@
-export type SettingsOpsLocale = 'en' | 'zh'
+export type SettingsOpsLocale = 'zh'
 
-export function adminLocaleFromLanguage(language: string): SettingsOpsLocale {
-  return language === 'zh-CN' ? 'zh' : 'en'
+export function adminLocaleFromLanguage(_language: string): SettingsOpsLocale {
+  return 'zh'
 }
 
 export function pickAdminCopy<T>(
@@ -15,36 +15,6 @@ export function pickAdminCopy<T>(
 }
 
 const ENUM_LABELS: Record<SettingsOpsLocale, Record<string, string>> = {
-  en: {
-    enabled: 'enabled',
-    disabled: 'disabled',
-    available: 'available',
-    missing: 'missing',
-    present: 'Present',
-    clear: 'Clear',
-    degraded: 'degraded',
-    open: 'open',
-    closed: 'closed',
-    running: 'running',
-    active: 'active',
-    paused: 'paused',
-    stopped: 'stopped',
-    completed: 'completed',
-    failed: 'failed',
-    error: 'error',
-    idle: 'idle',
-    queued: 'queued',
-    unknown: 'unknown',
-    terminating: 'terminating',
-    diagnose_only: 'diagnose only',
-    system: 'system',
-    quest: 'quest',
-    copilot: 'Copilot',
-    autonomous: 'autonomous',
-    runtime: 'runtime',
-    connector: 'connector',
-    log: 'log',
-  },
   zh: {
     enabled: '已启用',
     disabled: '已禁用',

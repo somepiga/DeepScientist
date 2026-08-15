@@ -2,8 +2,6 @@
  * ArXiv API Client
  */
 import { apiClient } from "./client";
-import { buildDemoArxivList } from "@/demo/arxiv";
-import { isDemoProjectId } from "@/demo/projects";
 import { supportsArxiv } from "@/lib/runtime/quest-runtime";
 import type {
   ArxivListResponse,
@@ -18,13 +16,6 @@ export async function importArxiv(
   arxivId: string,
   tags?: string[]
 ): Promise<ArxivImportResponse> {
-  if (isDemoProjectId(projectId)) {
-    return {
-      status: "demo",
-      file_id: "",
-      arxiv_id: arxivId,
-    };
-  }
   if (!supportsArxiv()) {
     return {
       status: "disabled",
@@ -48,12 +39,6 @@ export async function batchImportArxiv(
   arxivIds: string[],
   tags?: string[]
 ): Promise<ArxivBatchImportResponse> {
-  if (isDemoProjectId(projectId)) {
-    return {
-      status: "demo",
-      tasks: arxivIds.map((arxiv_id) => ({ arxiv_id, status: "demo" })),
-    };
-  }
   if (!supportsArxiv()) {
     return {
       status: "disabled",
@@ -75,9 +60,6 @@ export async function batchImportArxiv(
 }
 
 export async function listArxiv(projectId: string): Promise<ArxivListResponse> {
-  if (isDemoProjectId(projectId)) {
-    return buildDemoArxivList(projectId);
-  }
   if (!supportsArxiv()) {
     return { items: [] };
   }

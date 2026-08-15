@@ -4,143 +4,11 @@ import { client } from '@/lib/api'
 import { useUILanguageStore } from '@/lib/stores/ui-language'
 import type { Locale } from '@/types'
 
-function resolveLegacyLocale(value: string | null | undefined): Locale {
-  return String(value || '').toLowerCase().startsWith('zh') ? 'zh' : 'en'
+function resolveLegacyLocale(_value: string | null | undefined): Locale {
+  return 'zh'
 }
 
 const messages = {
-  en: {
-    brand: 'DeepScientist',
-    projectsTitle: 'Home',
-    docsTitle: 'Docs',
-    settingsTitle: 'Settings',
-    sharedApiHint: 'Web and TUI share the same daemon API and live event stream.',
-    settingsHint: 'Edit runtime config, validate it, and keep the local daemon predictable.',
-    searchPlaceholder: 'Search projects, project ids, branches, and notes…',
-    navProjects: 'Home',
-    navDocs: 'Docs',
-    navSettings: 'Settings',
-    landingEyebrow: 'Automated Research',
-    landingTitle: 'Climb from local clues to global insight.',
-    landingBody: 'DeepScientist keeps the browser, TUI, and daemon on one local session while every project lives in its own Git-backed workspace.',
-    landingStart: 'Start Research',
-    landingOpen: 'Open Project',
-    landingDaemon: 'Daemon',
-    landingShared: 'Shared with TUI',
-    landingQuestCount: 'Local projects',
-    landingSceneTitle: 'Exploring Unknown Scientific Frontiers',
-    landingMetricProjects: 'Project repos',
-    landingMetricPending: 'Pending',
-    landingMetricDaemon: 'Daemon',
-    landingNodeLocal: 'Local optimum',
-    landingNodeMid: 'Midpoint',
-    landingNodeGlobal: 'Global optimum',
-    openQuestTitle: 'Open Project',
-    openQuestBody: 'Resume a local project and reopen its workspace.',
-    openQuestSearchPlaceholder: 'Search by title, project id, branch, or notes…',
-    openQuestEmpty: 'No matching projects.',
-    openQuestNoProjects: 'No projects were found in the current DeepScientist home.',
-    openQuestCurrentHome: 'Current home',
-    openQuestHomeHint: 'This list only shows quests stored under the active DeepScientist home. If your quests live elsewhere, relaunch with `ds --home <path>`.',
-    openQuestLatest: 'Latest',
-    openQuestUpdated: 'Updated',
-    openQuestPending: 'Pending',
-    openQuestBranch: 'Branch',
-    openQuestNoDescription: 'Open the workspace to continue.',
-    openQuestDelete: 'Delete project',
-    openQuestDeleteTitle: 'Delete project?',
-    openQuestDeleteBody: 'This will permanently delete the project repo on disk. This cannot be undone.',
-    openQuestDeleteConfirm: 'Delete',
-    openQuestDeleteCancel: 'Cancel',
-    heroTitle: 'Local-first research workspaces',
-    heroBody:
-      'Open a project to keep the Codex stream alive in the browser, share the same backend session with the TUI, and inspect files, workflow, and artifacts in one place.',
-    heroGuide:
-      'Guide: sending a direct request from the projects page creates a new project repo; sending inside a bound project continues that project conversation.',
-    createProject: 'New project',
-    createDialogTitle: 'Create a project',
-    createDialogBody: 'Start from a direct research goal. DeepScientist will create a project repository and open the workspace immediately.',
-    createProjectTitle: 'Project title',
-    createProjectGoal: 'Goal / request',
-    createProjectAction: 'Create and open',
-    cancel: 'Cancel',
-    quickRequest: 'Direct request',
-    quickRequestBody: 'No bound project yet? Send a request here and DeepScientist will create a new project automatically.',
-    quickRequestAction: 'Start request',
-    openProject: 'Open workspace',
-    emptyProjects: 'No projects yet. Start with a direct request or create a workspace card.',
-    status: 'Status',
-    branch: 'Branch',
-    metric: 'Metric',
-    updated: 'Updated',
-    pending: 'Pending',
-    files: 'Files',
-    memory: 'Memory',
-    workflow: 'Workflow',
-    graph: 'Graph',
-    overview: 'Overview',
-    copilot: 'Copilot',
-    activity: 'Activity',
-    directTab: 'Studio',
-    groupTab: 'Chat',
-    directTabHint: 'Shows the full studio trace: tool work, artifacts, milestones, and conversation from the shared daemon session.',
-    groupTabHint: 'Shows only the conversation thread, like a focused chat surface.',
-    toolActivity: 'Tool activity',
-    toolActivityBody: 'Read, search, shell, and write operations surface here while the live stream stays attached.',
-    showToolEffect: 'Show tool strip',
-    hideToolEffect: 'Hide tool strip',
-    toolLive: 'Live',
-    toolDone: 'Done',
-    toolLiveBody: 'This action is arriving from the same daemon session and updates in place while Codex is still working.',
-    toolResultBody: 'This tool step has finished and stays pinned here until the next live tool event arrives.',
-    showActivity: 'Show activity',
-    hideActivity: 'Hide activity',
-    jumpToLatest: 'Jump to latest',
-    emptyCopilotTitle: 'Studio is ready',
-    emptyCopilotBody: 'The stream stays attached here. Ask for a status summary, request a graph update, inspect tool traces, or continue the current research thread directly.',
-    emptyGroupTitle: 'Chat is ready',
-    emptyGroupBody: 'This view keeps only the dialogue thread. Switch to Studio if you want tool traces, artifacts, and run events.',
-    activityBody: 'Recent runs, artifacts, decisions, and changed files from the same daemon session.',
-    streamingNow: 'Streaming live…',
-    copyCode: 'Copy',
-    copiedCode: 'Copied',
-    latestAssistant: 'Latest assistant reply',
-    workspaceGuide: 'This workspace keeps the same daemon session and streams updates continuously after Codex responds.',
-    sameSession: 'Same daemon session as TUI',
-    streamLive: 'Live stream attached',
-    replyTarget: 'Reply target',
-    composerPlaceholder: 'Continue this project, ask for a summary, or send /status, /graph, /summary …',
-    commandHelp: 'Press Ctrl/Cmd + Enter to send.',
-    openDocs: 'Open docs',
-    openSettings: 'Open settings',
-    loadProjectsFailed: 'Failed to load projects.',
-    createFailed: 'Failed to create project.',
-    deleteFailed: 'Failed to delete project.',
-    loading: 'Loading…',
-    recentArtifacts: 'Recent artifacts',
-    recentRuns: 'Recent runs',
-    changedFiles: 'Changed files',
-    guideCardTitle: 'Unified local surface',
-    guideCardBody:
-      'The project page, TUI, and connector feeds now read the same daemon events. Refreshing the page does not switch APIs.',
-    projectNotFound: 'Project not found.',
-    explorer: 'Explorer',
-    documents: 'Documents',
-    noDocuments: 'No documents yet.',
-    noMemory: 'No memory cards yet.',
-    noArtifacts: 'No artifacts yet.',
-    noRuns: 'No runs yet.',
-    noChangedFiles: 'No changed files yet.',
-    noWorkflow: 'Workflow cards appear after the first meaningful run.',
-    noExplorer: 'Project files will appear here after the project initializes.',
-    workingTree: 'Working tree',
-    suggestions: 'Suggestions',
-    refresh: 'Refresh',
-    send: 'Send',
-    directRequestTitlePlaceholder: 'Optional title',
-    directRequestGoalPlaceholder: 'Describe the research request or next objective…',
-    projectGoalPlaceholder: 'Describe the project goal, hypothesis, or direct request…',
-  },
   zh: {
     brand: 'DeepScientist',
     projectsTitle: '首页',
@@ -275,25 +143,21 @@ const messages = {
   },
 } as const
 
-type MessageKey = keyof typeof messages.en
+type MessageKey = keyof typeof messages.zh
 
 type I18nValue = {
   locale: Locale
-  toggleLocale: () => void
   t: (key: MessageKey) => string
 }
 
 const I18nContext = createContext<I18nValue | null>(null)
 
 function resolveInitialLocale(): Locale {
-  return 'en'
+  return 'zh'
 }
 
-function resolveBrowserConfigLocale(): 'zh-CN' | 'en-US' {
-  if (typeof navigator === 'undefined') {
-    return 'en-US'
-  }
-  return navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US'
+function resolveBrowserConfigLocale(): 'zh-CN' {
+  return 'zh-CN'
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
@@ -301,7 +165,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const locale = resolveLegacyLocale(uiLanguage)
   const hydrated = useUILanguageStore((state) => state.hydrated)
   const hydrateFromPersistence = useUILanguageStore((state) => state.hydrateFromPersistence)
-  const saveLanguagePreference = useUILanguageStore((state) => state.saveLanguagePreference)
   const bootstrapAttemptedRef = useRef(false)
 
   useEffect(() => {
@@ -370,12 +233,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const value = useMemo<I18nValue>(
     () => ({
       locale,
-      toggleLocale: () => {
-        void saveLanguagePreference(locale === 'zh' ? 'en' : 'zh')
-      },
       t: (key) => messages[locale][key],
     }),
-    [locale, saveLanguagePreference]
+    [locale]
   )
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>

@@ -30,7 +30,7 @@ const readPersistedUiLanguage = (): UILanguage | null => {
 
   try {
     const direct = window.localStorage.getItem(UI_LANGUAGE_STORAGE_KEY)
-    if (direct) return normalizeUILanguage(direct, 'en')
+    if (direct) return normalizeUILanguage(direct, 'zh-CN')
   } catch {
     // ignore
   }
@@ -44,14 +44,14 @@ const readPersistedUiLanguage = (): UILanguage | null => {
     }
     const persisted = parsed?.state?.user?.ui_language ?? parsed?.user?.ui_language
     if (persisted === undefined || persisted === null) return null
-    return normalizeUILanguage(persisted, 'en')
+    return normalizeUILanguage(persisted, 'zh-CN')
   } catch {
     return null
   }
 }
 
 const readBrowserUiLanguage = (): UILanguage => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'en'
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'zh-CN'
   try {
     const candidates: Array<string> = []
     if (typeof navigator.language === 'string') candidates.push(navigator.language)
@@ -61,13 +61,13 @@ const readBrowserUiLanguage = (): UILanguage => {
       }
     }
     for (const candidate of candidates) {
-      const normalized = normalizeUILanguage(candidate, 'en')
+      const normalized = normalizeUILanguage(candidate, 'zh-CN')
       if (normalized) return normalized
     }
   } catch {
     // ignore
   }
-  return 'en'
+  return 'zh-CN'
 }
 
 const writePersistedUiLanguage = (value: UILanguage) => {
@@ -117,7 +117,7 @@ const readAuthStoreState = () => {
   }
 }
 
-const initialLanguage: UILanguage = 'en'
+const initialLanguage: UILanguage = 'zh-CN'
 
 export const useUILanguageStore = create<UiLanguageState>()((set, get) => ({
   language: initialLanguage,
@@ -180,7 +180,7 @@ export const useUILanguageStore = create<UiLanguageState>()((set, get) => ({
   },
 
   saveLanguagePreference: async (value) => {
-    const targetLanguage = normalizeUILanguage(value, 'en')
+    const targetLanguage = normalizeUILanguage(value, 'zh-CN')
     const seq = get().requestSeq + 1
 
     set((state) => ({

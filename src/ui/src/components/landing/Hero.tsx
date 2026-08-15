@@ -15,8 +15,6 @@ import { client } from '@/lib/api'
 import { useMobileViewport } from '@/lib/hooks/useMobileViewport'
 import { useI18n } from '@/lib/i18n'
 import { filterProjectsVisibleQuests } from '@/lib/questVisibility'
-import { useOnboardingStore } from '@/lib/stores/onboarding'
-import { useUILanguageStore } from '@/lib/stores/ui-language'
 import { runtimeVersion } from '@/lib/runtime/quest-runtime'
 import { normalizeBuiltinRunnerName, runnerLabel } from '@/lib/runnerBranding'
 import type { StartResearchTemplate } from '@/lib/startResearch'
@@ -120,22 +118,6 @@ export default function Hero(props: {
   const navigate = useNavigate()
   const { locale } = useI18n()
   const hero = useMemo(() => getHeroBundle(locale), [locale])
-  const saveLanguagePreference = useUILanguageStore((state) => state.saveLanguagePreference)
-  const {
-    hydrated: onboardingHydrated,
-    firstRunHandled,
-    neverRemind,
-    startTutorial,
-    skipFirstRun,
-    neverShowAgain,
-  } = useOnboardingStore((state) => ({
-    hydrated: state.hydrated,
-    firstRunHandled: state.firstRunHandled,
-    neverRemind: state.neverRemind,
-    startTutorial: state.startTutorial,
-    skipFirstRun: state.skipFirstRun,
-    neverShowAgain: state.neverShowAgain,
-  }))
   const heroRef = useRef<HTMLElement | null>(null)
   const prefersReducedMotion = useReducedMotion()
   const reducedMotion = prefersReducedMotion ?? false
@@ -191,9 +173,6 @@ export default function Hero(props: {
   }, [props.dialogRequest, props.onDialogRequestConsumed])
 
   useEffect(() => {
-    if (!onboardingHydrated) {
-      return
-    }
     let active = true
     void client
       .connectorsAvailability()
@@ -213,7 +192,7 @@ export default function Hero(props: {
     return () => {
       active = false
     }
-  }, [onboardingHydrated])
+  }, [])
 
   const connectorCoachMode = useMemo(() => {
     if (!connectorAvailability?.should_recommend_binding) {
@@ -315,7 +294,7 @@ export default function Hero(props: {
         typeof args.setupPacket.launch_payload.startup_contract.benchstore_context === 'object'
           ? args.setupPacket.launch_payload.startup_contract.benchstore_context
           : args.source === 'benchstore'
-            ? buildBenchstoreContextFromEntry(args.entry)
+            ? buildBenchstoreContextFromEntry(args.entry, '')
             : null
 
       const uploadAttachmentDrafts = async (questId: string) => {
@@ -404,11 +383,10 @@ export default function Hero(props: {
   )
 
   const shouldShowConnectorCoach = connectorAvailabilityResolved && connectorCoachMode !== null
-  const shouldShowTutorialCoach = onboardingHydrated && !firstRunHandled && !neverRemind
   const entryCoachOpen =
     !entryCoachDismissed &&
     !landingModalOpen &&
-    (shouldShowConnectorCoach || shouldShowTutorialCoach)
+    shouldShowConnectorCoach
 
   useEffect(() => {
     if (isPortraitMode) {
@@ -744,27 +722,12 @@ export default function Hero(props: {
       <UpdateReminderDialog />
       <EntryCoachDialog
         open={entryCoachOpen}
-        locale={locale}
         connectorMode={connectorCoachMode || 'recommended'}
         showConnectorStep={shouldShowConnectorCoach}
-        showTutorialStep={shouldShowTutorialCoach}
         onClose={() => setEntryCoachDismissed(true)}
-        onSetLanguage={(language) => {
-          void saveLanguagePreference(language)
-        }}
         onOpenConnectorSettings={() => {
           setEntryCoachDismissed(true)
           navigate('/settings/connector', { state: { configName: 'connectors' } })
-        }}
-        onStartTutorial={(language) => {
-          setEntryCoachDismissed(true)
-          startTutorial(language, '/', 'auto')
-        }}
-        onSkipTutorial={() => {
-          skipFirstRun()
-        }}
-        onNeverShowTutorial={() => {
-          neverShowAgain()
         }}
       />
     </>

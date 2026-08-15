@@ -29,17 +29,6 @@ type TrendPoint = {
 }
 
 const COPY = {
-  en: {
-    title: 'System Trajectory',
-    empty: 'Recent hardware samples are not available yet.',
-    sampled: 'Sampled {count} points from the last {window} minutes.',
-    latest: 'Latest',
-    average: 'Avg',
-    peak: 'Peak',
-    cpu: 'CPU',
-    memory: 'Memory',
-    rootDisk: 'Root Disk',
-  },
   zh: {
     title: '系统轨迹',
     empty: '最近的硬件采样暂时还不可用。',

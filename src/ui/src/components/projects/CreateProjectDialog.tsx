@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpRight, BookmarkPlus, CircleHelp, Lock, RotateCcw, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, BookmarkPlus, Lock, RotateCcw, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -28,8 +28,6 @@ import { connectorInstanceMode, connectorTargetLabel, normalizeConnectorTargets,
 import { useI18n } from '@/lib/i18n'
 import { normalizeZhUiCopy } from '@/lib/i18n/normalizeZhUiCopy'
 import type { QuestMessageAttachmentDraft } from '@/lib/hooks/useQuestMessageAttachments'
-import { useOnboardingStore } from '@/lib/stores/onboarding'
-import { resetDemoRuntime } from '@/demo/runtime'
 import { normalizeBuiltinRunnerName, runnerLabel } from '@/lib/runnerBranding'
 import {
   applyStartResearchIntensityPreset,
@@ -1110,26 +1108,8 @@ function resolveStartConnectorChoice(snapshot: ConnectorSnapshot): StartConnecto
 
 type StartResearchRightPaneMode = 'assistant' | 'preview'
 
-function FieldHelp({
-  text,
-}: {
-  text: string
-}) {
-  return (
-    <div className="group relative inline-flex">
-      <button
-        type="button"
-        tabIndex={-1}
-        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[rgba(107,103,97,0.78)] transition hover:text-[rgba(45,42,38,0.95)] dark:text-[rgba(107,103,97,0.78)] dark:hover:text-[rgba(45,42,38,0.95)]"
-        aria-label={text}
-      >
-        <CircleHelp className="h-3.5 w-3.5" />
-      </button>
-      <div className="pointer-events-none absolute left-1/2 top-[calc(100%+0.45rem)] z-20 hidden w-64 -translate-x-1/2 rounded-[14px] border border-[rgba(45,42,38,0.1)] bg-[rgba(255,255,255,0.97)] px-3 py-2 text-[11px] leading-5 text-[rgba(56,52,47,0.92)] shadow-[0_20px_40px_-28px_rgba(45,42,38,0.45)] group-hover:block dark:border-[rgba(45,42,38,0.1)] dark:bg-[rgba(255,255,255,0.97)] dark:text-[rgba(56,52,47,0.92)]">
-        {text}
-      </div>
-    </div>
-  )
+function FieldHelp(_: { text: string }) {
+  return null
 }
 
 function InlineField({
@@ -1149,9 +1129,7 @@ function InlineField({
     <div className="space-y-1" data-onboarding-id={dataOnboardingId}>
       <div className="flex items-center gap-1.5 text-[11px] font-medium text-[rgba(75,73,69,0.78)] dark:text-[rgba(75,73,69,0.78)]">
         <span>{label}</span>
-        {help ? <FieldHelp text={help} /> : null}
       </div>
-      {hint ? <div className="text-[11px] leading-5 text-[rgba(107,103,97,0.72)] dark:text-[rgba(107,103,97,0.72)]">{hint}</div> : null}
       {children}
     </div>
   )
@@ -1182,7 +1160,7 @@ function ChoiceField<T extends string>({
   disabled?: boolean
 }) {
   return (
-    <InlineField label={label} help={help} hint={hint}>
+    <InlineField label={label}>
       <div role="radiogroup" aria-label={label} className="space-y-2">
         {items.map((item) => {
           const active = item.value === value
@@ -1298,7 +1276,7 @@ function ConnectorChoiceField({
   ]
 
   return (
-    <InlineField label={label} help={help} hint={hint}>
+    <InlineField label={label}>
       {loading ? (
         <div className="rounded-[14px] border border-[rgba(45,42,38,0.08)] bg-white/60 px-3 py-3 text-[11px] leading-5 text-[rgba(86,82,77,0.82)] dark:border-[rgba(45,42,38,0.08)] dark:bg-white/70 dark:text-[rgba(86,82,77,0.82)]">
           Loading connectors…
@@ -1383,90 +1361,6 @@ function sanitizeLines(value: string) {
     .split('\n')
     .map((item) => item.trim())
     .filter(Boolean)
-}
-
-function buildTutorialStartResearchExample(language: 'en' | 'zh'): Partial<StartResearchTemplate> {
-  if (language === 'zh') {
-    return {
-      title: '复现公开 baseline，并验证一个可计算改进方向',
-      goal: [
-        '请先复现目标 baseline，确认主指标和运行脚本稳定可用；然后基于误差分析提出一个更高效的改进方向，并执行一轮可比较实验。',
-        '',
-        '成功标准是 baseline 可信、至少有一组可比较 metric，并形成简短结论与下一步建议。',
-      ].join('\n'),
-      baseline_id: '',
-      baseline_variant_id: '',
-      baseline_source_mode: 'reproduce_from_source',
-      execution_start_mode: 'plan_then_execute',
-      baseline_acceptance_target: 'paper_repro_ready',
-      baseline_urls: '',
-      paper_urls: '',
-      runtime_constraints: [
-        '- 优先控制计算成本。',
-        '- 保留日志和关键中间结果。',
-        '- 如果证据不足，不要提前下结论。',
-      ].join('\n'),
-      objectives: [
-        '1. 建立可信 baseline。',
-        '2. 跑通一个改进分支。',
-        '3. 输出 metric、日志和简短分析。',
-      ].join('\n'),
-      need_research_paper: true,
-      research_intensity: 'balanced',
-      decision_policy: 'autonomous',
-      launch_mode: 'standard',
-      standard_profile: 'canonical_research_graph',
-      custom_profile: 'freeform',
-      review_followup_policy: 'audit_only',
-      baseline_execution_policy: 'auto',
-      manuscript_edit_mode: 'none',
-      entry_state_summary: '',
-      review_summary: '',
-      review_materials: '',
-      custom_brief: '',
-      user_language: 'zh',
-    }
-  }
-
-  return {
-    title: 'Reproduce a public baseline and test one computable improvement direction',
-    goal: [
-      'First reproduce the target baseline and verify that the main metric and scripts run reliably. Then propose one efficiency-oriented improvement based on error analysis and run one comparable experiment.',
-      '',
-      'Success means the baseline is trustworthy, at least one branch produces a clear metric comparison, and the project leaves a concise conclusion with next-step advice.',
-    ].join('\n'),
-    baseline_id: '',
-    baseline_variant_id: '',
-    baseline_source_mode: 'reproduce_from_source',
-    execution_start_mode: 'plan_then_execute',
-    baseline_acceptance_target: 'paper_repro_ready',
-    baseline_urls: '',
-    paper_urls: '',
-    runtime_constraints: [
-      '- Control cost.',
-      '- Preserve logs and key intermediate results.',
-      '- Do not make claims before evidence is sufficient.',
-    ].join('\n'),
-    objectives: [
-      '1. Establish a trustworthy baseline.',
-      '2. Run one improvement branch.',
-      '3. Produce metrics, logs, and a short analysis.',
-    ].join('\n'),
-    need_research_paper: true,
-    research_intensity: 'balanced',
-    decision_policy: 'autonomous',
-    launch_mode: 'standard',
-    standard_profile: 'canonical_research_graph',
-    custom_profile: 'freeform',
-    review_followup_policy: 'audit_only',
-    baseline_execution_policy: 'auto',
-    manuscript_edit_mode: 'none',
-    entry_state_summary: '',
-    review_summary: '',
-    review_materials: '',
-    custom_brief: '',
-    user_language: 'en',
-  }
 }
 
 function clampText(value: string, limit = 48) {
@@ -1634,7 +1528,6 @@ export function CreateProjectDialog({
 }) {
   const navigate = useNavigate()
   const { locale } = useI18n()
-  const onboardingStatus = useOnboardingStore((state) => state.status)
   const t = normalizedCopy[locale]
   const deepxivT = deepxivCopy[locale]
   const backLabel = locale === 'zh' ? '返回' : 'Back'
@@ -1911,15 +1804,9 @@ export function CreateProjectDialog({
       return
     }
     const next = loadStartResearchTemplate(locale)
-    const tutorialSeed = onboardingStatus === 'running' ? buildTutorialStartResearchExample(locale) : null
-    const withSeed = {
-      ...next,
-      ...(tutorialSeed || {}),
-      goal: initialGoal || tutorialSeed?.goal || next.goal,
-      user_language: tutorialSeed?.user_language || locale,
-    }
     setForm({
-      ...withSeed,
+      ...next,
+      goal: initialGoal || next.goal,
       quest_id: '',
     })
     setTemplates(loadStartResearchHistory())
@@ -1931,7 +1818,7 @@ export function CreateProjectDialog({
     setShowAdvanced(true)
     setAgentManagedValues({})
     processedPatchMessageIdsRef.current = new Set()
-  }, [initialGoal, locale, onboardingStatus, onRequestSetupAgent, open, setupPacket])
+  }, [initialGoal, locale, onRequestSetupAgent, open, setupPacket])
 
   useEffect(() => {
     if (open) return
@@ -2486,17 +2373,7 @@ export function CreateProjectDialog({
     setField('quest_id', nextQuestId)
   }
 
-  const handleLaunchTutorialDemo = useCallback(() => {
-    onClose()
-    resetDemoRuntime('demo-memory')
-    navigate('/projects/demo-memory')
-  }, [navigate, onClose])
-
   const handleCreate = async () => {
-    if (onboardingStatus === 'running') {
-      handleLaunchTutorialDemo()
-      return
-    }
     if (benchAutoAssistLocked) {
       return
     }
@@ -2618,7 +2495,7 @@ export function CreateProjectDialog({
               ) : null}
 
               <SectionCard title={t.basics}>
-                <InlineField label={t.titleLabel} help={t.titleHelp} dataOnboardingId="start-research-title">
+                <InlineField label={t.titleLabel} dataOnboardingId="start-research-title">
                   <Input
                     ref={titleInputRef}
                     value={form.title}
@@ -2630,7 +2507,7 @@ export function CreateProjectDialog({
                 </InlineField>
 
                 {showAdvanced ? (
-                  <InlineField label={t.repoLabel} help={t.repoHelp}>
+                  <InlineField label={t.repoLabel}>
                     <Input
                       value={displayedQuestId}
                       onChange={(event) => handleQuestIdChange(event.target.value)}
@@ -2641,7 +2518,7 @@ export function CreateProjectDialog({
                   </InlineField>
                 ) : null}
 
-                <InlineField label={t.goalLabel} help={t.goalHelp} dataOnboardingId="start-research-goal">
+                <InlineField label={t.goalLabel} dataOnboardingId="start-research-goal">
                   <Textarea
                     ref={goalTextareaRef}
                     value={form.goal}
@@ -2656,7 +2533,7 @@ export function CreateProjectDialog({
 
               <SectionCard title={t.references} dataOnboardingId="start-research-references">
                 <div className="grid grid-cols-1 gap-3">
-                  <InlineField label={t.baselineRoot} help={t.baselineRootHelp}>
+                  <InlineField label={t.baselineRoot}>
                     <div className="space-y-2">
                       <select
                         value={form.baseline_id}
@@ -2726,7 +2603,7 @@ export function CreateProjectDialog({
                     </div>
                   </InlineField>
                 </div>
-                <InlineField label={t.baselineUrls} help={t.baselineUrlsHelp}>
+                <InlineField label={t.baselineUrls}>
                   <Textarea
                     value={form.baseline_urls}
                     onChange={(event) => setField('baseline_urls', event.target.value)}
@@ -2735,7 +2612,7 @@ export function CreateProjectDialog({
                     disabled={manualOverride || Boolean(form.baseline_id?.trim())}
                   />
                 </InlineField>
-                <InlineField label={t.paperUrls} help={t.paperUrlsHelp}>
+                <InlineField label={t.paperUrls}>
                   <Textarea
                     value={form.paper_urls}
                     onChange={(event) => setField('paper_urls', event.target.value)}
@@ -2777,7 +2654,7 @@ export function CreateProjectDialog({
                   </div>
                 </div>
                 {showAdvanced ? (
-                  <InlineField label={t.languageLabel} help={t.languageHelp}>
+                  <InlineField label={t.languageLabel}>
                     <select
                       value={form.user_language}
                       onChange={(event) => setField('user_language', event.target.value as StartResearchTemplate['user_language'])}
@@ -2793,7 +2670,7 @@ export function CreateProjectDialog({
 
               <>
                   <SectionCard title={t.template} muted>
-                <InlineField label={t.template} help={t.templateHint} hint={t.templateHint}>
+                <InlineField label={t.template}>
                   <div className="flex gap-2">
                     <select
                       value={selectedTemplateId}
@@ -2832,8 +2709,6 @@ export function CreateProjectDialog({
                 <div data-onboarding-id="start-research-connector">
                   <ConnectorChoiceField
                   label={t.connectorDeliveryLabel}
-                  help={t.connectorDeliveryHelp}
-                  hint={t.connectorDeliveryHint}
                   items={connectorChoices}
                   value={effectiveSelectedConnectorBindings}
                   loading={connectorsLoading}
@@ -2858,8 +2733,6 @@ export function CreateProjectDialog({
                   <SectionCard title={t.policy} dataOnboardingId="start-research-contract">
                 <ChoiceField
                   label={t.launchModeLabel}
-                  help={t.launchModeHelp}
-                  hint={t.launchModeHelp}
                   value={form.launch_mode}
                   items={launchModeItems}
                   onChange={(value) => applyLaunchMode(value as LaunchMode)}
@@ -2869,8 +2742,6 @@ export function CreateProjectDialog({
                   <>
                     <ChoiceField
                       label={t.customProfileLabel}
-                      help={t.customProfileHelp}
-                      hint={t.customProfileHelp}
                       value={form.custom_profile}
                       items={customProfileItems}
                       onChange={(value) => setField('custom_profile', value as CustomProfile)}
@@ -2878,8 +2749,6 @@ export function CreateProjectDialog({
                     />
                     <ChoiceField
                       label={t.baselineExecutionPolicyLabel}
-                      help={t.baselineExecutionPolicyHelp}
-                      hint={t.baselineExecutionPolicyHelp}
                       value={form.baseline_execution_policy}
                       items={baselineExecutionPolicyItems}
                       onChange={(value) => setField('baseline_execution_policy', value as BaselineExecutionPolicy)}
@@ -2888,8 +2757,6 @@ export function CreateProjectDialog({
                     {form.custom_profile === 'review_audit' ? (
                       <ChoiceField
                         label={t.reviewFollowupPolicyLabel}
-                        help={t.reviewFollowupPolicyHelp}
-                        hint={t.reviewFollowupPolicyHelp}
                         value={form.review_followup_policy}
                         items={reviewFollowupPolicyItems}
                         onChange={(value) => setField('review_followup_policy', value as ReviewFollowupPolicy)}
@@ -2901,8 +2768,6 @@ export function CreateProjectDialog({
                       <>
                         <ChoiceField
                           label={t.manuscriptEditModeLabel}
-                          help={t.manuscriptEditModeHelp}
-                          hint={t.manuscriptEditModeHelp}
                           value={form.manuscript_edit_mode}
                           items={manuscriptEditModeItems}
                           onChange={(value) => setField('manuscript_edit_mode', value as ManuscriptEditMode)}
@@ -2915,7 +2780,7 @@ export function CreateProjectDialog({
                         ) : null}
                       </>
                     ) : null}
-                    <InlineField label={t.entryStateSummaryLabel} help={t.entryStateSummaryHelp}>
+                    <InlineField label={t.entryStateSummaryLabel}>
                       <Textarea
                         value={form.entry_state_summary}
                         onChange={(event) => setField('entry_state_summary', event.target.value)}
@@ -2925,7 +2790,7 @@ export function CreateProjectDialog({
                       />
                     </InlineField>
                     {form.custom_profile === 'review_audit' || form.custom_profile === 'revision_rebuttal' ? (
-                      <InlineField label={t.reviewSummaryLabel} help={t.reviewSummaryHelp}>
+                      <InlineField label={t.reviewSummaryLabel}>
                         <Textarea
                           value={form.review_summary}
                           onChange={(event) => setField('review_summary', event.target.value)}
@@ -2936,7 +2801,7 @@ export function CreateProjectDialog({
                       </InlineField>
                     ) : null}
                     {form.custom_profile === 'review_audit' || form.custom_profile === 'revision_rebuttal' ? (
-                      <InlineField label={t.reviewMaterialsLabel} help={t.reviewMaterialsHelp}>
+                      <InlineField label={t.reviewMaterialsLabel}>
                         <Textarea
                           value={form.review_materials}
                           onChange={(event) => setField('review_materials', event.target.value)}
@@ -2946,7 +2811,7 @@ export function CreateProjectDialog({
                         />
                       </InlineField>
                     ) : null}
-                    <InlineField label={t.customBriefLabel} help={t.customBriefHelp}>
+                    <InlineField label={t.customBriefLabel}>
                       <Textarea
                         value={form.custom_brief}
                         onChange={(event) => setField('custom_brief', event.target.value)}
@@ -2959,8 +2824,6 @@ export function CreateProjectDialog({
                 ) : (
                   <ChoiceField
                     label={t.standardProfileLabel}
-                    help={t.standardProfileHelp}
-                    hint={t.standardProfileHelp}
                     value={form.standard_profile}
                     items={standardProfileItems}
                     onChange={(value) => applyStandardProfile(value as StandardProfile)}
@@ -2969,8 +2832,6 @@ export function CreateProjectDialog({
                 )}
                 <ChoiceField
                   label={t.baselineSourceModeLabel}
-                  help={t.baselineSourceModeHelp}
-                  hint={t.baselineSourceModeHelp}
                   value={form.baseline_source_mode}
                   items={baselineSourceModeItems}
                   onChange={(value) => setField('baseline_source_mode', value as BaselineSourceMode)}
@@ -2978,8 +2839,6 @@ export function CreateProjectDialog({
                 />
                 <ChoiceField
                   label={t.executionStartModeLabel}
-                  help={t.executionStartModeHelp}
-                  hint={t.executionStartModeHelp}
                   value={form.execution_start_mode}
                   items={executionStartModeItems}
                   onChange={(value) => setField('execution_start_mode', value as ExecutionStartMode)}
@@ -2987,8 +2846,6 @@ export function CreateProjectDialog({
                 />
                 <ChoiceField
                   label={t.baselineAcceptanceTargetLabel}
-                  help={t.baselineAcceptanceTargetHelp}
-                  hint={t.baselineAcceptanceTargetHelp}
                   value={form.baseline_acceptance_target}
                   items={baselineAcceptanceTargetItems}
                   onChange={(value) => setField('baseline_acceptance_target', value as BaselineAcceptanceTarget)}
@@ -3001,8 +2858,6 @@ export function CreateProjectDialog({
                 </div>
                 <ChoiceField
                   label={t.researchIntensityLabel}
-                  help={t.researchIntensityHelp}
-                  hint={t.researchIntensityHelp}
                   value={activeResearchIntensity}
                   items={intensityItems}
                   onChange={applyResearchIntensity}
@@ -3010,15 +2865,13 @@ export function CreateProjectDialog({
                 />
                 <ChoiceField
                   label={t.decisionPolicyLabel}
-                  help={t.decisionPolicyHelp}
-                  hint={t.decisionPolicyHelp}
                   value={form.decision_policy}
                   items={decisionPolicyItems}
                   onChange={(value) => setField('decision_policy', value as DecisionPolicy)}
                   disabled={manualOverride}
                 />
                 {form.launch_mode === 'custom' ? (
-                  <InlineField label={t.researchPaperLabel} help={t.researchPaperHelp} hint={t.researchPaperHelp}>
+                  <InlineField label={t.researchPaperLabel}>
                     <div className="rounded-[14px] border border-[rgba(45,42,38,0.08)] bg-white/70 px-3 py-3 dark:border-[rgba(45,42,38,0.08)] dark:bg-white/76">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -3085,7 +2938,7 @@ export function CreateProjectDialog({
                     </div>
                   </div>
                 </div>
-                <InlineField label={t.runtimeConstraintsLabel} help={t.runtimeConstraintsHelp}>
+                <InlineField label={t.runtimeConstraintsLabel}>
                   <Textarea
                     value={form.runtime_constraints}
                     onChange={(event) => setField('runtime_constraints', event.target.value)}
@@ -3097,7 +2950,7 @@ export function CreateProjectDialog({
                   </SectionCard>
 
                   <SectionCard title={t.objectives}>
-                <InlineField label={t.objectivesLabel} help={t.objectivesHelp}>
+                <InlineField label={t.objectivesLabel}>
                   <Textarea
                     value={form.objectives}
                     onChange={(event) => setField('objectives', event.target.value)}

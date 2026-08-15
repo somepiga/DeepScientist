@@ -139,7 +139,6 @@ function EvaluationSummaryGrid({
         <div key={item.label} className="rounded-[18px] bg-black/[0.03] px-3 py-3 dark:bg-white/[0.04]">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{item.label}</div>
           <div className="mt-2 text-sm font-medium leading-6 text-foreground">{item.value}</div>
-          {item.hint ? <div className="mt-1 text-[11px] leading-5 text-muted-foreground">{item.hint}</div> : null}
         </div>
       ))}
     </div>

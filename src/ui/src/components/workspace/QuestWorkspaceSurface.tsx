@@ -1049,11 +1049,6 @@ function DetailSection({
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {title}
           </div>
-          {hint ? (
-            <div className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
-              {hint}
-            </div>
-          ) : null}
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
@@ -1082,11 +1077,6 @@ function OverviewMetric({
       <div className="mt-2 break-words text-[15px] font-semibold leading-6 text-foreground">
         {value}
       </div>
-      {hint ? (
-        <div className="mt-2 break-words text-sm leading-6 text-muted-foreground">
-          {hint}
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -1496,7 +1486,6 @@ function QuestTerminalLegacySurface({
         <DetailSection
           first
           title="Terminal"
-          hint="Project-local bash_exec sessions and logs. The latest running session streams here automatically."
           actions={<WorkspaceRefreshButton onRefresh={handleRefresh} label="Refresh terminal" />}
         >
           {!sessions.length ? (
@@ -1611,13 +1600,11 @@ function QuestTerminalLegacySurface({
                         icon={<Activity className="h-4 w-4" />}
                         label="State"
                         value={formatBashSessionStatus(selectedSession.status)}
-                        hint={connection.status === 'open' ? 'streaming live' : connection.status}
                       />
                       <OverviewMetric
                         icon={<Clock3 className="h-4 w-4" />}
                         label="Started"
                         value={formatRelativeTime(selectedSession.started_at)}
-                        hint={selectedSession.finished_at ? `Finished ${formatRelativeTime(selectedSession.finished_at)}` : 'Still active'}
                       />
                       <OverviewMetric
                         icon={<FlaskConical className="h-4 w-4" />}
@@ -1627,13 +1614,11 @@ function QuestTerminalLegacySurface({
                             ? `${(getProgressPercent(progress) ?? progress.percent ?? 0).toFixed(0)}%`
                             : '—'
                         }
-                        hint={progress?.desc || progress?.phase || selectedSession.stop_reason || null}
                       />
                       <OverviewMetric
                         icon={<FileCode2 className="h-4 w-4" />}
                         label="Log path"
                         value={selectedSession.log_path.split('/').slice(-3).join('/')}
-                        hint={selectedSession.log_path}
                       />
                     </div>
 
@@ -3797,7 +3782,6 @@ function QuestDetails({
         <DetailSection
           first
           title="Metrics Overview"
-          hint="Shows baseline metrics immediately and overlays main-experiment traces once recorded."
           actions={<WorkspaceRefreshButton onRefresh={onRefresh} label="Refresh metrics" />}
         >
           {hasMetricsOverview ? (
@@ -3826,7 +3810,6 @@ function QuestDetails({
 
         <DetailSection
           title="Baseline Compare"
-          hint="Lists every confirmed baseline or variant the quest can currently compare, separate from the active baseline timeline."
           actions={<WorkspaceRefreshButton onRefresh={onRefresh} label="Refresh baselines" />}
         >
           {hasBaselineCompare ? (
@@ -3854,7 +3837,6 @@ function QuestDetails({
 
         <DetailSection
           title="Overall"
-          hint={overallHint}
           actions={<WorkspaceRefreshButton onRefresh={onRefresh} />}
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -3880,44 +3862,37 @@ function QuestDetails({
               icon={<Activity className="h-4 w-4" />}
               label="Status"
               value={overallStatusLabel}
-              hint={error || `Updated ${formatRelativeTime(snapshot?.updated_at)}`}
             />
             <OverviewMetric
               icon={<Clock3 className="h-4 w-4" />}
               label="Runtime"
               value={formatDuration(snapshot?.created_at)}
-              hint={`Created ${formatRelativeTime(snapshot?.created_at)}`}
             />
             <OverviewMetric
               icon={<GitBranch className="h-4 w-4" />}
               label="Graph"
               value={`${nodeCount} nodes`}
-              hint={`${ideaCount} ideas · ${analysisCount} analysis branches`}
             />
             <OverviewMetric
               icon={<FlaskConical className="h-4 w-4" />}
               label="Bash"
               value={runningBashCount ? `${runningBashCount} running` : 'idle'}
-              hint={latestRunningBashHint}
             />
             <OverviewMetric
               icon={<Sparkles className="h-4 w-4" />}
               label="Signal"
               value={signalValue}
-              hint={signalHint}
             />
             <OverviewMetric
               icon={<FileCode2 className="h-4 w-4" />}
               label="Working set"
               value={`${changedFiles.length} changed files`}
-              hint={`${recentDocs.length} docs · ${recentMemory.length} memory · ${recentArtifacts.length} artifacts`}
             />
           </div>
         </DetailSection>
 
         <DetailSection
           title="Operational Status"
-          hint="Details concentrates the same high-signal project state that a quick /status-style check should expose."
         >
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
             <div className="min-w-0">
@@ -4004,7 +3979,6 @@ function QuestDetails({
 
         <DetailSection
           title="Next Step"
-          hint="This section turns the latest durable guidance into a compact execution brief."
         >
           {guidance ? (
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -4081,7 +4055,6 @@ function QuestDetails({
 
         <DetailSection
           title="Idea Lines"
-          hint="This is the minimal audit view for each idea line: whether it has reached a main run, whether it owns a paper line, and whether supplementary work is still open."
         >
           <DocumentListBlock
             title="Idea Audit"
@@ -4094,10 +4067,6 @@ function QuestDetails({
 
         <DetailSection
           title="Optimization Frontier"
-          hint={
-            optimizationFrontier?.frontier_reason ||
-            'This is the optimization-mode frontier: candidate briefs, active implementation candidates, line quality, stagnation, and fusion opportunities.'
-          }
         >
           {!optimizationFrontier ? (
             <div className="py-3 text-sm leading-7 text-muted-foreground">
@@ -4111,25 +4080,21 @@ function QuestDetails({
                     icon={<Sparkles className="h-4 w-4" />}
                     label="Mode"
                     value={optimizationFrontier.mode || 'unknown'}
-                    hint={optimizationFrontier.frontier_reason || 'No frontier reason recorded.'}
                   />
                   <OverviewMetric
                     icon={<GitBranch className="h-4 w-4" />}
                     label="Best line"
                     value={optimizationFrontier.best_branch?.branch_no || optimizationFrontier.best_branch?.branch_name || 'none'}
-                    hint={optimizationFrontier.best_branch?.idea_title || optimizationFrontier.best_branch?.branch_name || 'No leading line yet'}
                   />
                   <OverviewMetric
                     icon={<FlaskConical className="h-4 w-4" />}
                     label="Candidate pool"
                     value={String(optimizationFrontier.candidate_backlog?.implementation_candidate_count ?? 0)}
-                    hint={`${optimizationFrontier.candidate_backlog?.active_implementation_candidate_count ?? 0} active · ${optimizationFrontier.candidate_backlog?.candidate_brief_count ?? 0} briefs`}
                   />
                   <OverviewMetric
                     icon={<AlertTriangle className="h-4 w-4" />}
                     label="Stagnant"
                     value={String((optimizationFrontier.stagnant_branches || []).length)}
-                    hint={`${(optimizationFrontier.fusion_candidates || []).length} fusion opportunities`}
                   />
                 </div>
 
@@ -4206,7 +4171,6 @@ function QuestDetails({
 
         <DetailSection
           title="Paper Contract Health"
-          hint="This is the minimal blocking surface for the active paper line. If this section is not green, the system should repair the paper contract or complete required supplementary work before treating the paper as settled."
         >
           {!paperContractHealth ? (
             <div className="py-3 text-sm leading-7 text-muted-foreground">
@@ -4220,25 +4184,21 @@ function QuestDetails({
                     icon={<Sparkles className="h-4 w-4" />}
                     label="Contract"
                     value={paperContractHealth.contract_ok ? 'OK' : 'Blocked'}
-                    hint="Outline-required and mapping health"
                   />
                   <OverviewMetric
                     icon={<FileCode2 className="h-4 w-4" />}
                     label="Required"
                     value={`${paperContractHealth.ready_required_count ?? 0}/${paperContractHealth.required_count ?? 0}`}
-                    hint="Required outline items ready"
                   />
                   <OverviewMetric
                     icon={<AlertTriangle className="h-4 w-4" />}
                     label="Unmapped"
                     value={String(paperContractHealth.unmapped_completed_count ?? 0)}
-                    hint="Completed slices not yet mapped"
                   />
                   <OverviewMetric
                     icon={<FlaskConical className="h-4 w-4" />}
                     label="Blocking Supp"
                     value={String(paperContractHealth.blocking_open_supplementary_count ?? 0)}
-                    hint="Pending main-text supplementary slices"
                   />
                 </div>
 
@@ -4289,7 +4249,6 @@ function QuestDetails({
 
         <DetailSection
           title="Paper Contract"
-          hint="This is the current paper-facing contract the quest is actually using: selected outline, experiment matrix, and bundle control files."
         >
           {!paperContract ? (
             <div className="py-3 text-sm leading-7 text-muted-foreground">
@@ -4410,7 +4369,6 @@ function QuestDetails({
 
         <DetailSection
           title="Paper Lines"
-          hint="Each serious paper-facing route should become a visible paper line rather than hiding behind one quest-global paper panel."
         >
           <DocumentListBlock
             title="Lines"
@@ -4423,7 +4381,6 @@ function QuestDetails({
 
         <DetailSection
           title="Evidence Ledger"
-          hint="Paper-facing evidence items mirrored from main experiments and analysis slices. This is the contract layer that should keep completed results from disappearing before writing."
         >
           {!paperEvidence ? (
             <div className="py-3 text-sm leading-7 text-muted-foreground">
@@ -4437,25 +4394,21 @@ function QuestDetails({
                     icon={<FileCode2 className="h-4 w-4" />}
                     label="Items"
                     value={String(paperEvidence.item_count ?? 0)}
-                    hint="Ledger items detected"
                   />
                   <OverviewMetric
                     icon={<Sparkles className="h-4 w-4" />}
                     label="Main Ready"
                     value={String(paperEvidence.main_text_ready_count ?? 0)}
-                    hint="Main-text items marked ready"
                   />
                   <OverviewMetric
                     icon={<BarChart3 className="h-4 w-4" />}
                     label="Appendix"
                     value={String(paperEvidence.appendix_item_count ?? 0)}
-                    hint="Appendix-linked items"
                   />
                   <OverviewMetric
                     icon={<AlertTriangle className="h-4 w-4" />}
                     label="Unmapped"
                     value={String(paperEvidence.unmapped_item_count ?? 0)}
-                    hint="Items missing section or role mapping"
                   />
                 </div>
               </div>
@@ -4475,7 +4428,6 @@ function QuestDetails({
 
         <DetailSection
           title="Analysis Inventory"
-          hint="All detected paper-facing analysis campaigns and slice result mirrors currently available under the quest."
         >
           {!analysisInventory ? (
             <div className="py-3 text-sm leading-7 text-muted-foreground">
@@ -4489,25 +4441,21 @@ function QuestDetails({
                     icon={<BarChart3 className="h-4 w-4" />}
                     label="Campaigns"
                     value={String(analysisInventory.campaign_count ?? 0)}
-                    hint="Detected analysis campaigns"
                   />
                   <OverviewMetric
                     icon={<FlaskConical className="h-4 w-4" />}
                     label="Slices"
                     value={String(analysisInventory.slice_count ?? 0)}
-                    hint="Total analysis slices"
                   />
                   <OverviewMetric
                     icon={<Sparkles className="h-4 w-4" />}
                     label="Completed"
                     value={String(analysisInventory.completed_slice_count ?? 0)}
-                    hint="Slices marked completed"
                   />
                   <OverviewMetric
                     icon={<FileCode2 className="h-4 w-4" />}
                     label="Mapped"
                     value={String(analysisInventory.mapped_slice_count ?? 0)}
-                    hint="Slices with paper-contract mapping"
                   />
                 </div>
 
@@ -4537,7 +4485,6 @@ function QuestDetails({
 
         <DetailSection
           title="Recent Progress"
-          hint="Latest project messages, tool calls, artifacts, and runtime runs in one linear view."
         >
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)]">
             <div className="min-w-0">
@@ -4563,7 +4510,6 @@ function QuestDetails({
 
         <DetailSection
           title="Working Set"
-          hint="High-frequency project materials: changed files, documents, memory, and durable artifact outputs."
         >
           <div className="grid gap-8 lg:grid-cols-2">
             <div className="min-w-0 space-y-8">
