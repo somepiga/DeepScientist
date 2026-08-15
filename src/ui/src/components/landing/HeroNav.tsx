@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { BookOpen, Settings2, Sparkles } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SystemUpdateButton } from '@/components/system-update/SystemUpdateButton'
 import { BRAND_LOGO_SMALL_SRC } from '@/lib/constants/assets'
@@ -9,9 +9,7 @@ import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { LocalAuthTokenButton } from './LocalAuthTokenButton'
 
-export default function HeroNav(props: {
-  onOpenBenchStore?: () => void
-}) {
+export default function HeroNav() {
   const { t } = useI18n()
 
   return (
@@ -46,28 +44,6 @@ export default function HeroNav(props: {
         <div className="flex items-center gap-2">
           <SystemUpdateButton />
           <LocalAuthTokenButton />
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 rounded-full border-black/10 bg-white/60 text-[#2D2A26] hover:bg-white/90"
-            asChild
-          >
-            <Link href="/docs">
-              <BookOpen className="mr-2 h-4 w-4" />
-              {t('navDocs')}
-            </Link>
-          </Button>
-          {props.onOpenBenchStore ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden h-9 rounded-full border-black/10 bg-white/60 text-[#2D2A26] hover:bg-white/90 lg:inline-flex"
-              onClick={props.onOpenBenchStore}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              BenchStore
-            </Button>
-          ) : null}
           <Button
             size="sm"
             className="h-9 rounded-full bg-[#C7AD96] text-[#2D2A26] hover:bg-[#D7C6AE]"
