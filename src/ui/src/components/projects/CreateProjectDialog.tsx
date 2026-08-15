@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpRight, BookmarkPlus, Lock, RotateCcw, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Lock, RotateCcw, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -8,7 +8,6 @@ import { LAUNCH_DIALOG_SHELL_CLASS } from '@/components/projects/LaunchModeVisua
 import { SetupAgentRail } from '@/components/projects/SetupAgentRail'
 import { SetupAgentQuestPanel } from '@/components/projects/SetupAgentQuestPanel'
 import { connectorCatalog } from '@/components/settings/connectorCatalog'
-import { DeepXivSetupDialog } from '@/components/settings/DeepXivSetupDialog'
 import { AnimatedCheckbox } from '@/components/ui/animated-checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,9 +36,7 @@ import {
   defaultStartResearchTemplate,
   detectStartResearchIntensity,
   type ExecutionStartMode,
-  loadStartResearchHistory,
   loadStartResearchTemplate,
-  listReferenceStartResearchTemplates,
   listStartResearchIntensityPresets,
   resolveStartResearchContractFields,
   resolveStartResearchConnectorBindings,
@@ -59,7 +56,6 @@ import {
 } from '@/lib/startResearch'
 import { cn } from '@/lib/utils'
 import type {
-  BaselineRegistryEntry,
   ConnectorSnapshot,
 } from '@/types'
 import type { BenchSetupPacket } from '@/lib/types/benchstore'
@@ -92,37 +88,6 @@ const copy = {
     noTemplates: 'No saved templates yet',
     useTemplate: 'Use template',
     latestDraft: 'latest draft',
-    questTarget: 'Project target',
-    targetHint: 'This will create a new project and write the first launch request for it.',
-    targetMode: 'Project repository',
-    targetModeValue: 'Create new project',
-    targetRunner: 'Runner',
-    targetRunnerValue: 'Codex / local daemon',
-    connectorDeliveryLabel: 'Connector delivery',
-    connectorDeliveryHelp:
-      'Select at most one external connector target for this new project. The dialog preselects the first available option, but you can switch it or keep the project local-only.',
-    connectorDeliveryHint: 'A project can keep local access and bind at most one external connector. If the selected target is already bound elsewhere, it will be rebound to this project.',
-    connectorSettingsAction: 'Open connector settings',
-    connectorEmptyTitle: 'No enabled connector yet',
-    connectorEmptyBody:
-      'If you want milestone updates outside the web workspace, configure at least one connector first. This is recommended before starting research.',
-    connectorUnavailableTitle: 'No selectable connector target yet',
-    connectorUnavailableBody:
-      'Enabled connectors exist, but no active target is available yet. Send one message to that connector first, or set a default target in Settings.',
-    connectorAutoModeLabel: 'Default preselection',
-    connectorAutoModeBody: 'The first available connector target is preselected. You can switch it or turn it off before creating the project.',
-    connectorSummaryLabel: 'Connector',
-    connectorSummaryAuto: 'Local only',
-    connectorSummaryLocalBody: 'Project starts in local-only mode. You can bind a connector later if needed.',
-    connectorSelectedHint: 'Only one external connector can be bound to a project. If the selected target is already bound elsewhere, creating this project will rebind it here.',
-    connectorSourceDefault: 'Default target',
-    connectorSourceRecent: 'Recent conversation',
-    connectorSourceLast: 'Latest conversation',
-    connectorSourceDiscovered: 'Discovered target',
-    connectorSourceUnavailable: 'Waiting for first message',
-    connectorModeSingle: 'Single endpoint',
-    connectorModeMulti: 'Multi-instance',
-    connectorSelectPlaceholder: 'Local only',
     connectorSuggestTitle: 'Bind a connector first?',
     connectorSuggestBody:
       'For a smoother experience, it is recommended to configure at least one connector before starting research. Then milestones and progress can reach you outside the web workspace too.',
@@ -482,37 +447,6 @@ const copy = {
     noTemplates: '还没有已保存模板',
     useTemplate: '使用模板',
     latestDraft: '最近草稿',
-    questTarget: '项目目标',
-    targetHint: '这一步会创建一个新的项目，并写入第一条启动请求。',
-    targetMode: '项目仓库',
-    targetModeValue: '创建新项目',
-    targetRunner: 'Runner',
-    targetRunnerValue: 'Codex / 本地 daemon',
-    connectorDeliveryLabel: '连接器投递',
-    connectorDeliveryHelp:
-      '给这个新项目最多选择 1 个外部 connector 目标；弹窗会先默认勾选第一个可用项，但你可以改成别的，或者保持仅本地。',
-    connectorDeliveryHint: '一个项目会保留本地访问，并且最多只绑定 1 个外部 connector；如果该目标已绑定到别的项目，创建当前项目时会自动替换原绑定。',
-    connectorSettingsAction: '打开 Connector 设置',
-    connectorEmptyTitle: '还没有启用的 connector',
-    connectorEmptyBody:
-      '如果你希望在网页之外接收里程碑更新，建议先配置至少一个 connector，再启动研究。',
-    connectorUnavailableTitle: '还没有可选的 connector 目标',
-    connectorUnavailableBody:
-      '已有启用的 connector，但当前还没有可用目标。请先给对应 connector 发一条消息，或在 Settings 中设置默认目标。',
-    connectorAutoModeLabel: '默认预选',
-    connectorAutoModeBody: '系统会先默认勾选第一个可用 connector 目标；创建前你可以切换，也可以关闭外部绑定。',
-    connectorSummaryLabel: '连接器',
-    connectorSummaryAuto: '仅本地',
-    connectorSummaryLocalBody: '项目将以仅本地模式启动；如果之后需要，你也可以稍后再绑定 connector。',
-    connectorSelectedHint: '一个项目最多只能绑定 1 个外部 connector；如果当前选中的目标已经绑定到别的 quest，创建后会自动重绑到当前项目。',
-    connectorSourceDefault: '默认目标',
-    connectorSourceRecent: '最近会话',
-    connectorSourceLast: '最新会话',
-    connectorSourceDiscovered: '已发现目标',
-    connectorSourceUnavailable: '等待第一条消息',
-    connectorModeSingle: '单实例',
-    connectorModeMulti: '多实例',
-    connectorSelectPlaceholder: '仅本地',
     connectorSuggestTitle: '建议先绑定一个 Connector',
     connectorSuggestBody:
       '为了获得更顺滑的使用体验，建议你先配置至少一个 connector。这样开始研究后，里程碑和进展也能同步发到网页之外。',
@@ -1219,100 +1153,6 @@ function ChoiceField<T extends string>({
   )
 }
 
-function ConnectorChoiceField({
-  label,
-  help,
-  hint,
-  items,
-  value,
-  loading = false,
-  error,
-  localOnlyLabel,
-  onChange,
-}: {
-  label: string
-  help?: string
-  hint?: string
-  items: StartConnectorChoice[]
-  value: Record<string, string | null>
-  loading?: boolean
-  error?: string | null
-  localOnlyLabel: string
-  onChange: (connectorName: string, next: string | null) => void
-}) {
-  const enabledItems = items
-  const selectableItems = enabledItems.filter((item) => item.targets.length > 0)
-  const selectedConnectorName = enabledItems.find((item) => Boolean(value[item.name]))?.name || null
-  const flattenedOptions = selectableItems.flatMap((item) =>
-    item.targets.map((target) => ({
-      key: `${item.name}::${target.conversationId}`,
-      connectorName: item.name,
-      connectorLabel: item.label,
-      target,
-    }))
-  )
-  const selectedConversationId = selectedConnectorName ? value[selectedConnectorName] || null : null
-  const selectedOption =
-    flattenedOptions.find(
-      (item) => item.connectorName === selectedConnectorName && item.target.conversationId === selectedConversationId
-    ) || null
-  const selectedValue = selectedOption?.key || '__local__'
-  const cardItems: ConnectorTargetRadioItem[] = [
-    {
-      value: '__local__',
-      connectorName: 'local',
-      connectorLabel: localOnlyLabel,
-      targetId: localOnlyLabel,
-      boundQuestLabel: '',
-      localOnly: true,
-    },
-    ...flattenedOptions.map((item) => ({
-      value: item.key,
-      connectorName: item.connectorName,
-      connectorLabel: item.connectorLabel,
-      targetId: item.target.cardId,
-      boundQuestLabel: item.target.boundQuestId ? `Quest ${item.target.boundQuestId}` : 'Unbound',
-    })),
-  ]
-
-  return (
-    <InlineField label={label}>
-      {loading ? (
-        <div className="rounded-[14px] border border-[rgba(45,42,38,0.08)] bg-white/60 px-3 py-3 text-[11px] leading-5 text-[rgba(86,82,77,0.82)] dark:border-[rgba(45,42,38,0.08)] dark:bg-white/70 dark:text-[rgba(86,82,77,0.82)]">
-          Loading connectors…
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <ConnectorTargetRadioGroup
-            ariaLabel={label}
-            items={cardItems}
-            value={selectedValue}
-            onChange={(nextValue) => {
-              if (!nextValue || nextValue === '__local__') {
-                if (selectedConnectorName) {
-                  onChange(selectedConnectorName, null)
-                }
-                return
-              }
-              const separatorIndex = nextValue.indexOf('::')
-              if (separatorIndex < 0) {
-                return
-              }
-              const connectorName = nextValue.slice(0, separatorIndex)
-              const conversationId = nextValue.slice(separatorIndex + 2)
-              if (!connectorName || !conversationId) {
-                return
-              }
-              onChange(connectorName, conversationId)
-            }}
-          />
-
-          {error ? <div className="text-[11px] leading-5 text-[#9a1b1b]">{error}</div> : null}
-        </div>
-      )}
-    </InlineField>
-  )
-}
 
 function SectionCard({
   title,
@@ -1370,46 +1210,6 @@ function clampText(value: string, limit = 48) {
   return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
 }
 
-function resolveBaselineMetricLabel(entry: BaselineRegistryEntry | null, locale: 'en' | 'zh') {
-  if (!entry) return locale === 'zh' ? '暂无主指标' : 'No primary metric'
-  const primaryMetric = entry.primary_metric
-  if (primaryMetric && typeof primaryMetric === 'object') {
-    const metricKey = String(
-      (primaryMetric as Record<string, unknown>).metric_id ||
-        (primaryMetric as Record<string, unknown>).name ||
-        ''
-    ).trim()
-    const metricValue = (primaryMetric as Record<string, unknown>).value
-    if (metricKey && metricValue != null) {
-      return `${metricKey}: ${String(metricValue)}`
-    }
-  }
-  const metricsSummary = entry.metrics_summary
-  if (metricsSummary && typeof metricsSummary === 'object') {
-    const firstMetric = Object.entries(metricsSummary).find(([, value]) => value != null)
-    if (firstMetric) {
-      return `${firstMetric[0]}: ${String(firstMetric[1])}`
-    }
-  }
-  return locale === 'zh' ? '暂无主指标' : 'No primary metric'
-}
-
-function formatBaselineTimestamp(value: string | null | undefined, locale: 'en' | 'zh') {
-  if (!value) return locale === 'zh' ? '未知' : 'Unknown'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(date)
-}
-
-function formatBaselineStatus(value: string | null | undefined, locale: 'en' | 'zh') {
-  const normalized = String(value || '').trim()
-  if (!normalized) return locale === 'zh' ? '未知' : 'unknown'
-  return normalized.replace(/_/g, ' ')
-}
 
 function resolveStartSetupSuggestedFormFromSnapshot(snapshot: unknown): Partial<StartResearchTemplate> | null {
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return null
@@ -1473,20 +1273,6 @@ function isSetupQuestActivelyRunning(snapshot: unknown, options?: { hasLiveRun?:
   return false
 }
 
-const deepxivCopy = {
-  en: {
-    title: 'DeepXiv literature',
-    body: 'If configured, `idea` and `scout` can use DeepXiv-first paper discovery and paper triage. Without a token, the prompt should stay on the legacy route.',
-    openSetup: 'Open setup',
-    openSettings: 'Settings',
-  },
-  zh: {
-    title: 'DeepXiv 文献能力',
-    body: '如果已配置 token，`idea` 和 `scout` 可以优先走 DeepXiv 的论文发现与速读路径；如果没有 token，系统提示词应继续使用旧路线。',
-    openSetup: '打开配置引导',
-    openSettings: '前往设置',
-  },
-} as const
 
 export function CreateProjectDialog({
   open,
@@ -1529,7 +1315,6 @@ export function CreateProjectDialog({
   const navigate = useNavigate()
   const { locale } = useI18n()
   const t = normalizedCopy[locale]
-  const deepxivT = deepxivCopy[locale]
   const backLabel = locale === 'zh' ? '返回' : 'Back'
   const [rightPaneMode, setRightPaneMode] = useState<StartResearchRightPaneMode>('assistant')
   const [showAdvanced, setShowAdvanced] = useState(true)
@@ -1539,15 +1324,7 @@ export function CreateProjectDialog({
   const [questIdManualOverride, setQuestIdManualOverride] = useState(false)
   const [suggestedQuestId, setSuggestedQuestId] = useState('')
   const [suggestedQuestIdLoading, setSuggestedQuestIdLoading] = useState(false)
-  const [templates, setTemplates] = useState<StartResearchTemplateEntry[]>([])
-  const [selectedTemplateId, setSelectedTemplateId] = useState('__latest__')
-  const [baselineEntries, setBaselineEntries] = useState<BaselineRegistryEntry[]>([])
-  const [baselineEntriesLoading, setBaselineEntriesLoading] = useState(false)
-  const [baselineEntriesError, setBaselineEntriesError] = useState<string | null>(null)
   const [connectors, setConnectors] = useState<ConnectorSnapshot[]>([])
-  const [connectorsLoading, setConnectorsLoading] = useState(false)
-  const [connectorsError, setConnectorsError] = useState<string | null>(null)
-  const [deepxivSetupOpen, setDeepxivSetupOpen] = useState(false)
   const [validationDialogOpen, setValidationDialogOpen] = useState(false)
   const [validationMessage, setValidationMessage] = useState('')
   const [validationTarget, setValidationTarget] = useState<'title' | 'goal' | null>(null)
@@ -1557,7 +1334,6 @@ export function CreateProjectDialog({
   const [selectedConnectorBindings, setSelectedConnectorBindings] = useState<Record<string, string | null>>({})
   const [agentManagedValues, setAgentManagedValues] = useState<Partial<StartResearchTemplate>>({})
   const [benchAutoAssistReady, setBenchAutoAssistReady] = useState(() => !setupPacket)
-  const referenceTemplates = useMemo(() => listReferenceStartResearchTemplates(), [])
   const setupWorkspace = useQuestWorkspace(setupQuestId)
   const processedPatchMessageIdsRef = useRef<Set<string>>(new Set())
   const autoBenchAssistStartedRef = useRef<string | null>(null)
@@ -1792,8 +1568,6 @@ export function CreateProjectDialog({
         user_language: locale,
       }
       setForm(next)
-      setTemplates(loadStartResearchHistory())
-      setSelectedTemplateId('__new__')
       setManualOverride(false)
       setQuestIdManualOverride(false)
       setSuggestedQuestId('')
@@ -1809,8 +1583,6 @@ export function CreateProjectDialog({
       goal: initialGoal || next.goal,
       quest_id: '',
     })
-    setTemplates(loadStartResearchHistory())
-    setSelectedTemplateId('__latest__')
     setManualOverride(false)
     setQuestIdManualOverride(false)
     setSuggestedQuestId('')
@@ -2066,32 +1838,6 @@ export function CreateProjectDialog({
     }
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
-    let active = true
-    setConnectorsLoading(true)
-    setConnectorsError(null)
-    void client
-      .connectors()
-      .then((payload) => {
-        if (!active) return
-        const items = Array.isArray(payload) ? payload.filter((item) => item.name !== 'local' && item.enabled) : []
-        setConnectors(items)
-      })
-      .catch((caught) => {
-        if (!active) return
-        setConnectors([])
-        setConnectorsError(caught instanceof Error ? caught.message : 'Failed to load connectors.')
-      })
-      .finally(() => {
-        if (active) {
-          setConnectorsLoading(false)
-        }
-      })
-    return () => {
-      active = false
-    }
-  }, [open])
 
   useEffect(() => {
     if (!open || questIdManualOverride) return
@@ -2107,39 +1853,7 @@ export function CreateProjectDialog({
     })
   }, [open, questIdManualOverride, suggestedQuestId])
 
-  useEffect(() => {
-    if (!open) return
-    let active = true
-    setBaselineEntriesLoading(true)
-    setBaselineEntriesError(null)
-    void client
-      .baselines()
-      .then((payload) => {
-        if (!active) return
-        const entries = Array.isArray(payload) ? payload : []
-        const sorted = [...entries].sort((left, right) =>
-          String(right.updated_at || right.created_at || '').localeCompare(String(left.updated_at || left.created_at || ''))
-        )
-        setBaselineEntries(sorted)
-      })
-      .catch((caught) => {
-        if (!active) return
-        setBaselineEntries([])
-        setBaselineEntriesError(caught instanceof Error ? caught.message : 'Failed to load baselines.')
-      })
-      .finally(() => {
-        if (active) setBaselineEntriesLoading(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [open])
 
-  const selectedBaselineEntry = useMemo(() => {
-    const baselineId = form.baseline_id?.trim()
-    if (!baselineId) return null
-    return baselineEntries.find((entry) => entry.baseline_id === baselineId) ?? null
-  }, [baselineEntries, form.baseline_id])
 
   const displayedQuestId = useMemo(() => {
     const current = String(form.quest_id || '').trim()
@@ -2173,44 +1887,7 @@ export function CreateProjectDialog({
   )
   const selectedConnectorTarget = selectedConnectorTargets[0] || null
 
-  const templateOptions = useMemo(
-    () => [...referenceTemplates, ...templates],
-    [referenceTemplates, templates]
-  )
 
-  useEffect(() => {
-    if (!open || manualOverride) return
-    const baselineId = form.baseline_id?.trim()
-    if (!baselineId) {
-      if (form.baseline_variant_id) {
-        setField('baseline_variant_id', '')
-      }
-      return
-    }
-    const entry = baselineEntries.find((item) => item.baseline_id === baselineId)
-    if (!entry) return
-    const variants = Array.isArray(entry.baseline_variants) ? entry.baseline_variants : []
-    if (variants.length === 0) {
-      if (form.baseline_variant_id) {
-        setField('baseline_variant_id', '')
-      }
-      return
-    }
-    const currentVariant = form.baseline_variant_id?.trim()
-    if (currentVariant && variants.some((variant) => variant.variant_id === currentVariant)) {
-      return
-    }
-    const nextVariant = String(entry.default_variant_id || variants[0]?.variant_id || '').trim()
-    if (nextVariant && nextVariant !== currentVariant) {
-      setField('baseline_variant_id', nextVariant)
-    }
-  }, [
-    baselineEntries,
-    form.baseline_id,
-    form.baseline_variant_id,
-    manualOverride,
-    open,
-  ])
 
   const compiledPromptPreview = useMemo(() => compileStartResearchPrompt(form), [form])
 
@@ -2299,65 +1976,6 @@ export function CreateProjectDialog({
     setPromptDraft(compiledPromptPreview)
   }
 
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplateId(templateId)
-    if (templateId === '__new__') {
-      const cleared = {
-        ...defaultStartResearchTemplate(locale),
-        quest_id: form.quest_id,
-      }
-      setManualOverride(false)
-      saveStartResearchDraft(cleared)
-      setForm(cleared)
-      return
-    }
-    if (templateId === '__latest__') {
-      const latest = loadStartResearchTemplate(locale)
-      setManualOverride(false)
-      setQuestIdManualOverride(false)
-      setForm({
-        ...latest,
-        goal: initialGoal || latest.goal,
-        user_language: locale,
-        quest_id: suggestedQuestId || '',
-      })
-      return
-    }
-    const next = templateOptions.find((item) => item.id === templateId)
-    if (!next) {
-      return
-    }
-    setManualOverride(false)
-    setQuestIdManualOverride(false)
-    setForm({
-      title: next.title,
-      quest_id: suggestedQuestId || '',
-      goal: next.goal,
-      baseline_id: next.baseline_id,
-      baseline_variant_id: next.baseline_variant_id || '',
-      baseline_source_mode: next.baseline_source_mode,
-      execution_start_mode: next.execution_start_mode,
-      baseline_acceptance_target: next.baseline_acceptance_target,
-      baseline_urls: next.baseline_urls,
-      paper_urls: next.paper_urls,
-      runtime_constraints: next.runtime_constraints,
-      objectives: next.objectives,
-      need_research_paper: next.need_research_paper,
-      research_intensity: next.research_intensity,
-      decision_policy: next.decision_policy,
-      launch_mode: next.launch_mode,
-      standard_profile: next.standard_profile,
-      custom_profile: next.custom_profile,
-      review_followup_policy: next.review_followup_policy,
-      baseline_execution_policy: next.baseline_execution_policy,
-      manuscript_edit_mode: next.manuscript_edit_mode,
-      entry_state_summary: next.entry_state_summary,
-      review_summary: next.review_summary,
-      review_materials: next.review_materials,
-      custom_brief: next.custom_brief,
-      user_language: next.user_language,
-    })
-  }
 
   const applyResearchIntensity = (presetId: ResearchIntensity) => {
     setForm((current) => {
@@ -2531,204 +2149,9 @@ export function CreateProjectDialog({
                 {goalRequired ? <div className="text-xs text-[#9a1b1b]">{t.goalRequired}</div> : null}
               </SectionCard>
 
-              <SectionCard title={t.references} dataOnboardingId="start-research-references">
-                <div className="grid grid-cols-1 gap-3">
-                  <InlineField label={t.baselineRoot}>
-                    <div className="space-y-2">
-                      <select
-                        value={form.baseline_id}
-                        onChange={(event) => setField('baseline_id', event.target.value)}
-                        className={selectClassName}
-                        disabled={manualOverride}
-                      >
-                        <option value="">
-                          {baselineEntriesLoading
-                            ? locale === 'zh'
-                              ? '正在加载 baselines…'
-                              : 'Loading baselines…'
-                            : t.baselineRootPlaceholder}
-                        </option>
-                        {form.baseline_id &&
-                        !baselineEntries.some((entry) => entry.baseline_id === form.baseline_id.trim()) ? (
-                          <option value={form.baseline_id}>{form.baseline_id} (custom)</option>
-                        ) : null}
-                        {baselineEntries.map((entry) => {
-                          const status = formatBaselineStatus(entry.status, locale)
-                          const sourceQuest = String(entry.source_quest_id || '').trim()
-                          const label = [entry.baseline_id, status, sourceQuest].filter(Boolean).join(' · ')
-                          return (
-                            <option key={entry.baseline_id} value={entry.baseline_id}>
-                              {clampText(label, 88)}
-                            </option>
-                          )
-                        })}
-                      </select>
-
-                      {selectedBaselineEntry?.baseline_variants?.length ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-[rgba(75,73,69,0.78)] dark:text-[rgba(75,73,69,0.78)]">
-                            <span>{t.baselineVariant}</span>
-                            <FieldHelp text={t.baselineVariantHelp} />
-                          </div>
-                          <select
-                            value={form.baseline_variant_id}
-                            onChange={(event) => setField('baseline_variant_id', event.target.value)}
-                            className={selectClassName}
-                            disabled={manualOverride}
-                          >
-                            {selectedBaselineEntry.baseline_variants.map((variant) => (
-                              <option key={variant.variant_id} value={variant.variant_id}>
-                                {variant.label ? `${variant.variant_id} · ${variant.label}` : variant.variant_id}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      ) : null}
-
-                      {selectedBaselineEntry ? (
-                        <div className="rounded-lg border border-[rgba(45,42,38,0.08)] bg-white/70 px-3 py-2.5 text-[11px] leading-5 text-[rgba(75,73,69,0.82)] dark:border-[rgba(45,42,38,0.08)] dark:bg-white/76 dark:text-[rgba(75,73,69,0.82)]">
-                          <div>{selectedBaselineEntry.summary ? clampText(String(selectedBaselineEntry.summary), 120) : (locale === 'zh' ? '未提供概要。' : 'No summary provided.')}</div>
-                          <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2">
-                            <div>{locale === 'zh' ? '状态' : 'Status'}: {formatBaselineStatus(selectedBaselineEntry.status, locale)}</div>
-                            <div className="truncate" title={selectedBaselineEntry.source_quest_id || undefined}>
-                              {locale === 'zh' ? '来源项目' : 'Source project'}: {selectedBaselineEntry.source_quest_id || (locale === 'zh' ? '未知' : 'unknown')}
-                            </div>
-                            <div>{locale === 'zh' ? '主指标' : 'Primary metric'}: {resolveBaselineMetricLabel(selectedBaselineEntry, locale)}</div>
-                            <div>{locale === 'zh' ? '确认时间' : 'Confirmed'}: {formatBaselineTimestamp(selectedBaselineEntry.confirmed_at || selectedBaselineEntry.updated_at, locale)}</div>
-                          </div>
-                        </div>
-                      ) : baselineEntriesError ? (
-                        <div className="text-[11px] leading-5 text-[#9a1b1b]">{baselineEntriesError}</div>
-                      ) : null}
-                    </div>
-                  </InlineField>
-                </div>
-                <InlineField label={t.baselineUrls}>
-                  <Textarea
-                    value={form.baseline_urls}
-                    onChange={(event) => setField('baseline_urls', event.target.value)}
-                    placeholder={t.baselineUrlsPlaceholder}
-                    className={`min-h-[92px] rounded-[10px] border-[rgba(45,42,38,0.09)] bg-white/75 text-xs leading-5 ${fieldToneClassName} dark:border-[rgba(45,42,38,0.09)] dark:bg-white/78`}
-                    disabled={manualOverride || Boolean(form.baseline_id?.trim())}
-                  />
-                </InlineField>
-                <InlineField label={t.paperUrls}>
-                  <Textarea
-                    value={form.paper_urls}
-                    onChange={(event) => setField('paper_urls', event.target.value)}
-                    placeholder={t.paperUrlsPlaceholder}
-                    className={`min-h-[92px] rounded-[10px] border-[rgba(45,42,38,0.09)] bg-white/75 text-xs leading-5 ${fieldToneClassName} dark:border-[rgba(45,42,38,0.09)] dark:bg-white/78`}
-                    disabled={manualOverride}
-                  />
-                </InlineField>
-                <div
-                  className="rounded-[18px] border border-[rgba(45,42,38,0.08)] bg-[linear-gradient(145deg,rgba(253,247,241,0.94),rgba(239,229,220,0.84)_42%,rgba(226,235,239,0.82))] px-4 py-4 shadow-[0_16px_44px_-34px_rgba(44,39,34,0.24)]"
-                  data-onboarding-id="start-research-deepxiv"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-[rgba(38,36,33,0.95)] dark:text-[rgba(38,36,33,0.95)]">{deepxivT.title}</div>
-                      <div className="mt-2 text-[11px] leading-6 text-[rgba(75,73,69,0.78)] dark:text-[rgba(75,73,69,0.78)]">
-                        {deepxivT.body}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="rounded-full"
-                        onClick={() => setDeepxivSetupOpen(true)}
-                        data-onboarding-id="start-research-deepxiv-setup"
-                      >
-                        {deepxivT.openSetup}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="rounded-full"
-                        onClick={() => navigate('/settings/deepxiv')}
-                      >
-                        {deepxivT.openSettings}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                {showAdvanced ? (
-                  <InlineField label={t.languageLabel}>
-                    <select
-                      value={form.user_language}
-                      onChange={(event) => setField('user_language', event.target.value as StartResearchTemplate['user_language'])}
-                      className={selectClassName}
-                      disabled={manualOverride}
-                    >
-                      <option value="zh">中文</option>
-                      <option value="en">English</option>
-                    </select>
-                  </InlineField>
-                ) : null}
-              </SectionCard>
 
               <>
-                  <SectionCard title={t.template} muted>
-                <InlineField label={t.template}>
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedTemplateId}
-                      onChange={(event) => handleTemplateChange(event.target.value)}
-                      className={cn(selectClassName, 'min-w-0 flex-1')}
-                      disabled={manualOverride}
-                    >
-                      <option value="__new__">{t.newTemplate}</option>
-                      <option value="__latest__">{t.useTemplate}: {t.latestDraft}</option>
-                      {templateOptions.length === 0 ? <option value="__empty__">{t.noTemplates}</option> : null}
-                      {templateOptions.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {compactTemplateLabel(item, locale)}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="inline-flex h-9 items-center rounded-[10px] border border-[rgba(45,42,38,0.09)] bg-white/65 px-3 text-[11px] text-[rgba(75,73,69,0.72)] dark:border-[rgba(45,42,38,0.09)] dark:bg-white/72 dark:text-[rgba(75,73,69,0.72)]">
-                      {templateOptions.length}
-                    </div>
-                  </div>
-                </InlineField>
-                  </SectionCard>
 
-                  <SectionCard title={t.questTarget} muted>
-                <div className="text-[11px] leading-5 text-[rgba(107,103,97,0.72)] dark:text-[rgba(107,103,97,0.72)]">{t.targetHint}</div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-[rgba(45,42,38,0.08)] bg-white/70 px-3 py-3 dark:border-[rgba(45,42,38,0.08)] dark:bg-white/76">
-                    <div className="text-[11px] text-[rgba(107,103,97,0.72)] dark:text-[rgba(107,103,97,0.72)]">{t.targetMode}</div>
-                    <div className="mt-1 text-sm font-semibold text-[rgba(38,36,33,0.95)] dark:text-[rgba(38,36,33,0.95)]">{t.targetModeValue}</div>
-                  </div>
-                  <div className="rounded-lg border border-[rgba(45,42,38,0.08)] bg-white/70 px-3 py-3 dark:border-[rgba(45,42,38,0.08)] dark:bg-white/76">
-                    <div className="text-[11px] text-[rgba(107,103,97,0.72)] dark:text-[rgba(107,103,97,0.72)]">{t.targetRunner}</div>
-                    <div className="mt-1 text-sm font-semibold text-[rgba(38,36,33,0.95)] dark:text-[rgba(38,36,33,0.95)]">{`${runnerLabel(activeRunnerName)} / ${locale === 'zh' ? '本地 daemon' : 'local daemon'}`}</div>
-                  </div>
-                </div>
-                <div data-onboarding-id="start-research-connector">
-                  <ConnectorChoiceField
-                  label={t.connectorDeliveryLabel}
-                  items={connectorChoices}
-                  value={effectiveSelectedConnectorBindings}
-                  loading={connectorsLoading}
-                  error={connectorsError}
-                  localOnlyLabel={t.connectorSelectPlaceholder}
-                  onChange={(connectorName, next) =>
-                    setSelectedConnectorBindings(() => {
-                      const normalized: Record<string, string | null> = {}
-                      for (const item of connectorChoices) {
-                        normalized[item.name] = null
-                      }
-                      if (next) {
-                        normalized[connectorName] = next
-                      }
-                      return normalized
-                    })
-                  }
-                  />
-                </div>
-                  </SectionCard>
 
                   <SectionCard title={t.policy} dataOnboardingId="start-research-contract">
                 <ChoiceField
@@ -3039,10 +2462,6 @@ export function CreateProjectDialog({
 
           <div className="mt-3 flex shrink-0 flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between lg:px-0">
             <div className="flex flex-col gap-1">
-              <div className="inline-flex items-center gap-2 text-[11px] text-[rgba(107,103,97,0.72)] dark:text-[rgba(107,103,97,0.72)]">
-                <BookmarkPlus className="h-3.5 w-3.5" />
-                <span>{templateOptions.length} template(s)</span>
-              </div>
               {benchAutoAssistLocked ? (
                 <div className="text-[11px] text-[rgba(107,103,97,0.8)] dark:text-[rgba(107,103,97,0.78)]">
                   {t.benchAutoAssistPending}
@@ -3108,7 +2527,6 @@ export function CreateProjectDialog({
         </DialogContent>
       </Dialog>
       </OverlayDialog>
-      <DeepXivSetupDialog open={deepxivSetupOpen} onClose={() => setDeepxivSetupOpen(false)} locale={locale} />
     </>
   )
 }

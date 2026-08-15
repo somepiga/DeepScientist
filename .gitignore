@@ -41,6 +41,7 @@ build/
 dist.bak.*/
 /src/ui/node_modules/
 /src/ui/dist/
+/src/ui/dist_*/
 /src/tui/node_modules/
 /src/tui/dist/
 /src/deepscientist.egg-info/
