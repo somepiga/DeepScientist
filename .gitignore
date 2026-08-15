@@ -56,3 +56,6 @@ dist.bak.*/
 /tmp-*.png
 /Codex
 *.docx
+
+# Soft-deleted files (mv'ed here instead of rm, which sandbox blocks); never commit
+_obsolete/
