@@ -1,338 +1,338 @@
 ---
 name: review
-description: Use when a draft, paper, or paper-like report is substantial enough for an independent skeptical audit before finalization, rebuttal, or revision routing.
+description: 当一份草稿、论文或类论文报告已足够充实，需要在最终化、反驳或修订路由之前进行一次独立的、持怀疑态度的审计时使用。
 skill_role: companion
 ---
 
-# Review
+# Review（评审）
 
-Use this skill when the quest already has a substantial draft, paper, or paper-like report and now needs an independent, skeptical, evidence-grounded audit.
-The goal is to reduce revision ambiguity, not to sound harsh for its own sake.
+当任务已经拥有一份充实的草稿、论文或类论文报告，且现在需要进行一次独立的、持怀疑态度的、以证据为基础的审计时使用本技能。
+目标是减少修订模糊性，而不是为了严厉而严厉。
 
-This is not the same as ordinary `write`.
-It is also not the same as `rebuttal`.
+这与普通的 `write` 不同。
+它也与 `rebuttal` 不同。
 
-- `write` turns accepted evidence into a narrative.
-- `review` audits that narrative like a harsh but constructive expert reviewer.
-- `rebuttal` responds to concrete external reviewer pressure that already exists.
+- `write` 将已接受的证据转化为一段叙事。
+- `review` 像一位严厉但具建设性的专家审稿人那样审计该叙事。
+- `rebuttal` 回应已经存在的、具体的外部审稿人压力。
 
-## Interaction discipline
+## 交互纪律
 
-- Follow the shared interaction contract injected by the system prompt.
-- For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-- When the review report, revision plan, or follow-up experiment TODO list becomes durable, send a richer `artifact.interact(kind='milestone', reply_mode='threaded', ...)` update that says what the main risks are, what should be fixed next, and whether the next route is writing, experiment, or claim downgrade.
-- Hard execution rule: if this stage needs terminal work such as document builds, scripted checks, Git inspection, or file inspection, every such command must go through `bash_exec`.
+- 遵循系统提示注入的共享交互约定。
+- 对于普通的主动工作，当工作跨越约 6 次工具调用且出现了对人类有意义的增量时，优先给出一次简洁的进度更新；在没有用户可见更新的情况下，不要超出约 12 次工具调用或约 8 分钟。
+- 当评审报告、修订计划或后续实验 TODO 列表变得持久时，发送一次更丰富的 `artifact.interact(kind='milestone', reply_mode='threaded', ...)` 更新，说明主要风险是什么、下一步应修复什么，以及下一个路由是写作、实验还是主张降级。
+- 硬性执行规则：如果本阶段需要进行终端类工作，例如文档构建、脚本化检查、Git 检查或文件检查，则每一个此类命令都必须通过 `bash_exec` 执行。
 
-## Three-layer todo contract
+## 三层待办约定
 
-- treat quest-root `plan.md` as the top-level research map whose next anchor must become explicit after the review
-- if the review pass is multi-step, use workspace `PLAN.md` as the current review-node contract and `CHECKLIST.md` as the execution frontier
-- treat `paper/review/experiment_todo.md` as a review-facing frontier subset, not as a replacement for the quest-level map
+- 将任务根目录 `plan.md` 视为顶层研究地图，其下一个锚点在评审之后必须变得显式。
+- 如果评审轮次是多步骤的，使用工作区 `PLAN.md` 作为当前 review 节点契约，使用 `CHECKLIST.md` 作为执行前沿。
+- 将 `paper/review/experiment_todo.md` 视为一个面向评审的前沿子集，而不是任务级地图的替代品。
 
-## Purpose
+## 目的
 
-`review` is an auxiliary audit skill for paper-like deliverables.
+`review` 是一个针对类论文交付物的辅助审计技能。
 
-It should convert “the draft feels almost done” into a durable, skeptical, technically grounded review workflow:
+它应将"草稿感觉快完成了"转化为一份持久的、持怀疑态度的、技术上扎实的评审工作流：
 
-1. identify the core claims and likely rejection reasons
-2. audit novelty, value, rigor, clarity, and evidence sufficiency
-3. write a reliable review note, not vague prose
-4. produce a concrete revision plan
-5. produce a follow-up experiment TODO list only when the paper truly needs more evidence
-6. route the next step cleanly to `write`, `analysis-campaign`, `baseline`, `scout`, or `decision`
+1. 识别核心主张与可能的拒稿原因。
+2. 审计新颖性、价值、严谨性、清晰度与证据充分性。
+3. 写出一份可靠的评审笔记，而不是模糊的散文。
+4. 产出一份具体的修订计划。
+5. 仅当论文确实还需要更多证据时，才产出一份后续实验 TODO 列表。
+6. 将下一步干净地路由到 `write`、`analysis-campaign`、`baseline`、`scout` 或 `decision`。
 
-Default review stance: independent audit before celebration.
-Do not treat “looks polished” as “is defensible”.
-Do not accept structural green lights as paper-quality proof. Coverage, compile success, and file counts must still survive a skeptical claim/evidence/reviewer-risk audit.
-Apply the publishability stop-loss rule during review: when novelty, evidence sufficiency, or reader value has collapsed beyond reasonable claim narrowing, the correct recommendation is `decision` with `stop` or `branch`, with any narrowed non-paper objective recorded as the next direction, not another cosmetic revision pass. If recommending `stop` because paper quality is too low, ask the user to confirm before ending the paper objective. Consider user publication, scope, cost, or non-paper preferences, and ask for a user decision when those preferences are unclear and would change the recommendation.
+默认评审立场：在庆祝之前先做独立审计。
+不要将"看起来打磨过"当作"站得住脚"。
+不要将结构上的绿灯当作论文质量的证明。覆盖率、编译成功与文件计数仍必须经受住一次持怀疑态度的主张 / 证据 / 审稿人风险审计。
+在评审期间应用可发表性止损规则：当新颖性、证据充分性或读者价值已崩溃到超出合理主张收窄的范围时，正确的建议是通过 `decision` 给出 `stop` 或 `branch`，并将任何收窄后的非论文目标记录为下一步方向，而不是再来一轮表面化的修订。如果因论文质量过低而建议 `stop`，应在结束论文目标前请用户确认。考虑用户的发表、范围、成本或非论文偏好，并在这些偏好不清晰且会改变建议时，征求用户的决策。
 
-## Use when
+## 使用时机
 
-- a substantial `paper/draft.md`, report draft, or paper-like manuscript already exists
-- the quest has enough evidence to support a real audit rather than just speculative comments
-- the user asks for:
-  - a harsh review
-  - a reliable paper audit
-  - revision advice before submission
-  - a decision about whether more experiments are still needed
-- the writing line feels close to done and you need a skeptical gate before stopping
+- 一份充实的 `paper/draft.md`、报告草稿或类论文稿件已存在。
+- 任务拥有足够的证据来支撑一次真正的审计，而不只是推测性评论。
+- 用户要求：
+  - 一次严厉的评审。
+  - 一次可靠的论文审计。
+  - 投稿前的修订建议。
+  - 关于是否仍需要更多实验的决策。
+- 写作线感觉快完成了，且你需要在停止之前设置一个持怀疑态度的闸口。
 
-## Do not use when
+## 不使用时机
 
-- the quest still lacks a meaningful draft or report
-- the task is ordinary drafting from evidence
-- concrete external reviewer comments already exist and the real task is response / revision
-  - in that case use `rebuttal`
+- 任务仍缺乏一份有意义的草稿或报告。
+- 任务是从证据进行普通起草。
+- 具体的外部审稿人评论已存在，且真正的任务是回应 / 修订
+  - 在这种情况下使用 `rebuttal`。
 
-## Non-negotiable rules
+## 不可妥协的规则
 
-- Review independently. Do not simply mirror previous self-review notes.
-- Do not fabricate praise, flaws, citations, novelty overlaps, or fatal defects.
-- Keep every serious criticism evidence-grounded.
-- Do not recommend more experiments when the real problem is wording, positioning, or claim scope.
-- Do not recommend rhetoric when the real problem is missing evidence.
-- Do not recommend continued paper revision when the review finds a fatal publishability or value collapse; make the stop/branch route explicit.
-- Do not execute a stop route for a low-quality paper judgment without user confirmation; present the evidence, the stop recommendation, and any branch or narrowed non-paper alternative first.
-- Do not silently override a user's stated paper, report, or non-paper preference; consider it in the route recommendation, or ask when it is unclear.
-- If novelty or positioning is uncertain, treat that as a literature-audit question first, not an automatic experiment request.
-- If a claim is too broad for the evidence, prefer narrowing or downgrading the claim over defending it with style.
-- If `startup_contract.review_followup_policy` is present, honor it:
-  - `audit_only`
-    - stop after durable review artifacts and a clear route recommendation
-  - `auto_execute_followups`
-    - do not stop at the audit if the next route is already clear; continue into the required experiments and manuscript deltas
-  - `user_gated_followups`
-    - finish the audit first, then package the next expensive follow-up step into one structured decision
-- If `startup_contract.manuscript_edit_mode = latex_required`, treat the provided LaTeX tree or `paper/latex/` as the writing surface when manuscript revision is needed.
-- If LaTeX source is unavailable while `latex_required` is requested, do not pretend the manuscript was edited; produce LaTeX-ready replacement text and an explicit blocker note instead.
-- Accept manuscript and review inputs from URLs, local file paths, local directories, or current-turn attachments; do not assume the draft is already perfectly normalized.
+- 独立评审。不要只是镜像先前的自我评审笔记。
+- 不要编造赞美、缺陷、引用、新颖性重叠或致命缺陷。
+- 保持每一条严肃批评都以证据为基础。
+- 当真正的问题是措辞、定位或主张范围时，不要建议更多实验。
+- 当真正的问题是缺失证据时，不要建议修辞。
+- 当评审发现致命的可发表性或价值崩溃时，不要建议继续修订论文；应将 stop / branch 路由显式化。
+- 不要在没有用户确认的情况下，为低质量论文的判断执行 stop 路由；应首先呈现证据、stop 建议，以及任何 branch 或收窄后的非论文替代方案。
+- 不要为了不清晰就悄悄推翻用户明确陈述的论文、报告或非论文偏好；在路由建议中考虑它，或在模糊时询问。
+- 如果新颖性或定位不确定，应首先将其当作一个文献审计问题，而不是一个自动的实验请求。
+- 如果某主张对证据而言过宽，优先收窄或降级该主张，而不是用文风来为之辩护。
+- 如果 `startup_contract.review_followup_policy` 存在，应遵守它：
+  - `audit_only`（仅审计）
+    - 在持久化评审产物与清晰的路由建议之后停止。
+  - `auto_execute_followups`（自动执行后续）
+    - 如果下一步路由已经清晰，不要在审计处停下；继续进入所需的实验与稿件变更。
+  - `user_gated_followups`（用户门控的后续）
+    - 先完成审计，然后将下一个昂贵的后续步骤打包成一个结构化决策。
+- 如果 `startup_contract.manuscript_edit_mode = latex_required`，在进行稿件修订时，将所提供的 LaTeX 树或 `paper/latex/` 视为写作面。
+- 在请求 `latex_required` 时若 LaTeX 源不可用，不要假装稿件已被编辑；应改为产出 LaTeX 就绪的替换文本与一条显式的阻塞说明。
+- 接受来自 URL、本地文件路径、本地目录，或当前回合附件的稿件与评审输入；不要假定草稿已经完美规范化。
 
-## Evidence Authenticity & Manuscript Coverage Gate
+## 证据真实性与稿件覆盖闸口
 
-Before judging a manuscript as strong, final, or submission-ready, perform an evidence audit.
+在将一份稿件判断为强、最终或投稿就绪之前，先进行证据审计。
 
-Build an experiment inventory from logs, matrices, result files, summaries, recent memory, and manuscript claims.
-For each main experiment and analysis experiment, record:
+从日志、矩阵、结果文件、摘要、近期记忆与稿件主张中构建一份实验清单。
+对每个主实验与分析实验，记录：
 
-- expected experiment id / purpose
-- status from durable artifacts, not only checklist labels
-- executable or log/result artifact paths
-- metrics actually present in result files or official summaries
-- whether the result is current, stale, duplicate, failed, negative, or superseded
-- whether the result appears in the manuscript, table, figure, caption, or appendix
-- which exact claim it supports
+- 预期的实验 id / 目的。
+- 来自持久化产物的状态，而不仅仅是检查清单标签。
+- 可执行文件或日志 / 结果产物路径。
+- 结果文件或官方摘要中实际存在的指标。
+- 该结果是当前的、过时的、重复的、失败的、负面的，还是已被取代的。
+- 该结果是否出现在稿件、表、图、图注或附录中。
+- 它支撑的究竟是哪一条主张。
 
-Do not trust ready counts when duplicate rows, stale outline refs, pending rows, or missing metrics are present.
-Recompute the real paper-facing count manually.
+当存在重复行、过时的提纲引用、待决行或缺失指标时，不要信任就绪计数。
+手动重新计算真实的面向论文的计数。
 
-Classify every important result as one of:
+将每一个重要结果归类为以下之一：
 
-- completed and written
-- completed but not written
-- written but not evidenced
-- appendix-only
-- failed or negative
-- stale / legacy / duplicate
-- contradicted by another artifact
+- 已完成且已写入。
+- 已完成但未写入。
+- 已写入但无证据。
+- 仅附录。
+- 失败或负面。
+- 过时 / 遗留 / 重复。
+- 被另一产物矛盾。
 
-Explicitly assess unsupported-claim or fabrication risk using these labels:
+使用以下标签显式评估未支持主张或编造风险：
 
-- no issue found
-- provenance gap
-- manuscript overclaim
-- written result unsupported by durable evidence
-- contradiction between manuscript and artifacts
-- likely false or fabricated claim
+- 未发现异常。
+- 出处缺口。
+- 稿件过度主张。
+- 已写入的结果没有持久化证据支撑。
+- 稿件与产物之间的矛盾。
+- 可能虚假或被编造的主张。
 
-A paper cannot be called submission-ready unless compile/PDF, evidence provenance, manuscript coverage, citation sufficiency, language hygiene, and experiment-matrix consistency all pass.
+除非编译 / PDF、证据出处、稿件覆盖、引用充分性、语言规范性，以及实验矩阵一致性全部通过，否则编译 / PDF、证据出处、稿件覆盖、引用充分性、语言规范性与实验矩阵一致性都必须通过，一篇论文才能被称为投稿就绪。
 
-## Primary inputs
+## 主要输入
 
-Use, in roughly this order:
+按大致以下顺序使用：
 
-- `artifact.validate_manuscript_coverage(detail='full')` for paper bundles, memos, or alleged near-final manuscripts
-- the current paper or report draft
-- the selected outline if one exists
-- the claim-evidence map if one exists
-- the six-field `evaluation_summary` blocks from recent main experiments and analysis slices
-- recent main and analysis experiment results
-- figures, tables, and captions
-- current-turn attachments and user-provided local paths / directories / URLs for the manuscript bundle or review packet
-- prior self-review or reviewer-first notes as low-trust auxiliary input
-- nearby papers and high-level accepted papers found through current literature search, not only remembered examples
+- `artifact.validate_manuscript_coverage(detail='full')`，用于论文打包物、备忘录，或声称接近最终的稿件。
+- 当前的论文或报告草稿。
+- 所选大纲（如果存在）。
+- 主张-证据映射（如果存在）。
+- 来自近期主实验与分析切片的六字段 `evaluation_summary` 块。
+- 近期的主实验与分析实验结果。
+- 图、表与图注。
+- 当前回合附件，以及用户提供的、指向稿件打包物或评审包的本地路径 / 目录 / URL。
+- 先前的自我评审或"以审稿人为先"的笔记，作为低信任的辅助输入。
+- 通过当前文献搜索找到的邻近论文与高层次已接受论文，而不仅仅是记忆中的例子。
 
-If the draft/result state is still unclear, open `intake-audit` first before continuing the review workflow.
-Before proposing extra experiments, read those structured `evaluation_summary` blocks first so you do not request work that the recorded evidence already resolved.
-If the user provided draft files or manuscript bundles directly, first normalize them into durable quest-visible paths before planning experiments or section-level revisions.
+如果草稿 / 结果状态仍不清晰，先开启 `intake-audit`，再继续评审工作流。
+在提议额外实验之前，先阅读那些结构化的 `evaluation_summary` 块，以免请求那些已被记录证据解决了的工作。
+如果用户直接提供了草稿文件或稿件打包物，在规划实验或分节级修订之前，先将其规范化为持久化的任务可见路径。
 
-## Core outputs
+## 核心输出
 
-The review pass should usually leave behind:
+评审轮次通常应留下：
 
 - `paper/review/review.md`
 - `paper/review/revision_log.md`
 - `paper/review/experiment_todo.md`
-- `paper/paper_experiment_matrix.md` when more evidence is still needed
-- `paper/paper_experiment_matrix.json` when more evidence is still needed
+- 当仍需要更多证据时，`paper/paper_experiment_matrix.md`。
+- 当仍需要更多证据时，`paper/paper_experiment_matrix.json`。
 
-Use the templates in `references/` when needed:
+在需要时使用 `references/` 中的模板：
 
 - `review-report-template.md`
 - `revision-log-template.md`
 - `experiment-todo-template.md`
 
-## Review dimensions
+## 评审维度
 
-Audit at least these dimensions:
+至少审计以下维度：
 
-- research question and value
-- novelty and positioning
-- method-to-problem fit
-- evidence sufficiency
-- experimental validity and baseline comparability
-- claim scope and over-claiming risk
-- writing defensibility and logical flow
-- manuscript language hygiene and provenance leakage
-- figure / table usefulness
-- citation sufficiency: count verified references and compare coverage against nearby strong papers
-- full-paper style, pacing, and section-level argument quality relative to strong accepted papers
-- experiment package completeness relative to nearby high-level papers
-- submission readiness
+- 研究问题与价值。
+- 新颖性与定位。
+- 方法到问题的契合度。
+- 证据充分性。
+- 实验有效性与 baseline 可比性。
+- 主张范围与过度主张风险。
+- 写作可辩护性与逻辑流。
+- 稿件语言规范性与出处泄露。
+- 图 / 表的用途。
+- 引用充分性：统计已核验的参考文献，并将其覆盖度与邻近强论文比较。
+- 相对于强论文的全文风格、节奏，与分节级论证质量。
+- 相对于邻近高层次论文的实验包完整性。
+- 投稿就绪度。
 
-## Workflow
+## 工作流
 
-### 1. Plan the audit
+### 1. 规划审计
 
-Before writing the review itself, make the audit explicit.
+在写评审本身之前，先让审计显式化。
 
-Identify:
+识别：
 
-- whether the package is only `draft_checkpoint`, a reviewable manuscript, or truly submission-ready
-- 1 to 3 core claims such as `C1`, `C2`, `C3`
-- the strongest current evidence
-- the weakest current evidence
-- the top 3 likely rejection reasons
-- the ready experiment/analysis group count versus the current target, including any user-specified target such as 4-8 analyses
-- what the closest high-quality paper comparators are and which parts of their writing / logic / experiment package should be used as review standards
-- whether manuscript text leaks user requirements, agent actions, route/control state, branch/worktree names, tool recommendations, TODOs, or raw implementation shorthand
-- whether `artifact.validate_academic_outline(detail='full')` and `artifact.validate_manuscript_language(detail='full')` pass when a selected outline or draft exists
-- whether the likely next route is:
-  - text revision
-  - literature / novelty audit
-  - baseline recovery
-  - supplementary experiment
-  - claim downgrade
+- 该打包物仅仅是 `draft_checkpoint`、一份可评审的稿件，还是真正投稿就绪的。
+- 1 至 3 条核心主张，例如 `C1`、`C2`、`C3`。
+- 当前最强的证据。
+- 当前最弱的证据。
+- 排名前 3 的可能拒稿原因。
+- 就绪的实验 / 分析组计数与当前目标的对比，包括任何用户指定的目标，例如 4-8 次分析。
+- 最接近的、高质量的论文比较对象是什么，以及它们的写作 / 逻辑 / 实验包中的哪些部分应被用作评审标准。
+- 稿件文本是否泄露了用户需求、agent 动作、路由 / 控制状态、分支 / 工作树名称、工具推荐、TODO，或原始实现简写。
+- 当存在所选大纲或草稿时，`artifact.validate_academic_outline(detail='full')` 与 `artifact.validate_manuscript_language(detail='full')` 是否通过。
+- 可能的下一步路由是否为：
+  - 文本修订。
+  - 文献 / 新颖性审计。
+  - baseline 恢复。
+  - 补充实验。
+  - 主张降级。
 
-### 2. Run a paper-quality literature benchmark
+### 2. 运行论文质量文献基准
 
-Before calling a substantial manuscript strong, run a current literature/style benchmark unless the review scope is explicitly local-only.
+在称一份充实的稿件为强之前，除非评审范围被显式限定为仅本地，否则应运行一次当前的文献 / 风格基准。
 
-Search for nearby high-quality papers using the best available current source:
+使用最佳可用当前来源搜索邻近的高质量论文：
 
-- Prefer DeepXiv or OpenAlex when configured.
-- Use web search when needed for venue status, accepted-paper pages, PDFs, proceedings, journal pages, or recent related work.
-- Include high-level exemplars when relevant: ICLR, ICML, NeurIPS, CVPR, ACL, EMNLP, KDD, SIGIR, AAAI, IJCAI, Nature/Science family, or Q1 journal papers in the field.
-- Prefer accepted papers, proceedings pages, journal pages, arXiv PDFs with accepted-version metadata, and official conference / journal records over blog posts or low-trust summaries.
+- 配置时优先 DeepXiv 或 OpenAlex。
+- 当需要了解会议状态、已接受论文页、PDF、会议论文集、期刊页或近期相关工作时，使用网络搜索。
+- 在相关时纳入高层次范例：ICLR、ICML、NeurIPS、CVPR、ACL、EMNLP、KDD、SIGIR、AAAI、IJCAI、Nature/Science 系列，或该领域的 Q1 期刊论文。
+- 优先采用已接受论文、会议论文集页、期刊页、带有已接受版本元数据的 arXiv PDF，以及官方会议 / 期刊记录，而不是博客文章或低信任的摘要。
 
-Build a compact comparison set, usually 3-8 papers:
+构建一个紧凑的比较集，通常为 3-8 篇论文：
 
-- 1-3 closest technical neighbors
-- 1-3 strong writing / story exemplars from top venues
-- 1-2 experiment-package exemplars when the manuscript's evaluation design is uncertain
+- 1-3 篇最接近的技术近邻。
+- 1-3 篇来自顶级会议场所的、强写作 / 叙事范例。
+- 1-2 篇实验包范例（当稿件的评估设计不确定时）。
 
-For each comparator, record title, venue/source, why it is relevant, and what it teaches about:
+对每一个比较对象，记录标题、场所 / 来源、为何相关，以及它教导了你什么关于：
 
-- abstract and introduction framing
-- problem -> gap -> method -> evidence logic
-- method explanation and reader onboarding
-- experiment design, ablations, robustness, baselines, and limitations
-- figure/table roles and result narrative
-- related-work positioning and claim boundaries
+- 摘要与引言框架。
+- 问题 -> 缺口 -> 方法 -> 证据逻辑。
+- 方法解释与读者入门。
+- 实验设计、消融、鲁棒性、baseline 与局限性。
+- 图 / 表角色与结果叙事。
+- 相关工作定位与主张边界。
 
-Do not request new experiments just to answer a literature-positioning question. First decide whether the fix is writing, positioning, claim narrowing, or genuinely missing evidence.
+不要仅仅为了回答一个文献定位问题就请求新实验。首先判断修复是靠写作、定位、主张收窄，还是真正缺失的证据。
 
-### 3. Write a reliable review report
+### 3. 写出一份可靠的评审报告
 
-Write `paper/review/review.md` using `references/review-report-template.md`.
+使用 `references/review-report-template.md` 写出 `paper/review/review.md`。
 
-The review should be:
+评审应：
 
-- independent
-- skeptical but constructive
-- technically specific
-- reader-aware
-- evidence-grounded
+- 独立。
+- 持怀疑态度但具建设性。
+- 技术上具体。
+- 以读者为意识。
+- 以证据为基础。
 
-Never write "no weaknesses", "no key issues", or equivalent closure language unless the review has first listed the main rejection routes and shown why each is fixed, downgraded, or out of scope.
+绝不要写"没有弱点"、"没有关键问题"，或等价的关闭性措辞，除非评审已首先列出主要拒稿路径，并说明每一条如何被修复、降级，或超出范围。
 
-At minimum, the review report should cover:
+至少，评审报告应覆盖：
 
-- summary
-- strengths
-- weaknesses
-- key issues
-- actionable suggestions
-- storyline / outline advice
-- priority revision plan
-- experiment inventory and research experiment plan
-- analysis-count sufficiency and whether the count is real rather than inflated by duplicate/stale rows
-- novelty verification and related-work matrix
-- high-level paper comparison matrix covering writing, logic, full-paper organization, style, figures/tables, and experiment package gaps
-- references
+- 摘要。
+- 优势。
+- 弱点。
+- 关键问题。
+- 可操作的建议。
+- 叙事 / 大纲建议。
+- 优先级修订计划。
+- 实验清单与研究实验计划。
+- 分析计数充分性，以及该计数是否真实、而非被重复 / 过时行虚高。
+- 新颖性验证与相关工作矩阵。
+- 覆盖写作、逻辑、全文组织、风格、图 / 表与实验包缺口的高层次论文比较矩阵。
+- 参考文献。
 
-If helpful, include an internal conservative overall judgment or score, but do not pretend numerical precision when evidence is still unstable.
+如有帮助，可包含一个内部保守的总体判断或分数，但当证据仍不稳定时，不要假装具备数字精度。
 
-### 4. Produce the revision log
+### 4. 产出修订日志
 
-Write `paper/review/revision_log.md` using `references/revision-log-template.md`.
+使用 `references/revision-log-template.md` 写出 `paper/review/revision_log.md`。
 
-For each serious issue, record:
+对每一个严肃问题，记录：
 
-- issue id
-- why it matters
-- what should change
-- whether the fix is writing-only, evidence-only, or experiment-dependent
-- whether the issue blocks `finalize`
-- one copy-ready replacement sentence / paragraph when feasible
-- one LaTeX-ready replacement block when `startup_contract.manuscript_edit_mode = latex_required`
+- 问题 id。
+- 为何重要。
+- 应改变什么。
+- 修复是仅写作、仅证据，还是依赖实验。
+- 该问题是否阻塞 `finalize`。
+- 在可行时，一段可直接复制的替换句子 / 段落。
+- 当 `startup_contract.manuscript_edit_mode = latex_required` 时，一段 LaTeX 就绪的替换块。
 
-### 5. Produce the follow-up experiment TODO list
+### 5. 产出后续实验 TODO 列表
 
-Only if more evidence is truly needed, write `paper/review/experiment_todo.md` using `references/experiment-todo-template.md`.
+仅当确实还需要更多证据时，使用 `references/experiment-todo-template.md` 写出 `paper/review/experiment_todo.md`。
 
-Before creating TODOs, separate three blocker types:
+在创建 TODO 之前，先区分三种阻塞类型：
 
-- analysis blockers: missing, failed, unmapped, or legacy-method evidence needed for a claim
-- manuscript blockers: missing sections, missing figures/tables, weak narrative, or stale claim-evidence mapping
-- language/provenance blockers: user/operator/agent wording, restart or route-management phrasing, tool-promotion captions, TODOs, or raw endpoint/batch shorthand in paper-facing text
-- submission blockers: missing PDF, checklist, artifact availability, camera-ready cleanup, or user approval
+- 分析阻塞：主张所需的、缺失的、失败的、未映射的，或遗留方法的证据。
+- 稿件阻塞：缺失的分节、缺失的图 / 表、薄弱的叙事，或过时的主张-证据映射。
+- 语言 / 出处阻塞：面向论文文本中的用户 / 操作者 / agent 措辞、重启或路由管理短语、工具推广图注、TODO，或原始端点 / 批次简写。
+- 投稿阻塞：缺失 PDF、检查清单、产物可用性、camera-ready 清理，或用户批准。
 
-Do not turn manuscript/submission blockers into fake experiments or mark a `draft_checkpoint_ready` package final.
-Do not accept a draft as reviewable while it still reads like a run log, control memo, or user-request transcript.
+不要将稿件 / 投稿阻塞变成虚假实验，也不要将一个 `draft_checkpoint_ready` 打包物标记为最终。
+当一份草稿读起来仍像运行日志、控制备忘录或用户请求转录稿时，不要接受其为可评审。
 
-When the paper still lacks experimental support, also create or revise:
+当论文仍缺乏实验支撑时，还应创建或修订：
 
 - `paper/paper_experiment_matrix.md`
 - `paper/paper_experiment_matrix.json`
 
-Treat the matrix as the paper-facing master plan and `paper/review/experiment_todo.md` as only the current execution frontier or review-facing subset.
+将矩阵视为面向论文的主计划，而将 `paper/review/experiment_todo.md` 仅视为当前执行前沿或面向评审的子集。
 
-Each TODO item should include:
+每个 TODO 项应包含：
 
-- the review issue it answers
-- the matrix exp id
-- the corresponding `exp_id` in the paper experiment matrix
-- why existing evidence is still insufficient
-- the minimum experiment or analysis needed
-- required metric(s)
-- minimal success criterion
-- whether this is:
-  - analysis of existing results
-  - new comparator baseline
-  - supplementary experiment
-  - figure / table regeneration only
+- 它回答的评审问题。
+- 矩阵 exp id。
+- 论文实验矩阵中对应的 `exp_id`。
+- 为何既有证据仍不充分。
+- 所需的最小实验或分析。
+- 所需指标。
+- 最小成功准则。
+- 这是属于：
+  - 对既有结果的分析。
+  - 新的比较 baseline。
+  - 补充实验。
+  - 仅图 / 表重新生成。
 
-Do not write a vague “run more ablations” list.
-Each TODO item should be concrete enough to turn into `analysis-campaign` slices or a `baseline` recovery task.
-The matrix should be broader than the TODO list and should classify the full paper-facing experiment space, not just analysis work.
-When building or revising that matrix, explicitly consider:
+不要写一份模糊的"运行更多消融"列表。
+每个 TODO 项都应足够具体，可转化为 `analysis-campaign` 切片或一项 `baseline` 恢复任务。
+矩阵应比 TODO 列表更广，并应分类整个面向论文的实验空间，而不仅仅是分析工作。
+在构建或修订该矩阵时，显式考虑：
 
-- main comparison packaging or extension
-- component ablations
-- sensitivity / hyperparameter checks
-- robustness checks
-- efficiency / cost / latency / token-overhead checks when relevant
-- highlight-validation experiments that test the likely strengths of the method
-- limitation-boundary analyses
-- case study rows as optional rather than mandatory evidence
+- 主对比的打包或扩展。
+- 组件消融。
+- 敏感性 / 超参数检查。
+- 鲁棒性检查。
+- 效率 / 成本 / 延迟 / token 开销检查（当相关时）。
+- 测试该方法可能优势的高亮验证实验。
+- 局限性边界分析。
+- 案例研究行作为可选而非强制证据。
 
-Do not assume the paper only needs “analysis experiments”.
-Do not assume case studies belong in the required set.
-If efficiency or cost could become a reviewer-facing strength or concern, put that into the matrix explicitly.
-If local serving, batch size, ports, cache reuse, or command shape are only reproducibility details, route them to appendix/protocol rows rather than main-text claims.
+不要假定论文只需要"分析实验"。
+不要假定案例研究属于必需集合。
+如果效率或成本可能成为面向审稿人的优势或关切，应将其显式放入矩阵。
+如果本地服务、批大小、端口、缓存复用或命令形态只是可复现性细节，应将它们路由到附录 / 协议行，而不是主文主张。
 
-For the matrix, each row should usually record:
+对于矩阵，每一行通常应记录：
 
 - `exp_id`
 - `tier`
@@ -350,139 +350,139 @@ For the matrix, each row should usually record:
 - `promotion_rule`
 - `next_action`
 
-The matrix should also keep a short `highlight hypotheses` block.
-Do not rely on prose intuition for the method's best selling point; if a likely highlight matters, it should have a corresponding validation row in the matrix.
+矩阵还应保留一个简短的 `highlight hypotheses`（亮点假设）块。
+不要依赖散文直觉来把握方法的最佳卖点；如果一个可能的亮点很重要，它应在矩阵中有一条对应的验证行。
 
-Before treating the experiments section as stable, require that every currently feasible matrix row that is not merely `optional` or `dropped` is either:
+在将实验分节视为稳定之前，要求每个当前可行、且不仅仅是 `optional` 或 `dropped` 的矩阵行要么：
 
-- completed
-- analyzed
-- excluded with a real reason
-- or blocked with a real reason
+- 已完成。
+- 已分析。
+- 以真实理由被排除。
+- 或以真实理由被阻塞。
 
-Before treating the manuscript prose as stable, scan titles, abstract, captions, method setup, conclusion, and section openings for process language. Rewrite or block if they mention user requests, agent decisions, worktrees, branches, artifact ids, "paper restart", "paper should", "remaining work", tool recommendations, or shorthand such as `64 + 64`.
+在将稿件散文视为稳定之前，扫描标题、摘要、图注、方法设置、结论与分节开头中的过程性语言。如果它们提及用户请求、agent 决策、工作树、分支、产物 id、"paper restart"、"paper should"、"remaining work"、工具推荐，或诸如 `64 + 64` 之类的简写，则应重写或阻塞。
 
-When extra evidence is truly needed, use the shared supplementary-experiment protocol:
+当确实还需要额外证据时，使用共享的补充实验协议：
 
-- recover ids / refs first if needed
-- create one `artifact.create_analysis_campaign(...)`
-- represent even one extra run as a one-slice campaign
-- record each completed slice with `artifact.record_analysis_slice(...)`
+- 若需要，先恢复 id / 引用。
+- 创建一个 `artifact.create_analysis_campaign(...)`。
+- 即使只多运行一次，也表示为一个单切片活动。
+- 用 `artifact.record_analysis_slice(...)` 记录每个完成的切片。
 
-Do not invent a separate review-only experiment workflow.
+不要发明一套独立的、仅用于评审的实验工作流。
 
-### 6. Route the next step
+### 6. 路由下一步
 
-After the review artifacts are durable:
+在评审产物持久化之后：
 
-- if the issues are mostly narrative or claim-scope fixes, route to `write`
-- if novelty / positioning is still unclear, route to `scout`
-- if a requested comparator baseline is missing, route to `baseline`
-- if new evidence is truly required, route to `analysis-campaign`
-- if the route is costly or non-obvious, record a `decision`
+- 如果问题主要是叙事或主张范围修复，路由到 `write`。
+- 如果新颖性 / 定位仍不清晰，路由到 `scout`。
+- 如果缺失一个所需的比较 baseline，路由到 `baseline`。
+- 如果确实需要新证据，路由到 `analysis-campaign`。
+- 如果路由代价高或不明显，记录一条 `decision`。
 
-Do not stop immediately after writing the review if the next route is already clear.
+如果下一步路由已经清晰，不要在写完评审后立即停下。
 
-### 7. Auto follow-up execution contract
+### 7. 自动后续执行契约
 
-When `startup_contract.review_followup_policy = auto_execute_followups`:
+当 `startup_contract.review_followup_policy = auto_execute_followups` 时：
 
-- treat the review as a gate, not as the endpoint
-- immediately turn the accepted follow-up route into action:
+- 将评审视为一个闸口，而不是终点。
+- 立即将已接受的后续路由转化为动作：
   - `analysis-campaign`
-    - when new evidence is truly required
+    - 当确实需要新证据时。
   - `baseline`
-    - when a missing comparator baseline blocks fair review
+    - 当缺失的比较 baseline 阻塞了公平评审时。
   - `write`
-    - when the issues are mostly text, outline, claim-scope, figure, or framing revisions
-- after each completed follow-up step, update:
+    - 当问题主要是文本、大纲、主张范围、图或框架修订时。
+- 在每个完成的后续步骤之后，更新：
   - `paper/review/revision_log.md`
   - `paper/review/experiment_todo.md`
-  - the draft or manuscript-facing revision package
-- only treat the review line as truly closed after the follow-up route has either completed or been downgraded / blocked explicitly
+  - 草稿或面向稿件的修订包。
+- 仅在该后续路由要么已完成、要么被显式降级 / 阻塞之后，才将该评审线视为真正关闭。
 
-When `startup_contract.review_followup_policy = user_gated_followups`:
+当 `startup_contract.review_followup_policy = user_gated_followups` 时：
 
-- stop after the durable audit artifacts
-- turn the next expensive follow-up package into one structured decision instead of continuing silently
+- 在持久化的审计产物之后停下。
+- 将下一个昂贵的后续包变成一个结构化决策，而不是默默继续。
 
-When `startup_contract.review_followup_policy = audit_only`:
+当 `startup_contract.review_followup_policy = audit_only` 时：
 
-- stop after the durable audit artifacts and route recommendation
+- 在持久化的审计产物与路由建议之后停下。
 
-### 8. Manuscript revision delivery contract
+### 8. 稿件修订交付契约
 
-If manuscript revision is required, make the delta explicit:
+如果需要稿件修订，显式给出变更：
 
-- section
-- old claim / weakness
-- new wording
-- evidence basis
-- remaining limitation
+- 分节。
+- 旧主张 / 弱点。
+- 新措辞。
+- 证据依据。
+- 剩余局限性。
 
-If `startup_contract.manuscript_edit_mode = copy_ready_text`:
+如果 `startup_contract.manuscript_edit_mode = copy_ready_text`：
 
-- provide copy-ready replacement wording in `paper/review/revision_log.md` or a nearby revision note
-- keep the wording directly usable by the user or downstream `write`
+- 在 `paper/review/revision_log.md` 或邻近的修订笔记中提供可直接复制的替换措辞。
+- 保持措辞可被用户或下游的 `write` 直接使用。
 
-If `startup_contract.manuscript_edit_mode = latex_required`:
+如果 `startup_contract.manuscript_edit_mode = latex_required`：
 
-- prefer editing the actual LaTeX sources when they are available
-- otherwise provide LaTeX-ready replacement text blocks with explicit insertion targets
-- preserve labels, citations, figure/table refs, and section structure in the suggested replacements
+- 优先编辑实际的 LaTeX 源（当它们可用时）。
+- 否则提供带显式插入目标的 LaTeX 就绪替换文本块。
+- 在建议的替换中保留标签、引用、图 / 表引用与分节结构。
 
-## Companion skill routing
+## 辅助技能路由
 
-Open additional skills only when the review workflow requires them:
+仅在评审工作流需要时才开启额外的技能：
 
 - `intake-audit`
-  - when the current draft/result/bundle state is still unclear
+  - 当当前的草稿 / 结果 / 打包物状态仍不清晰时。
 - `scout`
-  - when novelty, positioning, or related-work coverage is genuinely uncertain
+  - 当新颖性、定位或相关工作覆盖确实不确定时。
 - `baseline`
-  - when a missing comparator baseline blocks fair review
+  - 当缺失的比较 baseline 阻塞了公平评审时。
 - `analysis-campaign`
-  - when the review identifies concrete evidence gaps that need supplementary runs
+  - 当评审识别出需要补充运行的、具体的证据缺口时。
 - `write`
-  - when the review identifies text, outline, claim-scope, or figure revisions
+  - 当评审识别出文本、大纲、主张范围或图的修订时。
 - `figure-polish`
-  - when the review identifies figure/table quality as a real weakness
+  - 当评审将图 / 表质量识别为真正的弱点时。
 - `decision`
-  - when route choice, cost, or claim downgrade is non-trivial
+  - 当路由选择、成本或主张降级不平凡时。
 
-## Artifact routing guidance
+## 产物路由指引
 
-Use these tools deliberately:
+慎重使用这些工具：
 
 - `artifact.record(payload={'kind': 'decision', ...})`
-  - review conclusion, claim downgrade recommendation, route choice, stop/go recommendation
+  - 评审结论、主张降级建议、路由选择、stop / go 建议。
 - `artifact.create_analysis_campaign(...)`
-  - when the experiment TODO list should become concrete follow-up slices
+  - 当实验 TODO 列表应变成具体的后续切片时。
 - `artifact.record_analysis_slice(...)`
-  - one completed review-driven slice
+  - 一个完成的、评审驱动的切片。
 - `artifact.submit_paper_outline(mode='revise', ...)`
-  - when the review materially changes the narrative blueprint
+  - 当评审实质性地改变了叙事蓝图时。
 - `artifact.submit_paper_bundle(...)`
-  - only when the revised manuscript package is genuinely ready
+  - 仅当修订后的稿件打包物确实就绪时。
 - `artifact.interact(...)`
-  - user-visible progress and review milestones
+  - 用户可见的进度与评审里程碑。
 
-## Memory discipline
+## 记忆纪律
 
-Stage-start requirement:
+阶段开始要求：
 
-- run `memory.list_recent(scope='quest', limit=5)`
-- run at least one `memory.search(...)` for:
-  - paper title
-  - main method name
-  - review or self-review
-  - key claim or strongest figure
+- 运行 `memory.list_recent(scope='quest', limit=5)`。
+- 针对以下内容至少运行一次 `memory.search(...)`：
+  - 论文标题。
+  - 主要方法名。
+  - 评审或自我评审。
+  - 关键主张或最强的图。
 
-Stage-end requirement:
+阶段结束要求：
 
-- if the review produced a durable lesson, claim downgrade, revision rule, or experiment-gap judgment, write at least one `memory.write(...)`
+- 如果评审产生了持久的经验、主张降级、修订规则，或实验缺口判断，至少写入一次 `memory.write(...)`。
 
-Useful tags include:
+有用的标签包括：
 
 - `stage:review`
 - `type:paper-review`
@@ -490,17 +490,17 @@ Useful tags include:
 - `type:experiment-gap`
 - `type:claim-downgrade`
 
-## Success condition
+## 成功条件
 
-`review` is successful when:
+`review` 成功当且仅当：
 
-- a reliable skeptical review note exists
-- the highest-risk issues are explicit
-- the next revision route is unambiguous
-- any needed experiments are captured as a concrete TODO list
-- the quest can continue into `write`, `analysis-campaign`, `baseline`, `scout`, or `finalize` without ambiguity
+- 存在一份可靠的、持怀疑态度的评审笔记。
+- 最高风险的问题已显式化。
+- 下一步修订路由无歧义。
+- 任何所需的实验都被捕获为一份具体的 TODO 列表。
+- 任务可以无歧义地继续进入 `write`、`analysis-campaign`、`baseline`、`scout` 或 `finalize`。
 
-The goal is not to sound severe.
-The goal is to make the next revision step technically clear and evidence-bound.
+目标不是听起来严厉。
+目标是让下一步修订步骤在技术上清晰、并以证据为约束。
 
-A good review pass leaves fewer plausible next moves, not more.
+一次良好的评审轮次应留下更少合理的下一步，而不是更多。

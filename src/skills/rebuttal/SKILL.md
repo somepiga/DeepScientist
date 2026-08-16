@@ -1,466 +1,466 @@
 ---
 name: rebuttal
-description: Use when a quest already has a paper, draft, or review package and the task is to map reviewer feedback into experiments, manuscript deltas, and a durable rebuttal / revision response.
+description: 当任务已有一篇论文、草稿或评审打包物，且任务是将审稿人反馈映射为实验、稿件变更，以及一份持久的 rebuttal / 修订回复时使用。
 skill_role: companion
 ---
 
-# Rebuttal
+# Rebuttal（反驳/答辩）
 
-Use this skill when the quest is in review, revision, or rebuttal mode.
-The goal is to turn reviewer pressure into the smallest honest revision program that can actually be executed.
+当任务处于评审、修订或反驳模式时使用本技能。
+目标是将审稿人的压力转化为一套真正可执行的最小化诚实修订方案。
 
-This is not the same as ordinary `write`.
-The task is no longer “draft the paper from evidence”.
-The task is “respond to concrete reviewer pressure with the smallest honest set of experiments, text changes, claim adjustments, and response artifacts”.
+这与普通的 `write` 不同。
+任务不再是"根据证据起草论文"。
+任务是"用最小化的诚实实验集合、文本改动、主张调整与回复产物，来回应具体的审稿人压力"。
 
-## Interaction discipline
+## 交互纪律
 
-- Follow the shared interaction contract injected by the system prompt.
-- For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-- Message templates are references only. Adapt to the actual context and vary wording so updates feel natural and non-robotic.
-- If a threaded user reply arrives, interpret it relative to the latest rebuttal progress update before assuming the task changed completely.
-- When the rebuttal plan, the main supplementary-evidence package, or the final response bundle becomes durable, send one richer `artifact.interact(kind='milestone', reply_mode='threaded', ...)` update that says what reviewer concerns are now addressed, what still remains open, and what happens next.
-- Hard execution rule: if this stage needs terminal work such as manuscript builds, scripted checks, Git inspection, or reviewer-linked experiment launches, every such command must go through `bash_exec`.
+- 遵循系统提示注入的共享交互约定。
+- 对于普通的主动工作，当工作跨越约 6 次工具调用且出现了对人类有意义的增量时，优先给出一次简洁的进度更新；在没有用户可见更新的情况下，不要超出约 12 次工具调用或约 8 分钟。
+- 消息模板仅作参考。应适配实际上下文并变换措辞，使更新显得自然、非机械。
+- 如果收到线程化的用户回复，在假定任务已完全改变之前，应先依据最新的 rebuttal 进度更新来理解它。
+- 当反驳计划、主要的补充证据打包物，或最终回复包变得持久时，发送一次更丰富的 `artifact.interact(kind='milestone', reply_mode='threaded', ...)` 更新，说明哪些审稿人关切现已得到回应、哪些仍开放，以及接下来会发生什么。
+- 硬性执行规则：如果本阶段需要进行终端类工作，例如稿件构建、脚本化检查、Git 检查，或审稿人关联的的实验启动，则每一个此类命令都必须通过 `bash_exec` 执行。
 
-## Three-layer todo contract
+## 三层待办约定
 
-- keep quest-root `plan.md` as the top-level research map and reviewer-driven route surface
-- if rebuttal work is multi-step, use workspace `PLAN.md` as the current rebuttal-node contract and `CHECKLIST.md` as the execution frontier
-- when reviewer-driven follow-up becomes clear, update quest-root `plan.md` so the next edge to analysis, write, or decision is explicit instead of living only in the rebuttal packet
+- 将任务根目录 `plan.md` 保留为顶层研究地图与由审稿人驱动的路由面。
+- 如果反驳工作是多步骤的，使用工作区 `PLAN.md` 作为当前 rebuttal 节点契约，使用 `CHECKLIST.md` 作为执行前沿。
+- 当由审稿人驱动的后续动作变得清晰时，更新任务根目录 `plan.md`，使通往 analysis、write 或 decision 的下一个分叉显式化，而不是只存在于反驳包中。
 
-## Purpose
+## 目的
 
-`rebuttal` is an auxiliary orchestration skill for review-driven work.
+`rebuttal` 是一个针对评审驱动工作的辅助编排技能。
 
-It should convert reviewer material into a durable response workflow:
+它应将审稿人材料转化为一份持久的回复工作流：
 
-1. parse and normalize the review package
-2. split comments into stable atomic items and classify what they actually require
-3. decide which concerns need literature/positioning analysis, which need experiments, which need text, and which require claim downgrades
-4. route supplementary runs to `analysis-campaign` only after the analysis step says they are truly needed
-5. route manuscript edits to `write`
-6. assemble the response letter and revision ledger
+1. 解析并规范化评审打包物。
+2. 将评论拆分为稳定的原子项，并分类它们实际要求什么。
+3. 判断哪些关切需要文献 / 定位分析、哪些需要实验、哪些需要文本、哪些需要主张降级。
+4. 仅当分析步骤说明它们确实需要时，才将补充运行路由到 `analysis-campaign`。
+5. 将稿件编辑路由到 `write`。
+6. 组装回复信与修订账本。
 
-Default rebuttal stance: analysis before execution.
-Do not jump from “reviewer asked for more evidence” straight to experiments.
-Do not invent rebuttal-only special tools or side workflows.
-Stay inside the normal DeepScientist surface: `memory`, `artifact`, `bash_exec`, plus ordinary stage/companion skills.
-First decide whether the issue is actually:
+默认的反驳立场：先分析，后执行。
+不要从"审稿人要求更多证据"直接跳到实验。
+不要发明仅用于反驳的专用工具或旁支工作流。
+停留在正常的 DeepScientist 界面内：`memory`、`artifact`、`bash_exec`，以及普通的阶段 / 辅助技能。
+首先判断问题是否实际上是：
 
-- a wording / clarity gap
-- a literature / novelty / positioning gap
-- an evidence-presentation gap
-- a missing baseline or comparator
-- a genuinely new experiment gap
+- 措辞 / 清晰度缺口。
+- 文献 / 新颖性 / 定位缺口。
+- 证据呈现缺口。
+- 缺失的 baseline 或比较对象。
+- 真正新的实验缺口。
 
-## Use when
+## 使用时机
 
-- `startup_contract.custom_profile = revision_rebuttal`
-- the quest already has:
-  - reviewer comments
-  - a meta-review
-  - a revision request
-  - a decision letter
-  - a list of required extra experiments for a submitted paper
-- the user says:
-  - “补实验并写 rebuttal”
-  - “根据 review 修改论文”
-  - “先整理 reviewer comments 再决定实验”
+- `startup_contract.custom_profile = revision_rebuttal`。
+- 任务已拥有：
+  - 审稿人评论。
+  - 一份元评审（meta-review）。
+  - 一份修订请求。
+  - 一份决定信（decision letter）。
+  - 一份针对已投稿论文的必需额外实验清单。
+- 用户说：
+  - "补实验并写 rebuttal"。
+  - "根据 review 修改论文"。
+  - "先整理 reviewer comments 再决定实验"。
 
-## Do not use when
+## 不使用时机
 
-- the paper does not yet exist and the task is ordinary paper drafting
-- there are no concrete review materials
-- the work is actually a fresh ideation or baseline quest
+- 论文尚不存在，且任务是普通的论文起草。
+- 没有具体的评审材料。
+- 工作实际上是一次崭新的构思或 baseline 任务。
 
-## Non-negotiable rules
+## 不可妥协的规则
 
-- Do not invent experiment results, response claims, or manuscript changes that have not been made.
-- Do not promise “we will add” unless the work is truly planned and the response format explicitly allows future-work statements.
-- Do not silently ignore hard reviewer concerns because they are inconvenient.
-- Do not answer a reviewer with rhetoric when the issue actually requires evidence.
-- Do not run supplementary experiments without first mapping them to named reviewer concerns.
-- Do not keep the original claim scope if the new evidence no longer supports it.
-- If a reviewer request cannot be fully satisfied, say so clearly and explain the honest limitation.
-- If `startup_contract.baseline_execution_policy` is present, honor it:
-  - `must_reproduce_or_verify`
-    - verify or recover the rebuttal-critical baseline/comparator before reviewer-linked follow-up work
-  - `reuse_existing_only`
-    - trust the current baseline/results unless you find concrete inconsistency, corruption, or missing-evidence problems
-  - `skip_unless_blocking`
-    - do not spend time rerunning baselines unless a named reviewer item truly depends on a missing comparator
-- If `startup_contract.manuscript_edit_mode = latex_required`, treat the provided LaTeX tree or `paper/latex/` as the preferred writing surface when manuscript revision is needed.
-- If LaTeX source is unavailable while `latex_required` is requested, do not pretend the manuscript was edited; produce LaTeX-ready replacement text and an explicit blocker note instead.
-- Accept review inputs from URLs, local file paths, local directories, or current-turn attachments; do not assume the review packet must already be neatly structured.
+- 不要编造尚未做出的实验结果、回复主张或稿件改动。
+- 不要承诺"我们将添加"，除非该工作确实已规划，且回复格式显式允许未来工作陈述。
+- 不要因为硬性审稿人关切不方便就悄悄忽略它们。
+- 当问题实际要求证据时，不要用修辞来回答审稿人。
+- 不要在没有先将补充实验映射到具名审稿人关切的情况下运行它们。
+- 如果新证据不再支持原主张范围，不要保留原主张范围。
+- 如果某一审稿人请求无法被完全满足，应清楚说明，并解释诚实的局限性。
+- 如果 `startup_contract.baseline_execution_policy` 存在，应遵守它：
+  - `must_reproduce_or_verify`（必须复现或验证）
+    - 在与审稿人关联的后续工作之前，验证或恢复对反驳至关重要的 baseline / 比较对象。
+  - `reuse_existing_only`（仅复用已有的）
+    - 信任当前的 baseline / 结果，除非你发现具体的矛盾、损坏或缺失证据问题。
+  - `skip_unless_blocking`（除非阻塞否则跳过）
+    - 除非某个具名审稿人条目确实依赖于缺失的比较对象，否则不要花时间重跑 baseline。
+- 如果 `startup_contract.manuscript_edit_mode = latex_required`，在进行稿件修订时，将所提供的 LaTeX 树或 `paper/latex/` 视为首选写作面。
+- 在请求 `latex_required` 时若 LaTeX 源不可用，不要假装稿件已被编辑；应改为产出 LaTeX 就绪的替换文本与一条显式的阻塞说明。
+- 接受来自 URL、本地文件路径、本地目录，或当前回合附件的评审输入；不要假定评审包必须已经结构整齐。
 
-## Primary inputs
+## 主要输入
 
-Use, in roughly this order:
+按大致以下顺序使用：
 
-- the current paper or draft
-- the selected outline if one exists
-- review comments, meta-review, or editor letter
-- current-turn attachments and user-provided local paths / directories / URLs for the manuscript or review packet
-- the six-field `evaluation_summary` blocks from recent main experiments and analysis slices
-- recent main and analysis experiment results
-- prior decision and writing memory
-- existing figures, tables, and claim-evidence maps
+- 当前的论文或草稿。
+- 所选大纲（如果存在）。
+- 评审评论、元评审或编辑信。
+- 当前回合附件，以及用户提供的、指向稿件或评审包的本地路径 / 目录 / URL。
+- 来自近期主实验与分析切片的六字段 `evaluation_summary` 块。
+- 近期的主实验与分析实验结果。
+- 先前的决策与写作记忆。
+- 既有图表与主张-证据映射。
 
-If the current paper/result state is still unclear, open `intake-audit` first before continuing the rebuttal workflow.
-Before launching any new supplementary experiment, read those structured `evaluation_summary` blocks first so the rebuttal plan starts from the already-recorded evidence state rather than from raw narrative memory.
-If the user provided manuscript files or review-packet files directly, first normalize them into durable quest-visible paths under `paper/` or `paper/rebuttal/input/` before planning reviewer-linked experiments or draft replies.
+如果当前的论文 / 结果状态仍不清晰，先开启 `intake-audit`，再继续反驳工作流。
+在启动任何新的补充实验之前，先阅读那些结构化的 `evaluation_summary` 块，以便反驳计划从已记录的证据状态出发，而不是从原始叙述记忆出发。
+如果用户直接提供了稿件文件或评审包文件，在规划审稿人关联的实验或草稿回复之前，先将其规范化为 `paper/` 或 `paper/rebuttal/input/` 下的持久化任务可见路径。
 
-## Core outputs
+## 核心输出
 
-The rebuttal pass should usually leave behind:
+反驳轮次通常应留下：
 
 - `paper/rebuttal/review_matrix.md`
 - `paper/rebuttal/action_plan.md`
 - `paper/rebuttal/response_letter.md`
 - `paper/rebuttal/text_deltas.md`
 - `paper/rebuttal/evidence_update.md`
-- `paper/paper_experiment_matrix.md` when reviewer concerns materially change the paper experiment plan
-- `paper/paper_experiment_matrix.json` when reviewer concerns materially change the paper experiment plan
+- 当审稿人关切实质性地改变了论文实验计划时，`paper/paper_experiment_matrix.md`。
+- 当审稿人关切实质性地改变了论文实验计划时，`paper/paper_experiment_matrix.json`。
 
-Use the templates in `references/` when needed:
+在需要时使用 `references/` 中的模板：
 
 - `review-matrix-template.md`
 - `action-plan-template.md`
 - `response-letter-template.md`
 - `evidence-update-template.md`
 
-## Atomic reviewer-item contract
+## 原子化审稿人条目契约
 
-Before any rebuttal experiment or major rewrite, normalize reviewer pressure into stable atomic items.
+在任何反驳实验或重大改写之前，将审稿人压力规范化为稳定的原子项。
 
-For each item:
+对每一项：
 
-- give it a stable id such as `R1-C1`, `R1-C2`, `R2-C1`
-- preserve the reviewer wording as faithfully as possible
-  - if the original text is too long or noisy, controlled head/tail ellipsis is allowed
-  - do not rewrite the reviewer's meaning
-- record whether the item is explicit or inferred
-  - inferred items are allowed only when comments are incomplete or the user gave only rough prose
-  - mark them clearly as inferred
-- attach at least one evidence anchor:
-  - manuscript location
-  - existing result / table / figure
-  - literature comparison note
-  - or `missing_evidence` if the gap is still real
-- decide one primary route:
-  - `text_revision`
-  - `evidence_repackaging`
-  - `literature_positioning`
-  - `baseline_recovery`
-  - `supplementary_experiment`
-  - `claim_downgrade`
-  - `explicit_limitation`
+- 赋予一个稳定的 id，例如 `R1-C1`、`R1-C2`、`R2-C1`。
+- 尽可能忠实地保留审稿人的措辞。
+  - 如果原文过长或过杂，允许受控的头尾省略。
+  - 不要改写审稿人的原意。
+- 记录该项是显式还是推断的。
+  - 推断项仅当评论不完整，或用户只给了粗略叙述时才允许。
+  - 应明确标记为推断。
+- 附加至少一个证据锚点：
+  - 稿件位置。
+  - 既有结果 / 表 / 图。
+  - 文献对比笔记。
+  - 或 `missing_evidence`（如果缺口仍然真实）。
+- 决定一个主要路线：
+  - `text_revision`（文本修订）。
+  - `evidence_repackaging`（证据重新打包）。
+  - `literature_positioning`（文献定位）。
+  - `baseline_recovery`（baseline 恢复）。
+  - `supplementary_experiment`（补充实验）。
+  - `claim_downgrade`（主张降级）。
+  - `explicit_limitation`（显式局限性）。
 
-Do not let one vague reviewer paragraph remain as one vague work item.
-The point is to make downstream routing auditable.
+不要让一段模糊的审稿人段落保持为一个模糊的工作项。
+要点是让下游路由可审计。
 
-## Comment classes
+## 评论类别
 
-Every substantive reviewer comment should be classified as one or more of:
+每一条实质性的审稿人评论都应被归类为一类或多类：
 
-- `editorial`
-  - wording, organization, typo, presentation
-- `text_only`
-  - explanation gap, related-work gap, clarity gap, missing discussion
-- `evidence_gap`
-  - the paper is missing a table, figure, comparison, or stronger analysis already latent in existing results
-- `experiment_gap`
-  - genuinely new supplementary runs are required
-- `claim_scope`
-  - the current claim is too broad and must be narrowed or downgraded
-- `cannot_fully_address`
-  - the request is currently infeasible, out of scope, or impossible within the real evidence budget
+- `editorial`（编辑性）
+  - 措辞、组织、错别字、呈现。
+- `text_only`（纯文本）
+  - 解释缺口、相关工作缺口、清晰度缺口、缺失讨论。
+- `evidence_gap`（证据缺口）
+  - 论文缺失一个已潜在于既有结果中的表、图、对比或更强的分析。
+- `experiment_gap`（实验缺口）
+  - 确实需要真正新的补充运行。
+- `claim_scope`（主张范围）
+  - 当前主张过宽，必须收窄或降级。
+- `cannot_fully_address`（无法完全处理）
+  - 该请求在当前真实的证据预算内不可行、超出范围，或不可能完成。
 
-Do not blur these categories.
-The whole point is to route work correctly.
+不要模糊这些类别。
+整个要点在于正确地路由工作。
 
-Useful stance values for draft replies:
+用于草稿回复的有用立场取值：
 
-- `agree`
-- `partially_agree`
-- `clarify`
-- `respectful_disagree`
+- `agree`（同意）。
+- `partially_agree`（部分同意）。
+- `clarify`（澄清）。
+- `respectful_disagree`（礼貌性不同意）。
 
-Useful concern-type labels when the simple class list is not enough:
+当简单类别列表不够时，有用的关切类型标签：
 
-- `non_experimental`
-- `experimental`
-- `writing_logic`
-- `scope_novelty`
+- `non_experimental`（非实验性）。
+- `experimental`（实验性）。
+- `writing_logic`（写作逻辑）。
+- `scope_novelty`（范围 / 新颖性）。
 
-## Workflow
+## 工作流
 
-### 1. Normalize the review package
+### 1. 规范化评审打包物
 
-Collect reviewer inputs into a durable matrix using `references/review-matrix-template.md`.
+使用 `references/review-matrix-template.md`，将审稿人输入收集进一份持久的矩阵。
 
-For each comment, record:
+对每条评论，记录：
 
-- reviewer id if known
-- original comment summary
-- class
-- severity
-- whether it affects:
-  - acceptance risk
-  - the main claim
-  - only presentation
-- recommended action
-- stable item id such as `R1-C1`
-- reviewer wording or a source-faithful clipped quote
-- whether the item is explicit or inferred
-- preliminary route:
-  - text
-  - literature
-  - baseline
-  - experiment
-  - claim scope
-  - limitation
+- 审稿人 id（若已知）。
+- 原始评论摘要。
+- 类别。
+- 严重程度。
+- 是否影响：
+  - 录用风险。
+  - 主要主张。
+  - 仅呈现。
+- 推荐动作。
+- 稳定的条目 id，例如 `R1-C1`。
+- 审稿人措辞，或忠实于源文的裁剪引文。
+- 该项是显式还是推断。
+- 初步路线：
+  - 文本。
+  - 文献。
+  - baseline。
+  - 实验。
+  - 主张范围。
+  - 局限性。
 
-If the user gave only rough prose rather than a structured review package, build that matrix yourself before planning experiments or edits.
+如果用户只给了粗略叙述而非结构化的评审打包物，应在规划实验或编辑之前，自己构建该矩阵。
 
-### 2. Decide what must change
+### 2. 决定必须改变什么
 
-For each reviewer issue, decide whether the right answer is:
+对每一个审稿人问题，判断正确的答案是否为：
 
-- explanation only
-- existing evidence repackaging
-- new supplementary experiment
-- claim downgrade
-- explicit limitation response
+- 仅解释。
+- 既有证据的重新打包。
+- 新的补充实验。
+- 主张降级。
+- 显式的局限性回应。
 
-Then write one durable rebuttal plan in `paper/rebuttal/action_plan.md`.
-That plan should explicitly include the analysis-experiment TODO list for reviewer-linked follow-up work.
-If reviewer concerns materially change the paper's experiment story, also create or revise `paper/paper_experiment_matrix.*` so the rebuttal experiment package stays consistent with the paper-facing plan rather than drifting into a reviewer-only side list.
+然后在 `paper/rebuttal/action_plan.md` 中写出一份持久的反驳计划。
+该计划应显式包含面向审稿人后续工作的"分析-实验 TODO 列表"。
+如果审稿人关切实质性地改变了论文的实验叙事，还应创建或修订 `paper/paper_experiment_matrix.*`，使反驳实验包与面向论文的计划保持一致，而不是漂移到仅面向审稿人的旁支列表。
 
-The action plan should be the main thinking draft before execution.
-For each serious item, record:
+行动计应是执行前的主要思考草稿。
+对每一项严肃条目，记录：
 
-- item id
-- concern type
-- stance
-- chosen route
-- why that route is sufficient
-- what evidence already exists
-- what is still missing
+- 条目 id。
+- 关切类型。
+- 立场。
+- 所选路线。
+- 为何该路线足够。
+- 已存在什么证据。
+- 仍缺失什么。
 
-For experimental items, do not stop at “run experiment”.
-Write at least:
+对实验类条目，不要止步于"运行实验"。
+至少写出：
 
-- hypothesis
-- minimal success criterion
-- required metric(s)
-- MVP plan
-- Enhanced plan
-- fallback response wording if the experiment cannot be completed in time
+- 假设。
+- 最小成功准则。
+- 所需指标。
+- MVP 计划。
+- 增强计划（Enhanced plan）。
+- 若实验无法及时完成的兜底回复措辞。
 
-For novelty / comparison / positioning complaints, do not default to experiments.
-First decide whether the issue is better answered by a focused literature audit and clearer paper positioning.
+对于新颖性 / 对比 / 定位类抱怨，不要默认为实验。
+首先判断该问题是否更适合通过一次聚焦的文献审计与更清晰的论文定位来回答。
 
-When a reviewer concern really does imply experimental follow-up, map it into the same paper experiment taxonomy used by the writing line:
+当某一审稿人关切确实意味着实验后续时，将其映射到写作线所用的同一套论文实验分类法中：
 
-- `component_ablation`
-- `sensitivity`
-- `robustness`
-- `efficiency_cost`
-- `highlight_validation`
-- `failure_boundary`
-- `case_study_optional`
+- `component_ablation`（组件消融）。
+- `sensitivity`（敏感性）。
+- `robustness`（鲁棒性）。
+- `efficiency_cost`（效率 / 成本）。
+- `highlight_validation`（亮点验证）。
+- `failure_boundary`（失败边界）。
+- `case_study_optional`（案例研究，可选）。
 
-Case study remains optional unless the reviewer concern is specifically qualitative and cannot be addressed better with quantitative evidence.
+案例研究保持可选，除非审稿人关切具体地是定性，且无法用定量证据更好地回应。
 
-### 3. Route experiments only when genuinely needed
+### 3. 仅在真正需要时才路由实验
 
-If one or more comments truly require new runs:
+如果一条或多条评论确实要求新的运行：
 
-1. if the complaint is mainly about novelty, related work, or scope positioning, open `scout` first instead of treating it as an experiment request
-2. if the complaint requires an extra comparator baseline that is not yet available, open `baseline` first
-3. record a `decision(action='launch_analysis_campaign')`
-4. open `analysis-campaign`
-5. create a campaign where each slice is tied to one or more reviewer concerns
-6. after each slice finishes, immediately `artifact.record_analysis_slice(...)`
-7. update the review matrix and evidence update note
+1. 如果抱怨主要在于新颖性、相关工作或范围定位，先开启 `scout`，而不是将其当作实验请求。
+2. 如果抱怨需要一个尚不可用的额外比较 baseline，先开启 `baseline`。
+3. 记录一条 `decision(action='launch_analysis_campaign')`。
+4. 开启 `analysis-campaign`。
+5. 创建一个活动（campaign），其中每个切片都关联一个或多个审稿人关切。
+6. 每个切片完成后，立即 `artifact.record_analysis_slice(...)`。
+7. 更新评审矩阵与证据更新笔记。
 
-Do not launch a free-floating ablation batch.
-Every supplementary run should answer a named reviewer issue.
-Every slice should reference one or more stable reviewer item ids.
-Every rebuttal-linked slice should also reference the corresponding `exp_id` from `paper/paper_experiment_matrix.*` when that matrix exists.
-After each completed reviewer-linked slice, record the result, the implication for the manuscript, and the concrete modification advice in `paper/rebuttal/evidence_update.md`.
-Use the same shared supplementary-experiment protocol as ordinary analysis work; do not invent a rebuttal-only experiment system.
-If ids or refs are unclear, recover them first with `artifact.resolve_runtime_refs(...)`, `artifact.get_analysis_campaign(...)`, or `artifact.list_paper_outlines(...)`.
-After each completed, excluded, or blocked reviewer-linked slice:
+不要启动一个游离的消融批次。
+每一个补充运行都应回答一个具名的审稿人问题。
+每一个切片都应引用一个或多个稳定的审稿人条目 id。
+当该矩阵存在时，每一条反驳关联的切片还应引用来自 `paper/paper_experiment_matrix.*` 的相应 `exp_id`。
+在每个完成的审稿人关联切片之后，在 `paper/rebuttal/evidence_update.md` 中记录结果、对稿件的影响，以及具体的修改建议。
+使用与普通分析工作相同的共享补充实验协议；不要发明一套仅用于反驳的实验系统。
+如果 id 或引用不清晰，先用 `artifact.resolve_runtime_refs(...)`、`artifact.get_analysis_campaign(...)`，或 `artifact.list_paper_outlines(...)` 恢复它们。
+在每个完成、被排除或被阻塞的审稿人关联切片之后：
 
-- reopen `paper/paper_experiment_matrix.*`
-- update the affected `exp_id`
-- update whether the result now belongs in main text, appendix, or omission
-- update which reviewer items are now fully answered
+- 重新打开 `paper/paper_experiment_matrix.*`。
+- 更新受影响的 `exp_id`。
+- 更新该结果现在应属于主文、附录还是省略。
+- 更新哪些审稿人条目现已完全得到回答。
 
-Do not finalize the rebuttal package while reviewer-critical and currently feasible matrix rows remain unresolved without an explicit blocker note.
+当与审稿人关键、且当前可行的矩阵行仍未解决、且没有显式的阻塞说明时，不要将反驳包定稿。
 
-### 4. Route manuscript changes explicitly
+### 4. 显式路由稿件改动
 
-If the paper text, structure, or claim scope must change:
+如果论文文本、结构或主张范围必须改变：
 
-- open `write`
-- revise the selected outline when the narrative or claim map changed materially
-- keep `text_deltas.md` explicit:
-  - section
-  - old claim / weakness
-  - new wording or new scope
-  - evidence basis
-- keep the revision reader-first:
-  - direct answer to reviewer concern
-  - manuscript change
-  - evidence basis
-  - remaining limitation if still unresolved
+- 开启 `write`。
+- 当叙事或主张映射发生实质性改变时，修订所选大纲。
+- 保持 `text_deltas.md` 显式：
+  - 分节。
+  - 旧主张 / 弱点。
+  - 新措辞或新范围。
+  - 证据依据。
+- 保持修订以读者为先：
+  - 对审稿人关切的直接回应。
+  - 稿件改动。
+  - 证据依据。
+  - 若仍未解决，则给出剩余的局限性。
 
-If a reviewer request forces a narrower story, revise the outline before polishing prose.
+如果某一审稿人请求迫使叙事变窄，在润色散文之前先修订大纲。
 
-### 5. Assemble the response letter
+### 5. 组装回复信
 
-Use `references/response-letter-template.md` when helpful.
+在有帮助时使用 `references/response-letter-template.md`。
 
-Before treating the response letter as final:
+在将回复信视为最终之前：
 
-- first complete every feasible reviewer-linked experiment or analysis slice that the current plan marked as necessary
-- ensure the necessary rows in `paper/paper_experiment_matrix.*` have been refreshed after those runs
-- use real completed experiment results directly in the reply wherever the concern is genuinely experimental
-- for non-experimental items, do not wait for unnecessary experiments; answer as strongly as the current manuscript, literature, and analysis already allow
-- if one experimental item cannot be completed in time, keep the reply honest and explicit about the remaining limitation or fallback wording
+- 首先完成当前计划标记为必需的、每一个可行的审稿人关联实验或分析切片。
+- 确保在这些运行之后，`paper/paper_experiment_matrix.*` 中的必要行已被刷新。
+- 在回复中，凡是关切确实是实验性的地方，直接采用真实的已完成实验结果。
+- 对非实验类条目，不要等待不必要的实验；在当前的稿件、文献与分析已允许的范围内，尽可能有力地回答。
+- 如果某一项实验无法及时完成，保持回复诚实并显式说明剩余的局限或兜底措辞。
 
-The response should be:
+回复应：
 
-- professional
-- calm
-- specific
-- evidence-backed
-- non-defensive
+- 专业。
+- 冷静。
+- 具体。
+- 以证据为支撑。
+- 不防御。
 
-Good response structure:
+良好的回复结构：
 
-- short appreciation / acknowledgement
-- overall response that summarizes the revision strategy and the strongest strengths acknowledged across reviewers
-- strengths recognized across reviewers
-- direct answer to the reviewer concern
-- keep stable item ids visible when helpful
-- restate reviewer wording faithfully before answering
-- what changed:
-  - experiment
-  - table / figure
-  - text section
-  - claim scope
-- if not fully addressed, why not and what honest limitation remains
+- 简短的致谢 / 确认。
+- 概述性回复，总结修订策略，以及跨审稿人公认的最强优势。
+- 跨审稿人公认的优势。
+- 对审稿人关切的直接回应。
+- 在有帮助时保持稳定的条目 id 可见。
+- 在回答前忠实重述审稿人措辞。
+- 改变了什么：
+  - 实验。
+  - 表 / 图。
+  - 文本分节。
+  - 主张范围。
+- 若未完全解决，说明为何未解决，以及仍存在的诚实局限性。
 
-Drafting style rules for the actual author reply body:
+针对实际作者回复正文的起草风格规则：
 
-- Treat `response_letter.md` as rebuttal-ready author text, not as internal coaching notes.
-- Write in a calm, direct, precise author voice.
-- Sound like authors clarifying the record, not authors asking for approval.
-- Brief professional courtesy is allowed, but keep it short and move to substance immediately.
-- Avoid sycophancy, flattery, excessive gratitude, or approval-seeking language.
-- Do not default to conceding fault.
-- Use selective concede, selective clarify, and selective defend.
-- Answer the reviewer concern directly in the first 1 to 2 sentences.
-- For non-experimental items, reduce reviewer uncertainty as much as the real evidence allows; the goal is to make a score improvement reasonable for an honest reviewer, not to persuade through rhetoric alone.
-- Write strongly enough that a neutral reviewer or AC can judge the concern substantially addressed from the rebuttal text alone.
-- After the literal answer, address the underlying doubt about validity, novelty, scope, fairness, or completeness.
-- If the answer already exists in the manuscript, restate it in the rebuttal and then point to the manuscript change; do not only say “we will clarify”.
-- If the issue is about wording, interpretation, or claim strength, include the revised sentence or close paraphrase that should appear in the manuscript.
-- Keep the main response body for each item as 1 to 2 full paragraphs of polished prose.
-- Do not use bullets, numbered lists, bold labels, or checklist fragments inside the actual response paragraphs.
-- Do not narrate rebuttal strategy inside the author reply.
-- Do not rely on future edits alone when you can already give the clarification, argument, or wording now.
-- When pushing back, lead with evidence, scope, or feasibility constraints before intuition.
-- If `startup_contract.manuscript_edit_mode = latex_required`, keep manuscript-facing replacement text LaTeX-ready.
+- 将 `response_letter.md` 视为反驳就绪的作者文本，而不是内部指导笔记。
+- 用冷静、直接、精确作者声音写作。
+- 听起来像是在澄清记录的作者，而不是在请求批准的作者。
+- 允许简短的职业礼貌，但要简短并立即进入实质。
+- 避免谄媚、奉承、过度感激或寻求认可的措辞。
+- 不要默认为认错。
+- 使用选择性的让步、选择性的澄清与选择性的辩护。
+- 在前 1 至 2 句话中直接回答审稿人关切。
+- 对非实验类条目，在真实证据允许的范围内尽可能减少审稿人的不确定性；目标是在诚实的审稿人看来使分数提升合理，而不是仅靠修辞说服。
+- 写得足够有力，使一个中立的审稿人或 AC 仅凭反驳文本即可判断该关切已得到实质性回应。
+- 在字面回答之后，处理关于有效性、新颖性、范围、公平性或不完整性的潜在疑虑。
+- 如果回答已存在于稿件中，在反驳中重述它，然后指向稿件改动；不要只说"我们将澄清"。
+- 如果问题涉及措辞、解读或主张强度，应加入应出现在稿件中的修订句子或近似改写。
+- 将每个条目的主要回复正文保持为 1 至 2 整段打磨过的散文。
+- 不要在实际回复段落内部使用项目符号、编号列表、加粗标签或检查清单碎片。
+- 不要在与作者回复中叙述反驳策略。
+- 当你现在就能给出澄清、论证或措辞时，不要仅依赖未来的编辑。
+- 当提出反对时，先以证据、范围或可行性约束开头，再谈直觉。
+- 如果 `startup_contract.manuscript_edit_mode = latex_required`，保持面向稿件的替换文本为 LaTeX 就绪。
 
-If details are still genuinely unknown, use explicit placeholders such as `[[AUTHOR TO FILL]]` rather than inventing specifics.
+如果细节确实仍未知，使用显式的占位符，例如 `[[AUTHOR TO FILL]]`，而不是编造具体内容。
 
-Avoid:
+避免：
 
-- empty politeness
-- evasive wording
-- pretending a limitation is solved when it is only reframed
+- 空洞的客套。
+- 含糊其辞的措辞。
+- 假装一个局限性已被解决，而它只是被重新框定。
 
-### 6. Final revision handoff
+### 6. 最终修订移交
 
-When the rebuttal package is durably ready:
+当反驳包持久就绪时：
 
-- update the review matrix statuses
-- update the response letter
-- update text deltas and evidence update
-- if the revised manuscript bundle is genuinely ready, route through `artifact.submit_paper_bundle(...)`
+- 更新评审矩阵状态。
+- 更新回复信。
+- 更新文本变更与证据更新。
+- 如果修订后的稿件打包物确实就绪，通过 `artifact.submit_paper_bundle(...)` 路由。
 
-If a combined rebuttal note is useful, make sure the total package still covers:
+如果一份合并的反驳说明有用，确保整个打包物仍覆盖：
 
-- overall response
-- strengths recognized across reviewers
-- overview and revision strategy
-- draft responses to reviewers
-- point-to-point triage
-- experiment action plan
-- manuscript revision suggestions
-- evidence mapping
-- unresolved items and risk notes
+- 总体回复。
+- 跨审稿人公认的优势。
+- 概览与修订策略。
+- 面向审稿人的草稿回复。
+- 点对点分流。
+- 实验行动计划。
+- 稿件修订建议。
+- 证据映射。
+- 未决项与风险说明。
 
-## Companion skill routing
+## 辅助技能路由
 
-Open additional skills only when the rebuttal workflow requires them:
+仅在反驳工作流需要时才开启额外的技能：
 
 - `intake-audit`
-  - when the current draft/result/review state is still unclear
+  - 当当前的草稿 / 结果 / 评审状态仍不清晰时。
 - `scout`
-  - when reviewer pressure is mainly about novelty, positioning, related work, or comparison framing
+  - 当审稿人压力主要在于新颖性、定位、相关工作或对比框架时。
 - `baseline`
-  - when the rebuttal requires an extra comparator baseline that is not yet trusted
+  - 当反驳需要一个尚未被信任的额外比较 baseline 时。
 - `analysis-campaign`
-  - when reviewer concerns require supplementary runs
+  - 当审稿人关切需要补充运行时。
 - `write`
-  - when claims, outline, sections, or figures must be revised
+  - 当主张、大纲、分节或图表必须修订时。
 - `figure-polish`
-  - when a new figure or revised figure will be part of the rebuttal or manuscript update
+  - 当一张新图或修订图将成为反驳或稿件更新的一部分时。
 - `decision`
-  - when the rebuttal route is non-trivial, for example:
-    - whether to spend budget on a hard reviewer request
-    - whether to downgrade the claim
-    - whether to treat one concern as appendix-only
+  - 当反驳路由不平凡时，例如：
+    - 是否值得为某个硬性的审稿人请求花费预算。
+    - 是否应降级主张。
+    - 是否应将某一关切仅作附录处理。
 
-## Artifact routing guidance
+## 产物路由指引
 
-Use these tools deliberately:
+慎重使用这些工具：
 
 - `artifact.record(payload={'kind': 'decision', ...})`
-  - route choice, claim downgrade, literature-audit launch, baseline-recovery launch, supplementary-experiment launch, rebuttal completion recommendation
+  - 路由选择、主张降级、文献审计启动、baseline 恢复启动、补充实验启动、反驳完成建议。
 - `artifact.create_analysis_campaign(...)`
-  - multi-slice reviewer-driven supplementary work
+  - 多切片、由审稿人驱动的补充工作。
 - `artifact.record_analysis_slice(...)`
-  - one completed reviewer-facing supplementary slice
+  - 一个完成的、面向审稿人的补充切片。
 - `artifact.submit_paper_outline(mode='revise', ...)`
-  - when review changes the active paper blueprint
+  - 当评审改变了当前论文蓝图时。
 - `artifact.submit_paper_bundle(...)`
-  - when the revised manuscript package is durably ready
+  - 当修订后的稿件打包物持久就绪时。
 - `artifact.interact(...)`
-  - user-visible progress and rebuttal milestones
+  - 用户可见的进度与反驳里程碑。
 
-## Memory discipline
+## 记忆纪律
 
-Stage-start requirement:
+阶段开始要求：
 
-- run `memory.list_recent(scope='quest', limit=5)`
-- run at least one `memory.search(...)` for:
-  - paper title
-  - main method name
-  - reviewer / rebuttal / revision
-  - key criticized claim or figure
+- 运行 `memory.list_recent(scope='quest', limit=5)`。
+- 针对以下内容至少运行一次 `memory.search(...)`：
+  - 论文标题。
+  - 主要方法名。
+  - reviewer / rebuttal / revision。
+  - 被批评的关键主张或图。
 
-Stage-end requirement:
+阶段结束要求：
 
-- if the rebuttal pass produced a durable lesson, claim downgrade, or reviewer-driven route change, write at least one `memory.write(...)`
+- 如果反驳轮次产生了持久的经验、主张降级，或审稿人驱动的路由改变，至少写入一次 `memory.write(...)`。
 
-Useful tags include:
+有用的标签包括：
 
 - `stage:rebuttal`
 - `type:review-matrix`
@@ -468,20 +468,20 @@ Useful tags include:
 - `type:revision-lesson`
 - `type:reviewer-request`
 
-## Success condition
+## 成功条件
 
-`rebuttal` is successful when:
+`rebuttal` 成功当且仅当：
 
-- reviewer concerns are normalized into a durable matrix
-- each serious concern has an explicit action class
-- supplementary experiments, if needed, are routed cleanly
-- manuscript deltas are explicit
-- the response letter is evidence-backed and honest
-- the final package contains both:
-  - reviewer-specific replies
-  - one overall response that makes the paper strengths, the main resolved concerns, and the remaining limitations legible to a neutral reader or AC
+- 审稿人关切已被规范化为一份持久的矩阵。
+- 每个严肃关切都有一个显式的动作类别。
+- 所需的补充实验（若有）被干净地路由。
+- 稿件变更是显式的。
+- 回复信以证据为支撑且诚实。
+- 最终打包物同时包含：
+  - 面向各审稿人的回复。
+  - 一份总体回复，使论文优势、已解决的主要关切，以及剩余局限性对一个中立读者或 AC 来说是清晰可读的。
 
-The goal is not just “write a nicer response”.
-The goal is to convert review pressure into a durable, auditable revision workflow.
+目标不只是"写一封更好看的回复"。
+目标是将评审压力转化为一份持久的、可审计的修订工作流。
 
-A good rebuttal pass leaves a concrete revision matrix and a concrete next action, not just a more persuasive tone.
+一次良好的反驳轮次应留下一份具体的修订矩阵与一个具体的下一步动作，而不只是更有说服力的语气。

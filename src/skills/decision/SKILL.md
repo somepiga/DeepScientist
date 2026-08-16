@@ -1,128 +1,128 @@
 ---
 name: decision
-description: Use when the quest needs an explicit go, stop, branch, reuse-baseline, write, finalize, reset, or user-decision transition with reasons and evidence.
+description: 当一个任务(quest)需要一次显式的 继续/停止/分支/复用基线/写作/定稿/重置 或 用户决策 转换，并附带理由与证据时使用。
 skill_role: stage
 ---
 
-# Decision
+# 决策(Decision)
 
-Use this skill whenever continuation is non-trivial.
-Use it to make one route judgment from durable evidence and then get the quest moving again.
+只要推进过程非平凡，就使用本技能。
+用它从持久证据做出一次路由判断，然后让任务重新动起来。
 
-## Match signals
+## 匹配信号
 
-Use `decision` when:
+在以下情况使用 `decision`：
 
-- the next stage is not obvious
-- the evidence is mixed
-- the current line may need to stop
-- the quest needs a branch, reset, or reuse-baseline judgment
-- a user preference-sensitive choice remains
-- a blocker needs an explicit route
+- 下一阶段不明显
+- 证据混杂
+- 当前线可能需要停止
+- 任务需要一次分支、重置或复用基线的判断
+- 仍有一个用户偏好敏感的选择
+- 一个阻塞点需要显式路由
 
-Do not use `decision` when:
+在以下情况不要使用 `decision`：
 
-- the active mainline is still too ambiguous for a real route judgment and should first be reconciled through `intake-audit`
-- the next move is already obvious from durable evidence and can proceed directly
-- the task is really baseline recovery, scouting, ideation, or execution rather than a route judgment
+- 活跃主线仍过于模糊、不足以做出真实路由判断，应首先通过 `intake-audit` 调和
+- 下一步已从持久证据中明确、可直接推进
+- 任务实质是基线恢复、侦察、构思或执行，而非路由判断
 
-## One-sentence summary
+## 一句话总结
 
-Make one route judgment from durable evidence, record the verdict and smallest valid action, then keep the quest moving.
+从持久证据做出一次路由判断，记录结论与最小有效动作，然后让任务继续推进。
 
-## Control workflow
+## 控制工作流
 
-1. Check whether the board is decision-ready.
-   If the current mainline, latest decisive result, or stale-route state is unclear, route through `intake-audit` first.
-2. State the real question and gather only decision-relevant evidence.
-   Compress the strongest support, strongest contradiction, main risk, main cost, and what is genuinely new.
-3. Choose the smallest canonical action that resolves the current state.
-   Make the winner, main rejected alternatives, and the decisive reason explicit.
-4. Record the decision durably.
-   Include verdict, action, reason, evidence paths, and next stage or next direction.
-5. Ask the user only when local evidence cannot safely resolve a real preference, scope, or cost choice.
+1. 检查棋盘是否已具备决策就绪。
+   若当前主线、最新决定性结果或过期路由状态不清晰，先通过 `intake-audit` 路由。
+2. 陈述真实问题，只收集与决策相关的证据。
+   压缩最强的支撑、最强的矛盾、主要风险、主要成本，以及真正的新内容。
+3. 选择能解决当前状态的最小规范动作。
+   使胜出方、主要被拒的备选方案与决定性理由显式。
+4. 持久记录决策。
+   包含结论、动作、理由、证据路径，以及下一阶段或下一方向。
+5. 仅当本地证据无法安全地解决真实的偏好、范围或成本选择时，才询问用户。
 
-## AVOID / pitfalls
+## 避免 / 陷阱
 
-- Do not repeat the same decision without new evidence.
-- Do not decide from vibe, momentum, or optimism.
-- Do not hide a blocked state behind a vague “continue”.
-- Do not launch analysis campaigns casually when the expected information gain is weak.
-- Do not choose among candidate packages without naming why the alternatives lost.
-- Do not imply baseline reuse is resolved unless the concrete attachment and confirmation path is clear.
-- Do not choose `finalize` for a paper line unless manuscript coverage reports `submission_ready=true`; a draft checkpoint routes back to `write`, and a review package routes to `review`.
-- Do not keep a paper route alive after a publishability stop-loss finding. If durable evidence shows that novelty, evidence sufficiency, or reader value has collapsed beyond reasonable narrowing, recommend `stop` or `branch`, and record any narrowed non-paper objective as the next direction rather than as a new action. Do not execute `stop` for a low-quality paper judgment without asking the user to confirm that route.
+- 不要在没有新证据的情况下重复同一决策。
+- 不要凭感觉、惯性或乐观做决策。
+- 不要用含糊的“继续”掩盖一个被阻塞的状态。
+- 当预期的信息增益微弱时，不要随意发起分析活动(campaign)。
+- 不要在不说明备选方案为何落败的情况下，在候选包之间做选择。
+- 除非具体的挂载与确认路径清晰，否则不要暗示基线复用已解决。
+- 除非手稿覆盖度报告 `submission_ready=true`，否则不要为一条论文线选择 `finalize`；草稿检查点应路由回 `write`，评审包应路由到 `review`。
+- 在可发表性止损结论之后，不要继续维持一条论文路由。如果持久证据显示新颖性、证据充分性或读者价值已崩塌到超出合理收窄的范围，应建议 `stop` 或 `branch`，并将任何已收窄的非论文目标记录为下一方向，而非一个新动作。在没有请用户确认该路由的情况下，不要因低质量论文判断而执行 `stop`。
 
-## Constraints
+## 约束
 
-- Use durable evidence, not impressions, as the basis for route judgment.
-- Use the smallest canonical action that genuinely resolves the state.
-- When baseline reuse or attachment is selected, land it concretely and leave an explicit blocker or waiver if the baseline gate still cannot clear.
-- Use blocking user requests only when the user truly must choose.
-- Later stages must not need to guess what was decided, why it was decided, or what happens next.
+- 以持久证据而非印象作为路由判断的基础。
+- 使用能真正解决该状态的最小规范动作。
+- 当选择复用基线或挂载时，应具体落地，并在基线关卡仍无法通关时留下显式阻塞点或豁免。
+- 仅当用户确实必须选择时，才使用阻塞式用户请求。
+- 后续阶段不得需要去猜测决定了什么、为何这样决定，或接下来发生什么。
 
-## Validation
+## 校验
 
-Before `decision` can end, all applicable checks should be true:
+在 `decision` 可以结束之前，所有适用的检查都应为真：
 
-- the route question is explicit
-- the decisive evidence is explicit
-- the chosen action matches the actual state
-- the main rejected alternative or blocker is visible
-- the decision is durably recorded with verdict, action, reason, evidence paths, and next direction
-- the next stage or next action is explicit
+- 路由问题显式
+- 决定性证据显式
+- 所选动作匹配实际状态
+- 主要被拒的备选方案或阻塞点可见
+- 决策已被持久记录，含结论、动作、理由、证据路径与下一方向
+- 下一阶段或下一动作显式
 
-## Interaction discipline
+## 交互纪律
 
-Follow the shared interaction contract injected by the system prompt.
-Avoid repeating the same decision without new evidence, and use blocking requests only when the user truly must choose.
-For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-When a decision materially resolves ambiguity and the quest can continue automatically, follow the durable record with `artifact.interact(kind='milestone', reply_mode='threaded', ...)` so the user can see the chosen route, the decisive evidence, and the next checkpoint.
+遵循系统提示注入的共享交互契约。
+避免在没有新证据的情况下重复同一决策，且仅当用户确实必须选择时才使用阻塞式请求。
+对于普通活跃工作，一旦工作跨越约 6 次工具调用且产生对人类有意义的增量时，优先给出一次简洁的进度更新，且不要在没有用户可见更新情况下漂移超过约 12 次工具调用或约 8 分钟。
+当一项决策实质性地消解了模糊性、任务可自动继续时，在持久记录之后使用 `artifact.interact(kind='milestone', reply_mode='threaded', ...)`，以便用户能看到所选路由、决定性证据与下一个检查点。
 
-## Tool discipline
+## 工具纪律
 
-- **Do not use native `shell_command` / `command_execution` in this skill.**
-- **If decision-making needs shell, CLI, Python, bash, node, git, npm, uv, or environment evidence, gather it through `bash_exec(...)`.**
-- **For git state inside the current quest repository or worktree, prefer `artifact.git(...)` before raw shell git commands.**
-- **Use `decision` to judge the route, not as an excuse to bypass the `bash_exec(...)` / `artifact.git(...)` tool contract.**
+- **不要在本技能中使用原生的 `shell_command` / `command_execution`。**
+- **若决策需要 shell、CLI、Python、bash、node、git、npm、uv 或环境证据，应通过 `bash_exec(...)` 收集。**
+- **对于当前任务仓库或 worktree 内的 git 状态，在原始 shell git 命令之前优先 `artifact.git(...)`。**
+- **使用 `decision` 来判断路由，而非作为绕过 `bash_exec(...)` / `artifact.git(...)` 工具契约的借口。**
 
-## Truth sources
+## 真相来源
 
-Make decisions from durable evidence:
+从持久证据做决策：
 
-- the current board packet when one exists
-- recent run artifacts
-- report artifacts
-- baseline state
-- quest documents
-- memory only as supporting context
+- 当前棋盘包（当存在时）
+- 近期运行产物
+- 报告产物
+- 基线状态
+- 任务文档
+- 记忆仅作为支撑上下文
 
-Do not make major decisions from vibe or momentum.
-Do not treat `decision` as a substitute for state reconciliation when the active mainline is still ambiguous.
+不要凭感觉或惯性做重大决策。
+当活跃主线仍模糊时，不要将 `decision` 当作状态调和的替代品。
 
-When the quest is algorithm-first, add one extra truth-source rule before non-trivial route choices:
+当任务是算法优先时，在做出非平凡的路由选择之前，增加一条额外的真相来源规则：
 
-- read `artifact.get_optimization_frontier(...)`
-- treat the frontier as the primary optimize-state summary
-- only override it when newer durable evidence clearly dominates
-- if the frontier says `explore`, do not collapse immediately to exploit unless the latest durable result clearly changes the frontier
-- if the frontier says `fusion`, judge whether complementary lines can be merged before launching another isolated candidate
+- 阅读 `artifact.get_optimization_frontier(...)`
+- 将前沿(frontier)视为主要的 optimize 状态摘要
+- 仅当更新的持久证据明显占优时才覆盖它
+- 若前沿说 `explore`，不要立即坍缩为 exploit，除非最新持久结果明显改变了前沿
+- 若前沿说 `fusion`，在发起另一个孤立候选之前，判断互补的线能否被合并
 
-## Required decision record
+## 必需的决策记录
 
-Every consequential decision should make clear:
+每个有后果的决策都应明确：
 
-- verdict
-- action
-- reason
-- evidence paths
-- next stage or next direction
+- 结论(verdict)
+- 动作(action)
+- 理由(reason)
+- 证据路径(evidence paths)
+- 下一阶段或下一方向
 
-Keep the verdict simple and legible, and make sure the chosen action matches the actual state rather than sounding optimistic by default.
+保持结论简洁且易读，并确保所选动作匹配实际状态，而非默认听起来乐观。
 
-## Canonical actions
+## 规范动作
 
-Use the following canonical actions:
+使用以下规范动作：
 
 - `continue`
 - `launch_experiment`
@@ -141,61 +141,61 @@ Use the following canonical actions:
 - `stop`
 - `request_user_decision`
 
-Choose the smallest action that genuinely resolves the current state.
+选择能真正解决当前状态的最小动作。
 
-For paper-outline decisions, use `artifact.submit_paper_outline(mode='select', ...)` when selecting an existing candidate and `artifact.submit_paper_outline(mode='revise', ...)` when the selected outline needs repair.
-For paper-bundle decisions, use `artifact.submit_paper_bundle(...)` only when the draft or package state is durable enough for that package type.
-When deciding whether a paper line can advance, judge method fidelity and story coherence as well as metric coverage.
-For paper routes, apply the publishability stop-loss rule before choosing `write`, `review`, or `finalize`: if the line cannot plausibly become a useful and defensible paper, recommend stopping the paper objective or branching to a stronger route instead of adding another writing pass. If the proposed action is `stop` because paper quality is too low, first ask for a user decision with the evidence and the branch/narrow alternatives. If the user has given publication, scope, cost, or non-paper preferences, consider them explicitly; if those preferences are unclear and materially affect the stop/branch choice, ask for a user decision.
+对于论文大纲决策，在选择已有候选时使用 `artifact.submit_paper_outline(mode='select', ...)`，当所选大纲需要修复时使用 `artifact.submit_paper_outline(mode='revise', ...)`。
+对于论文包决策，仅当草稿或包状态对该包类型已足够持久时，才使用 `artifact.submit_paper_bundle(...)`。
+在判断一条论文线能否推进时，既要判断方法保真度与故事连贯性，也要判断指标覆盖度。
+对于论文路由，在选择 `write`、`review` 或 `finalize` 之前应用可发表性止损规则：如果该线无法合理地成为一篇有用且站得住脚的论文，应建议停止该论文目标或分支到更强的路由，而非再增加一轮写作。如果所提动作因论文质量过低而取 `stop`，应首先带着证据与分支/收窄备选方案请求用户决策。如果用户已给出发表、范围、成本或非论文偏好，应显式考虑它们；若这些偏好不清晰且实质性影响停止/分支选择，应请求用户决策。
 
-Apply the symmetric **exploration-depth gate before recommending `close_round_write_paper` for an all-negative-result paper** (every attempted idea has been falsified or family-bounded, no positive lift survives). Before routing to `write`, answer all of these in the decision artifact:
+在推荐 `close_round_write_paper` 处理一篇“全负结果”论文之前，应用对称的**探索深度关卡**（每一个被尝试的创意都已被证伪或在族内被限定，没有任何正向提升存活）。在路由到 `write` 之前，在决策产物中回答以下全部问题：
 
-- Have you tested at least two structurally distinct idea families from `idea/references/idea-thinking-flow.md` (mechanism, objective, measurement, infrastructure, or model-architecture / ensemble / multi-agent), or only multiple variants inside one family?
-- Have you challenged the bottleneck framing itself — is "X is the locus of the residual gap" a conclusion or just an artefact of where you stopped looking?
-- Has the literature surfaced a structurally different route the current attempts did not cover (cross-domain mechanism transfer, different evaluator regime, different training-data composition, etc.)?
-- How much of the quest's `time_budget_hours` is unused, and could a third structurally distinct family fit inside the remainder?
+- 你是否已从 `idea/references/idea-thinking-flow.md` 测试了至少两个结构不同的创意族（机制、目标、测量、基础设施，或模型架构 / 集成 / 多智能体），还是仅在一个族内尝试了多个变体？
+- 你是否挑战了瓶颈框架本身——“X 是残差缺口的核心”究竟是一个结论，还是仅仅源于你停止探索之处的产物？
+- 文献是否浮现了一条当前尝试未覆盖的结构性不同路由（跨域机制迁移、不同的评估者体制、不同的训练数据构成等）？
+- 任务 `time_budget_hours` 中未使用的部分还有多少，剩余时间能否容纳第三个结构不同的族？
 
-If any answer is "no" or "unsure" and the time budget allows, route back to `idea` for a re-ideation pass focused on a structurally different family before concluding. The negative-result paper is still the right outcome when the gate is honestly cleared; this gate just prevents premature closure when only one corner of the design space has been ruled out. Positive-result papers are not blocked by this gate.
-For resume-changing route decisions, write one compact checkpoint-style quest memory card so later turns know the current active node, node history, what not to reopen by default, and the first files to read.
-Use `type:checkpoint-memory` and `references/checkpoint-memory-template.md` for that card.
+如果任何答案为“否”或“不确定”，且时间预算允许，则路由回 `idea` 进行一次聚焦于结构性不同族的重新构思，再下结论。当关卡被诚实地通关时，负结果论文仍是正确的结果；该关卡只是防止在仅排除了设计空间一个角落时就过早收尾。正结果论文不受此关卡约束。
+对于改变恢复点的路由决策，写一张紧凑的检查点式任务记忆卡，使后续轮次知道当前活跃节点、节点历史、默认不应重开的内容，以及首先应读取的文件。
+对该卡使用 `type:checkpoint-memory` 与 `references/checkpoint-memory-template.md`。
 
-## Operational guidance
+## 操作指引
 
-The main skill keeps the control surface in front.
-For the longer judgment and route-shaping notes, read:
+主技能将控制界面置于前。
+关于更长的判断与路由塑形笔记，阅读：
 
 - `references/strategic-decision-template.md`
 - `references/research-route-criteria.md`
 - `references/operational-guidance.md`
 - `references/checkpoint-memory-template.md`
 
-Use them when:
+在以下情况使用它们：
 
-- a richer route-change rationale is needed
-- research-route selection among candidate packages is the main difficulty
-- memory should preserve the new authoritative resume point
+- 需要更丰富的路由变更理由
+- 候选包之间的研究路由选择是主要难点
+- 记忆应保留新的权威恢复点
 
-## Decision-quality rules
+## 决策质量规则
 
-Good decisions:
+好的决策：
 
-- are evidence-backed
-- name tradeoffs
-- say what happens next
-- say why the alternative was not chosen
-- explicitly identify the winning candidate when choosing among multiple packages
-- do not launch analysis campaigns unless the expected information gain clearly justifies the extra resource cost
+- 有证据支撑
+- 点名权衡
+- 说明接下来发生什么
+- 说明为何未选备选方案
+- 在多个包之间选择时显式识别胜出候选
+- 除非预期信息增益明显证明额外资源成本合理，否则不发起分析活动(campaign)
 
-Weak decisions:
+弱的决策：
 
-- hide uncertainty
-- lack evidence paths
-- give vague approvals
-- pretend blocked states are progress
-- choose a winner without naming the rejected alternatives or criteria
+- 隐藏不确定性
+- 缺乏证据路径
+- 给出含糊的批准
+- 假装被阻塞状态就是进展
+- 在选择胜出者时不点名被拒的备选方案或标准
 
-## Exit criteria
+## 退出标准
 
-Exit once the decision is durably recorded and the next stage or action is explicit.
+一旦决策被持久记录、且下一阶段或动作显式，即可退出。
 
-A good decision pass changes the route once; it does not keep re-explaining the same route without new evidence.
+一次良好的决策处理应改变路由一次；它不会在没有新证据的情况下不断重复解释同一路由。

@@ -137,6 +137,7 @@ class PromptBuilder:
         turn_mode: str | None = None,
         retry_context: dict | None = None,
         runner_name: str = "codex",
+        agent_prompt: str | None = None,
     ) -> str:
         snapshot = self.quest_service.snapshot(quest_id)
         runtime_config = self.config_manager.load_named("config")
@@ -272,6 +273,16 @@ class PromptBuilder:
                 ),
             ]
         )
+        if agent_prompt:
+            sections.extend(
+                [
+                    "",
+                    "## Active Agent Dedicated Prompt",
+                    "The following is this agent's dedicated prompt. Follow it as the primary instruction for the current stage; the skill path listing below remains available for cross-stage reference.",
+                    "",
+                    agent_prompt,
+                ]
+            )
         if cross_quest_recall_block:
             sections.extend(["", "## Cross-Quest Recall Policy", cross_quest_recall_block])
         if hardware_block:

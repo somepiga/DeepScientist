@@ -1,490 +1,490 @@
 ---
 name: write
-description: Use when a quest has enough evidence to draft or refine a paper, report, or research summary without inventing missing support.
+description: 当一个任务(quest)已有足够证据来起草或打磨一篇论文、报告或研究综述，且无需编造缺失支撑时使用。
 skill_role: stage
 ---
-# Write
-
-## Match Signals
-- Use when an accepted baseline and at least one meaningful result already exist, and the main blocker is now drafting, revising, bundling, or tightening a paper/report.
-- Strong triggers: draft a paper/report, revise a section, synchronize claim-evidence support, prepare a paper bundle, or upgrade an existing draft into a stronger conference submission.
-- If the task is specifically "upgrade an existing draft toward top-conference / oral quality", use the `Draft To Top Conference Oral` section below.
-- Do not use when the evidence base is still weak or unstable, the main need is new experiments / baselines / ideation, or the request is only literature search.
-
-## One-Sentence Summary
-- Refresh the paper contract first, then draft section-by-section from durable evidence; if evidence, figures, or citations are not ready, repair or route back instead of writing around the gap.
-
-## Pre-write Revision Strategy Gate
-
-Before editing a manuscript, first produce a concrete revision strategy from the current evidence state.
-Do not begin polishing prose until the strategy separates:
-
-- evidence gaps: require new analysis, rerun, or claim downgrade
-- manuscript-mapping gaps: completed results missing from main text, table, figure, or appendix
-- unsupported writing: claims present in the draft without durable result artifacts
-- narrative / positioning gaps: weak framing, novelty boundary, contribution logic
-- citation gaps: too few or weak references for the claimed scope
-- metadata drift: matrix, ledger, outline, figures, tables, and manuscript disagree
-
-For each issue, choose exactly one action:
-
-- run or request analysis
-- downgrade or remove the claim
-- add result to main text
-- move result to appendix with a clear bridge
-- add or repair a table/figure
-- add verified citations
-- repair the paper contract before writing
-- route to review / decision instead of writing
-
-Never make an unsupported claim sound more convincing.
-If evidence is missing, either obtain evidence, narrow the claim, or mark the blocker.
-
-## Workflow
-1. Refresh control state first.
-   Run `memory.list_recent(scope='quest', limit=5)` plus one writing-relevant `memory.search(...)`. If restart context is unclear, use `artifact.get_quest_state(detail='summary')`, `artifact.read_quest_documents(...)`, or `artifact.get_conversation_context(...)`.
-2. Lock the paper contract before heavy prose.
-   Keep `paper/selected_outline.json`, `paper/evidence_ledger.json`, and `paper/paper_experiment_matrix.md` or `.json` aligned. Use `artifact.get_paper_contract(detail='full')` as the default paper-reading surface when section rows, experiment rows, or analysis rows matter. Use `artifact.get_paper_contract_health(detail='full')` when outline state, experiment rows, or evidence ownership may be stale. Use `artifact.submit_paper_outline(mode='candidate'|'select'|'revise', ...)` instead of leaving outline choice only in prose.
-   When several paper shapes are plausible, record one or more outline candidates with `artifact.submit_paper_outline(mode='candidate', ...)`, then select or revise explicitly with `artifact.submit_paper_outline(mode='select'|'revise', ...)`; do not force extra outline rounds once the selected outline is good enough for the current writing job.
-3. Validate the outline before drafting.
-   Run `artifact.validate_academic_outline(detail='full')`. If it fails, use `paper-outline` or `artifact.submit_paper_outline(mode='revise', ...)` to repair the paper idea, claims, evidence boundaries, and analysis plan before prose work. When it passes, run `artifact.compile_outline_to_writing_plan(detail='full')` and draft from those jobs.
-4. Sort source material before drafting.
-   Ask: is this a claim, an experiment setting, a reproducibility detail, implementation plumbing, artifact history, or a user/operator instruction? Claims and experiment settings may become manuscript text. Reproducibility details usually go to appendix. Artifact history and user/operator instructions should not appear in the manuscript.
-5. Refresh literature and citation truth.
-   Run `breadth -> shortlist -> depth`. Use DeepXiv or OpenAlex for discovery when available, then retrieve BibTeX from DOI or arXiv, not from memory. Keep `paper/references.bib` machine-usable and audit it before bundle submission.
-   If DeepXiv is declared available by the system prompt, prefer it for paper-centric discovery and shortlist triage before broad web search when it can answer the question directly. If DeepXiv is declared unavailable, do not try to force it; stay on the legacy route. Use `artifact.arxiv(paper_id=..., full_text=False)` for actual arXiv paper reads before escalating to full text.
-6. Plan displays before prose.
-   If a section needs a paper-facing measured figure, use `paper-plot` first. Use `figure-polish` only after a durable first-pass render exists. Sync resulting figure paths and takeaways back into `paper/evidence_ledger.json`, `paper/paper_experiment_matrix.md`, and the draft.
-7. Route Nature companion work by paper surface.
-   Open a `nature-*` skill only after the current section job, evidence rows, and unresolved fields are known. Use the companion skill to produce a bounded section/figure/deck deliverable, then return to `write` to integrate it into the draft, evidence ledger, figure/table catalog, references, and bundle status.
-8. Draft by section jobs, not one long stream.
-   Write introduction / related work / method / experiments / analysis / conclusion as separate jobs. Write the abstract late, after evidence order and section roles stabilize. For oral-grade upgrades, follow the `Draft To Top Conference Oral` section below.
-9. Validate before output and route if needed.
-   Refresh claim-evidence, packaging, appendix bridges, `artifact.validate_manuscript_language(detail='full')`, and `artifact.validate_manuscript_coverage(detail='full')`. A short memo is only `artifact.submit_paper_bundle(package_type='draft_checkpoint', ...)`; use `submission_package` only when `submission_ready=true`.
-
-## Paper Quality Reminder
-
-Do not let structural readiness stand in for paper quality.
-
-- Compile success, section count, figure/table count, and `draft_checkpoint_ready` mean only that a package exists.
-- A mature empirical draft needs a reader-facing thesis, central insight, scoped claims, novelty boundary, reviewer objections, and a mapped analysis plan from `paper-outline`.
-- Before calling a full manuscript strong, check the actual ready experiment/analysis group count from `artifact.validate_manuscript_coverage(detail='full')`.
-- Normally expect 5-10 ready paper-facing experiment/analysis groups total; if the user asked for a concrete count such as 4-8 analyses, treat that as the active tracked target.
-- If the count is below the target, either route to `analysis-campaign`, write an explicit analysis-budget waiver that downgrades the paper scope, or narrow the claims. Do not hide the shortage with prose.
-- If duplicate item ids, stale outline refs, or pending main-text rows inflate the count, repair the paper contract before writing claims from those rows.
-- Apply the publishability stop-loss rule: if the current evidence, novelty boundary, or reader value cannot support a defensible paper after reasonable claim narrowing, stop drafting and route to `decision` for a recommended `stop` or `branch`; record any narrowed non-paper objective as the next direction. If the recommended action is `stop` because paper quality is too low, ask the user to confirm before ending the paper objective. Consider user publication, scope, cost, or non-paper preferences before routing, and ask when the preference would change the route. Do not use polished prose to keep an unpublishable paper line alive.
-
-## Tool Use
-- `artifact.get_paper_contract_health(detail='full')`:
-  use when a weak section may actually be caused by stale outline state, unresolved experiment rows, or unclear evidence ownership.
-- `artifact.get_paper_contract(detail='full')`:
-  use by default before drafting any section, table, or analysis prose that depends on concrete main-experiment rows, analysis rows, or section-level `result_table` content.
-- `artifact.validate_manuscript_coverage(detail='full')`:
-  use before bundle submission or finalize; it checks sections, displays, ready analysis groups, PDF, and checklist state.
-- `artifact.validate_academic_outline(detail='full')`:
-  use before serious drafting; it checks whether the outline has a paper idea, scoped claims, evidence boundaries, method, evaluation plan, and enough planned analyses.
-- `artifact.compile_outline_to_writing_plan(detail='full')`:
-  use after the outline is valid; it turns the outline into section-level writing jobs.
-- `artifact.validate_manuscript_language(detail='full')`:
-  use after major prose edits and before submission; it catches route/user/worktree/port/batch wording that should not be in main text.
-- `artifact.get_quest_state(detail='summary')`, `artifact.read_quest_documents(...)`, `artifact.get_conversation_context(...)`:
-  use when restart context is unclear, when exact durable wording matters, or when you need file truth instead of chat recollection.
-- `artifact.submit_paper_outline(mode='candidate'|'select'|'revise', ...)`:
-  use when outline choice or outline repair becomes durable enough that the paper line should follow it.
-- `artifact.create_analysis_campaign(...)`:
-  use only when a real paper-facing evidence gap needs follow-up analysis; do not use it for prose cleanup, citation chores, or generic "improve the paper" tasks.
-- `artifact.submit_paper_bundle(...)`:
-  use explicit `package_type`: `draft_checkpoint`, `review_package`, or `submission_package` only after coverage is submission-ready.
-- `artifact.interact(...)` or other durable artifact updates:
-  use when the writing pass materially changes paper status, route choice, or bundle readiness and the change should survive beyond chat.
-- `bash_exec(...)`:
-  use for any real shell/CLI work such as LaTeX compile, bibliography checks, `rg`/`find`/`ls`, figure-generation scripts, PDF render/proofing, git inspection, or reproducibility checks. Do not describe command plans as if they ran; run them through `bash_exec` when execution is actually needed.
-- `memory.list_recent(...)` and `memory.search(...)`:
-  use at the start of substantial writing passes, before route changes, and before repeating search or drafting patterns that may already have reusable lessons.
-- `memory.write(...)`:
-  use only for reusable lessons such as citation retrieval rules, packaging traps, figure-integration lessons, or section-rewrite heuristics; do not store one-off draft text, transient wording, or current-section notes that should live in files.
-
-## Interaction Discipline
-
-Follow the shared interaction contract injected by the system prompt.
-For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-
-## AVOID / Pitfalls
-- Do not start with background explanation or overview prose; start with contract health, section job, and evidence state.
-- Do not keep drafting while outline, evidence ledger, or experiment matrix are stale.
-- Do not treat `paper_contract_health` as a substitute for reading the actual section `result_table`, evidence rows, or experiment-matrix rows.
-- Do not draft around missing evidence, unstable baselines, or unresolved non-optional experiment rows.
-- Do not hand-write BibTeX, citations, metrics, or method details from memory.
-- Do not improvise a new plotting stack inside `write` when `paper-plot` should own the first-pass figure.
-- Do not use `nature-polishing` to make unsupported, stale, or overbroad claims sound stronger.
-- Do not use `nature-data` to invent repositories, accession numbers, DOIs, licences, embargoes, access committees, or ethics approvals.
-- Do not use `nature-paper2ppt` unless the user asked for an actual presentation deck.
-- Do not merge experiments and analysis into one undifferentiated result dump when they need distinct reviewer-facing jobs.
-- Do not treat `evidence_ready` or `analysis_ready` as equivalent to `manuscript_ready` or `submission_ready`.
-- Do not submit a paper-shot memo as a final paper package; checkpoint it and continue writing/review.
-- Do not use rows that are not clearly bound to the current `selected_outline_ref` / active paper line.
-- Do not keep revising a paper line whose publishability has collapsed; record the blocker and route to `decision` instead of accumulating more draft text.
-- Do not keep appending new material to the top control block until it turns back into prose-heavy documentation; keep the top short and use the longer guidance below only when the task actually matches it.
-- Do not paste or paraphrase user requests, route decisions, branch/worktree state, checklist language, command names, prompt state, or artifact-management history into manuscript prose.
-- Do not write phrases such as `the user requested`, `the latest user requirement`, `paper restart`, `this quest`, `the agent`, `the worktree`, `we were told`, `he accepted`, `paper should`, or `remaining work on this manuscript` inside a paper draft.
-- Do not use arithmetic endpoint/batch shorthand such as `64 + 64` or `64+64` in manuscript prose, titles, abstracts, captions, or conclusions.
-- Do not let figure captions contain tool recommendations, website promotion, TODOs, or polish notes.
-
-## Constraints
-- Keep these files aligned when they exist:
-  `paper/selected_outline.json`, `paper/evidence_ledger.json`, `paper/paper_experiment_matrix.md` or `.json`, `paper/references.bib`, `paper/claim_evidence_map.json`, `paper/paper_bundle_manifest.json`.
-- If a section depends on experiment or analysis evidence, draft from the current paper contract rows, not from remembered summaries.
-- If method, system, or implementation details are mentioned, treat the current codebase, configs, scripts, logs, and durable outputs as the primary truth surface; comments, plans, TODOs, and old draft wording are only hints until verified.
-- User requirements and control files are allowed to constrain the writing route, but they are not evidence and are not manuscript text.
-- Main text should usually describe serving and evaluation setup as a benchmark, comparison budget, evidence source, or evaluation protocol, not as local operator configuration. If exact throughput settings matter, put them in an appendix or reproducibility table.
-- Any shell, CLI, Python, bash, node, git, npm, uv, LaTeX, or file-inspection execution in this stage must go through `bash_exec(...)`.
-- Use `artifact.create_analysis_campaign(...)` only for real paper-facing evidence gaps, not for prose cleanup or citation chores.
-- Use `artifact.submit_paper_bundle(...)` only after draft, bibliography, and bundle metadata are durable enough to hand off.
-- A mature empirical paper usually needs 5-10 paper-facing experiment/analysis groups unless scoped otherwise; if fewer, justify or route to `analysis-campaign`.
-- A user-specified analysis count should stay visible: if the user asked for 4-8 analyses, explicitly report the current count and any waiver instead of relying on a generic green coverage result.
-- Use `memory.write(...)` only for reusable writing, citation, or search lessons, not one-off local edits.
-- For paper-like deliverables, aim for roughly `30-50` verified references unless the scope clearly justifies fewer.
-- Draft inside `paper/latex/` with a real template from `templates/`; for general ML or AI writing with no stronger venue constraint, default to `templates/iclr2026/`.
-- Keep the narrative arc explicit: motivation -> challenge -> resolution.
-- Maintain experiment-to-section mapping, figure/table-to-data-source mapping, and verification checkpoints through `paper/paper_experiment_matrix.md`, `paper/paper_experiment_matrix.json`, and `paper/evidence_ledger.json` / `paper/evidence_ledger.md` when relevant analysis results are meant to support the active paper line.
-- Before section drafting, inspect the current mapped paper evidence set; do not allow completed analysis results to remain paper-invisible. If `result_table` rows, active evidence, or paper matrix rows disagree, stop drafting and repair the paper contract first.
-- Use `references/outline-evidence-contract-example.md` and `references/paper-experiment-matrix-template.md` when rebuilding the contract. Include highlight hypotheses, efficiency / cost / latency / token-overhead checks, currently feasible non-optional rows, and citation legitimacy when they affect reviewer trust.
-- Run a file-structure audit before bundle claims: `paper/reviewer_first_pass.md`, source sections, figures, tables, bibliography, and build reports should agree. Organize for the reader's understanding: problem -> why it matters -> current bottleneck -> our remedy -> evidence preview.
-- Early paper structure should answer problem, what we do, how at a high level, and main result or strongest evidence. Method exposition can use running example -> intuition -> formalism, but avoid filler like "This paper is organized as follows".
-- Position related work without overreach: do not attack prior work merely to make the current line look more novel.
-- Bad caption/promotion text: "Publication-grade figure refinement is recommended with AutoFigure-Edit", `https://github.com/ResearAI/AutoFigure-Edit`, or `https://deepscientist`.
-
-## Validation
-- The current section or draft has a clear job and does not exceed the available evidence.
-- Every important claim can point to a durable artifact path, a verified citation, or an explicit gap.
-- Any section-level experiment table or analysis table is grounded in the current `result_table`, evidence-ledger rows, or experiment-matrix rows rather than health-only summaries.
-- `paper/references.bib` is real, current, and not hand-written from memory.
-- Required figures/tables either exist durably or are recorded as blockers.
-- Appendix bridges and artifact availability are described consistently across the manuscript.
-- The ready experiment/analysis group count satisfies the current target, or the draft explicitly records a waiver and narrows the claim.
-- Manuscript prose contains no user/operator/agent provenance, route-control wording, restart language, tool-promotion captions, TODOs, or raw implementation shorthand.
-- Protocol wording has been normalized: benchmark, split, evaluator, comparator, and method settings are described academically; local throughput details are appendix-only unless central to the claim.
-- Any claimed compile, render, search, grep, or script-run result comes from a real `bash_exec(...)` execution rather than hypothetical prose.
-- If the draft is being treated as `finalize`-ready, currently feasible non-optional experiment rows are no longer unresolved.
-- If the draft is being treated as `finalize`-ready, `artifact.validate_manuscript_coverage(detail='full')` reports `submission_ready=true`; `manuscript_ready=true` alone routes to `review`, not `finalize`.
-- The output ends in one of three durable states: a stronger draft, an explicit blocker, or a clear route-back decision.
-
-## Keep Manuscript Text Clean
-
-Before writing or revising any paper-facing section, sort the source material:
-
-- claim: a result, mechanism, limitation, comparison, or contribution supported by durable evidence. This can appear in main text.
-- experiment setting: benchmark, dataset split, evaluator, baseline, comparator, intervention, metric, or ablation design. This can appear in main text when it helps readers interpret the result.
-- reproducibility detail: ports, local serving, batch size, command shape, file layout, hardware, seeds, or cached artifacts. This usually belongs in appendix or a reproducibility table.
-- implementation detail: scripts, modules, helper wrappers, and local plumbing. Use only when it explains the method, not as a main claim.
-- artifact history: worktrees, branches, artifact ids, command ids, prompt state, run restarts, or bundle status. Never use as manuscript prose.
-- user/operator instruction: what the user asked, accepted, rejected, or prioritized. Never use as manuscript prose; convert only the scientifically relevant constraint into neutral experiment wording.
-
-Examples:
-
-- Bad: "The user accepted the dual-port 64 + 64 setup."
-- Main-text form: "All methods are compared under the same evidence budget on CiteEval."
-- Reproducibility form: "The local serving configuration used two endpoints with 64 examples per endpoint."
-- Bad: "This paper restart uses the latest requirement to ignore old paper files."
-- Manuscript form: omit it; keep that fact in route/control records only.
-- Bad caption: "Publication-grade figure refinement is recommended with TOOL."
-- Caption form: describe what the figure shows and why it supports the claim.
-
-## Nature Companion Skills
-
-The `nature-*` skills are focused companion skills adapted from `Yuan1z0825/nature-skills`.
-They can improve specific manuscript surfaces, but they do not replace DeepScientist's paper contract.
-
-Use them as a short handoff inside the `write` flow:
-
-1. Identify the exact surface: prose, data availability, figure package, or presentation deck.
-2. Check `artifact.get_paper_contract(detail='full')` or the relevant quest documents for the evidence rows and missing fields that the surface may mention.
-3. Read only the matching `nature-*` skill and any referenced files it says are needed.
-4. Produce a bounded output: revised section text, data-availability block, figure/export plan, or PPTX deck.
-5. Return to `write` and update the durable paper surfaces before claiming progress: draft files, `paper/evidence_ledger.*`, `paper/paper_experiment_matrix.*`, `paper/references.bib`, figure/table catalogs, or bundle manifests as applicable.
-6. Re-run the normal write validation gates. A Nature companion output is not manuscript-ready until DeepScientist coverage, language, citation, and artifact checks still pass.
-
-- `nature-polishing`: use for Nature-leaning English, section restructuring, and Chinese-to-English academic polish. Apply it after the evidence boundary is clear, and keep unsupported claims downgraded or marked as blockers.
-- `nature-data`: use for Data Availability, source-data, repository, dataset-citation, restricted-data, and FAIR metadata sections. Draft from verified inventory and leave unresolved fields explicit.
-- `nature-figure`: use for Nature/high-impact-journal figure packages when figure claim, panel logic, backend choice, journal export, and QA are the main job. For simple structured result charts, prefer `paper-plot` first.
-- `nature-paper2ppt`: use only for PPT/PPTX deliverables such as journal-club, lab-meeting, or paper-sharing decks. The expected output is a real deck plus lightweight verification.
-
-Routing examples:
-
-- Result paragraph reads flat but evidence is solid -> read `nature-polishing`, revise only the section job, then validate claim-evidence support.
-- Data Availability is missing or vague -> read `nature-data`, inventory datasets and repositories, draft unresolved fields explicitly, then sync the section and references.
-- A main figure must satisfy Nature-style multi-panel export expectations -> read `nature-figure`; if the job is only a simple result chart, stay with `paper-plot` plus `figure-polish`.
-- User asks for a journal-club deck from a paper -> read `nature-paper2ppt`; keep it outside the manuscript bundle unless the user asks to attach it as a deliverable.
-
-## Potentially Reference-Worthy, Code-Grounded Facts
-- Implementation surfaces can be worth citing in prose when they are verified from the current repo state: entrypoints, module boundaries, dataflow stages, control loops, evaluator wiring, and ablation switches that materially affect the claim.
-- Config truth can be worth citing when it changes interpretation: actual loss terms, objective weights, decoding or inference settings, comparison toggles, dataset filters, and default runtime modes taken from checked configs or scripts.
-- Reproducibility and trust details can be worth citing when they are real: executable scripts, artifact paths, checkpoint conventions, dependency constraints, hardware assumptions, and run-time limits that the current code or logs actually expose.
-- Failure-boundary details can be worth citing when they are visible in code or artifacts: guardrails, unsupported regimes, fallback paths, assertions, evaluator exclusions, or branch-specific limitations that materially narrow the claim.
-- Concrete traces can be worth citing when they are generated artifacts rather than imagination: logs, examples, case-study outputs, prompt traces, or render outputs produced by the current code path.
-- If a detail is only present in comments, TODOs, planning notes, stale branches, or remembered conversation, do not write it as fact.
-- If code and manuscript wording disagree, resolve to code plus durable outputs first, then rewrite the manuscript to match.
-- If a path exists in code but was not exercised by the evidence package, label it as implemented or available, not as experimentally validated behavior.
-
-## Reference Routing
-- Read `references/oral_package_patterns.md` when the draft needs a clearer oral-style evidence package.
-- Read `references/oral_writing_principles.md` when the narrative spine, reader onboarding, or reviewer-facing tone is weak.
-- Read `references/experiments_analysis_patterns.md` when experiments and analysis need clearer job separation.
-- Read `references/section_rewrite_checklist.md` before treating a rewritten section as stable enough for bundling or review.
-
-# Draft To Top Conference Oral
-
-## Overview
-
-Use this skill when a paper already exists in draft form and the real problem is not "write a paper from zero" but "turn this draft into something that reads like a top-conference oral paper."
-
-This skill is for the transition:
-
-- from dense draft to memorable paper
-- from correct content to reviewer-facing writing
-- from result dump to staged evidence
-- from overloaded pages to intentional pacing
-- from LLM-like compression to human-like editorial judgment
-- from isolated main text to a deliberate oral package with appendix support
-
-Do not use this skill to invent missing evidence. If the draft has real evidence gaps, narrow claims or route to more experiments instead of hiding the weakness with better prose.
-
-## What This Skill Optimizes
-
-This skill is specifically about oral-paper upgrade work, not generic prose cleanup. It optimizes:
-
-- story spine and claim scope
-- reader onboarding and early intuition
-- evidence budget across main text and appendix
-- figure and table role clarity
-- division of labor between displays and prose
-- experiments versus analysis separation
-- trend-first, mechanism-aware data analysis
-- reviewer-concern handling
-- page pacing and readability
-- limitations, reproducibility, and trust signaling
-
-Read `references/oral_package_patterns.md` early when deciding what to add, cut, move, or split.
-
-## When to Use This Skill
-
-Use this skill when:
-
-- A full or partial scientific draft already exists
-- The user wants to upgrade a draft to conference-ready or oral-quality writing
-- The paper has results but the story, writing, figures, or analysis feel weak
-- The draft reads like a compressed summary, lab note, or LLM reconstruction
-- The task is to improve abstract, introduction, method explanation, result writing, figure/table communication, or analysis depth
-- The user wants the paper to feel more like ICLR/NeurIPS/ICML/CVML oral quality
-- Two paper versions exist and the job is to distill what made the stronger version feel more oral-ready, then reuse those patterns
-
-Do not use this skill when:
-
-- There is no meaningful draft yet
-- The core task is literature search only
-- The real blocker is missing experiments, missing baselines, or missing results
-- The request is for formal peer review rather than revision and upgrade
-
-## Workflow
-
-### 1. Audit the draft before rewriting
-
-Read the current abstract, introduction, method, experiments, analysis, conclusion, and appendix if present.
-
-Extract:
-
-- `C1-C3`: the 1 to 3 core claims
-- strongest current evidence
-- weakest current evidence
-- likely rejection reasons
-- which parts are writing problems versus evidence problems
-
-Classify the draft weakness into one or more of:
-
-- story
-- writing
-- method exposition
-- figure/table communication
-- experiment analysis
-- claim calibration
-- reproducibility/trust signaling
-
-If the main issue is evidence, do not proceed as if this were only a writing problem.
-
-### 2. Build an oral delta map before line editing
-
-Use `references/oral_package_patterns.md` to compare the current draft against an oral-ready target.
-
-Label the biggest gaps. Typical gaps include:
-
-- weak reader onboarding
-- no early intuition or mechanism figure
-- one page trying to carry too many claims
-- tables acting as storage rather than argument
-- experiments and analysis collapsed into one results block
-- analysis that only repeats numbers without extracting the trend
-- no memorable case study or failure-mode analysis
-- appendix functioning as a dump instead of a supplement package
-- claim language that extends beyond the strongest evidence zone
-- artifact availability described inconsistently across sections
-
-When two versions of the paper exist, explicitly write the delta:
-
-- what the stronger version added
-- which added elements improved persuasion rather than merely adding length
-- which patterns are reusable in the current rewrite
-
-### 3. Reallocate the evidence budget
-
-Top-conference oral papers are not just more polished. They spend pages and displays where reviewer friction is highest.
-
-Before rewriting paragraphs, decide:
-
-- which figures or tables belong in the main text
-- which evidence blocks should become standalone subsections
-- what must move to appendix
-- where to place the appendix bridge in the main text
-- which exact facts live in displays versus surrounding prose
-- which core claim or reviewer question each main-text display is responsible for defending
-- whether method defense is taking budget away from objection handling
-
-Default main-text priorities:
-
-- one early intuition or mechanism figure
-- one main result display
-- one interpretive analysis or tradeoff display
-- one practical-value or objection-handling block when it is central to the claim
-- one memorable qualitative example or case-study display when available
+# 写作(Write)
+
+## 匹配信号
+- 当已存在一个被接受的基线以及至少一个有意义的结果，且当前主要卡点转为起草、修订、整合或收紧一篇论文/报告时使用。
+- 强触发信号：起草一篇论文/报告、修订某个章节、同步“论点—证据”支撑、准备论文打包，或将已有草稿升级为更强的会议投稿。
+- 如果任务明确是“将已有草稿升级到顶会 / oral 质量”，请使用下文 `Draft To Top Conference Oral` 章节。
+- 当证据基础仍然薄弱或不稳定、主要需求是新实验 / 基线 / 构思，或请求仅为文献检索时，不要使用。
+
+## 一句话总结
+- 先刷新论文契约(paper contract)，再从可靠证据出发逐章节起草；若证据、图表或引用尚未就绪，应先修复或回退路由，而不是绕开缺口去写。
+
+## 写作前修订策略关卡
+
+在修改手稿之前，先从当前证据状态产出一份具体的修订策略。
+在策略将以下类别区分清楚之前，不要开始润色文字：
+
+- 证据缺口：需要新的分析、重跑，或下调论点
+- 手稿映射缺口：已完成的结果缺失于正文、表格、图或附录
+- 无支撑的写作：草稿中存在但无持久结果产物支撑的论点
+- 叙事 / 定位缺口：框架薄弱、新颖性边界、贡献逻辑
+- 引用缺口：针对所声称范围的引用过少或过弱
+- 元数据漂移：矩阵、台账、大纲、图、表与手稿彼此不一致
+
+对每个问题，恰好选择一种动作：
+
+- 运行或请求分析
+- 下调或删除该论点
+- 将结果加入正文
+- 将结果移至附录并给出清晰的桥接
+- 添加或修复表格/图
+- 添加经核对的引用
+- 在写作前修复论文契约
+- 路由到 review / decision，而非自行写作
+
+绝不要让一个无支撑的论点听起来更可信。
+如果证据缺失，要么获取证据，要么收窄论点，要么标记该阻塞点。
+
+## 工作流
+1. 先刷新控制状态。
+   运行 `memory.list_recent(scope='quest', limit=5)` 以及一次与写作相关的 `memory.search(...)`。如果重启上下文不清晰，使用 `artifact.get_quest_state(detail='summary')`、`artifact.read_quest_documents(...)` 或 `artifact.get_conversation_context(...)`。
+2. 在大量文字工作前锁定论文契约。
+   保持 `paper/selected_outline.json`、`paper/evidence_ledger.json` 以及 `paper/paper_experiment_matrix.md` 或 `.json` 一致。当章节行、实验行或分析行相关时，默认使用 `artifact.get_paper_contract(detail='full')` 作为读论文的界面；当大纲状态、实验行或证据归属可能已过期时，使用 `artifact.get_paper_contract_health(detail='full')`；使用 `artifact.submit_paper_outline(mode='candidate'|'select'|'revise', ...)` 代替仅把大纲选择留在文字中。
+   当多种论文形态都合理时，先使用 `artifact.submit_paper_outline(mode='candidate', ...)` 记录一个或多个大纲候选项，再用 `artifact.submit_paper_outline(mode='select'|'revise', ...)` 显式选择或修改；一旦所选大纲对当前写作任务已足够好，不要强行增加额外的大纲轮次。
+3. 在起草前校验大纲。
+   运行 `artifact.validate_academic_outline(detail='full')`。若失败，使用 `paper-outline` 或 `artifact.submit_paper_outline(mode='revise', ...)` 在动笔前修复论文创意、论点、证据边界与分析计划。通过后，运行 `artifact.compile_outline_to_writing_plan(detail='full')` 并据此起草。
+4. 起草前先对素材分类。
+   自问：这是一条论点、一个实验设置、一条可复现细节、实现管道、产物历史，还是一条用户/操作者指令？论点与实验设置可能成为手稿文字；可复现细节通常放入附录；产物历史与用户/操作者指令不应出现在手稿中。
+5. 刷新文献与引用真实性。
+   运行 `breadth -> shortlist -> depth`。在可用时优先使用 DeepXiv 或 OpenAlex 进行发现，再从 DOI 或 arXiv 获取 BibTeX，而非凭记忆。保持 `paper/references.bib` 机器可用，并在打包提交前审计它。
+   如果系统提示声明 DeepXiv 可用，在能直接回答问题的情况下，优先使用它进行以论文为核心的发现与候选清单筛选，再考虑广泛网络搜索。如果声明 DeepXiv 不可用，不要强行使用；沿用传统路径。在升级到全文前，使用 `artifact.arxiv(paper_id=..., full_text=False)` 实际读取 arXiv 论文。
+6. 在文字前先规划展示物。
+   若某章节需要面向论文的实测图，先使用 `paper-plot`。只有在已有持久的首轮渲染后才使用 `figure-polish`。将结果的图路径与要点同步回 `paper/evidence_ledger.json`、`paper/paper_experiment_matrix.md` 与草稿。
+7. 按论文界面路由 Nature 配套工作。
+   只有在当前章节任务、证据行与未填字段已知之后，才打开 `nature-*` 技能。使用该配套技能产出有边界的章节/图/deck 交付物，再回到 `write` 将其整合进草稿、证据台账、图/表目录、引用与打包状态。
+8. 按章节任务起草，而非一整段长流。
+   将引言 / 相关工作 / 方法 / 实验 / 分析 / 结论作为独立任务来写。摘要要晚写，待证据顺序与章节角色稳定之后再写。对于 oral 级升级，遵循下文的 `Draft To Top Conference Oral` 章节。
+9. 在输出前校验，必要时路由。
+   刷新论点—证据、打包、附录桥接、`artifact.validate_manuscript_language(detail='full')` 与 `artifact.validate_manuscript_coverage(detail='full')`。简短备忘录仅是 `artifact.submit_paper_bundle(package_type='draft_checkpoint', ...)`；只有 `submission_ready=true` 时才使用 `submission_package`。
+
+## 论文质量提醒
+
+不要让结构就绪替代论文质量。
+
+- 编译成功、章节数量、图/表数量以及 `draft_checkpoint_ready` 仅表示一个包存在。
+- 成熟的实证草稿需要面向读者的论点、核心洞见、有边界的论点、新颖性边界、审稿人异议，以及来自 `paper-outline` 的已映射分析计划。
+- 在称整篇手稿为“强”之前，从 `artifact.validate_manuscript_coverage(detail='full')` 检查实际的就绪实验/分析组数量。
+- 通常期望总共 5-10 个就绪的、面向论文的实验/分析组；如果用户要求具体数量如 4-8 个分析，则将其视为当前跟踪的目标。
+- 若数量低于目标，要么路由到 `analysis-campaign`，要么写一份显式的分析预算豁免(analysis-budget waiver)以收窄论文范围，要么收窄论点。不要用文字掩盖短缺。
+- 如果重复条目 id、过期的大纲引用，或待处理的主体章节行虚增了计数，在依据这些行撰写论点之前先修复论文契约。
+- 适用可发表性止损(publishability stop-loss)规则：如果在合理收窄论点后，当前证据、新颖性边界或读者价值仍无法支撑一篇站得住脚的论文，则停止起草并路由到 `decision` 以建议 `stop` 或 `branch`；记录任何已收窄的非论文目标作为下一步方向。如果建议动作因论文质量过低而取 `stop`，在结束论文目标前请用户确认。在路由前考虑用户的发表、范围、成本或非论文偏好，并在偏好会改变路由时询问。不要用润色过的文字让一篇无法发表的论文线苟活。
+
+## 工具使用
+- `artifact.get_paper_contract_health(detail='full')`：
+  当某个薄弱章节实际上可能由过期的大纲状态、未解决实验行或不清晰的证据归属引起时使用。
+- `artifact.get_paper_contract(detail='full')`：
+  默认在起草任何依赖具体主实验行、分析行或章节级 `result_table` 内容的章节、表格或分析文字之前使用。
+- `artifact.validate_manuscript_coverage(detail='full')`：
+  在打包提交或 finalize 之前使用；它检查章节、展示物、就绪分析组、PDF 与清单状态。
+- `artifact.validate_academic_outline(detail='full')`：
+  在认真起草之前使用；它检查大纲是否具备论文创意、有边界的论点、证据边界、方法、评估计划以及足够的规划分析。
+- `artifact.compile_outline_to_writing_plan(detail='full')`：
+  在大纲有效之后使用；它将大纲转为章节级的写作任务。
+- `artifact.validate_manuscript_language(detail='full')`：
+  在主要文字编辑之后、提交之前使用；它捕获不应出现在正文中的 route/user/worktree/port/batch 措辞。
+- `artifact.get_quest_state(detail='summary')`、`artifact.read_quest_documents(...)`、`artifact.get_conversation_context(...)`：
+  当重启上下文不清晰、精确持久措辞很重要，或需要文件真相而非聊天回忆时使用。
+- `artifact.submit_paper_outline(mode='candidate'|'select'|'revise', ...)`：
+  当大纲选择或大纲修复已持久到论文线应当据此推进时使用。
+- `artifact.create_analysis_campaign(...)`：
+  仅当真实的、面向论文的证据缺口需要后续分析时使用；不要将其用于文字清理、引用杂务或泛化的“改进论文”任务。
+- `artifact.submit_paper_bundle(...)`：
+  仅在覆盖度达到可提交状态时，使用显式的 `package_type`：`draft_checkpoint`、`review_package` 或 `submission_package`。
+- `artifact.interact(...)` 或其他持久产物更新：
+  当本次写作实质性地改变了论文状态、路由选择或打包就绪度，且该变化应超越聊天而存活时使用。
+- `bash_exec(...)`：
+  用于任何真实的 shell/CLI 工作，如 LaTeX 编译、参考文献检查、`rg`/`find`/`ls`、出图脚本、PDF 渲染/校样、git 检查或可复现性检查。不要像已经运行一样去描述命令计划；当确实需要执行时，通过 `bash_exec` 运行。
+- `memory.list_recent(...)` 与 `memory.search(...)`：
+  在大量写作动作开始时、路由变更前，以及重复可能已有可复用经验的搜索或起草模式之前使用。
+- `memory.write(...)`：
+  仅用于可复用经验，如引用获取规则、打包陷阱、图整合经验或章节重写启发式；不要存储一次性草稿文本、瞬时措辞或应存在于文件中的当前章节笔记。
+
+## 交互纪律
+
+遵循系统提示注入的共享交互契约。
+对于普通活跃工作，一旦工作跨越约 6 次工具调用且产生对人类有意义的增量时，优先给出一次简洁的进度更新，且不要在没有用户可见更新情况下漂移超过约 12 次工具调用或约 8 分钟。
+
+## 避免 / 陷阱
+- 不要从背景解释或概览文字开始；应从契约健康度、章节任务与证据状态开始。
+- 不要在大纲、证据台账或实验矩阵过期时继续起草。
+- 不要将 `paper_contract_health` 当作阅读实际章节 `result_table`、证据行或实验矩阵行的替代品。
+- 不要绕开缺失证据、不稳定基线或未解决的非可选实验行去起草。
+- 不要凭记忆手写 BibTeX、引用、指标或方法细节。
+- 当 `paper-plot` 应负责首轮图时，不要在 `write` 内部临时拼装新的绘图栈。
+- 不要使用 `nature-polishing` 让无支撑、过期或过度宽泛的论点听起来更强。
+- 不要使用 `nature-data` 去编造仓库、登录号、DOI、许可、 embargo、访问委员会或伦理审批。
+- 除非用户要求真实的演示文稿 deck，否则不要使用 `nature-paper2ppt`。
+- 当实验与分析需要不同的、面向审稿人的任务时，不要将它们合并为一份无差别的结果倾倒。
+- 不要将 `evidence_ready` 或 `analysis_ready` 等同于 `manuscript_ready` 或 `submission_ready`。
+- 不要把一篇论文快照备忘录当作最终论文包提交；应将其设为检查点并继续写作/评审。
+- 不要使用未明确绑定到当前 `selected_outline_ref` / 活跃论文线的行。
+- 不要持续修订一条可发表性已经崩塌的论文线；应记录阻塞点并路由到 `decision`，而非堆积更多草稿文字。
+- 不要持续向顶部控制块追加新素材，直到它又变回文字密集的文档；保持顶部简短，仅当任务确实匹配时再使用下方更长的指引。
+- 不要将用户请求、路由决策、分支/worktree 状态、清单措辞、命令名、提示状态或产物管理历史粘贴或意译进手稿文字。
+- 不要在手稿中写出诸如 `the user requested`、`the latest user requirement`、`paper restart`、`this quest`、`the agent`、`the worktree`、`we were told`、`he accepted`、`paper should` 或 `remaining work on this manuscript` 之类的短语。
+- 不要在手稿文字、标题、摘要、图注或结论中使用诸如 `64 + 64` 或 `64+64` 这样的算术端点/批次简写。
+- 不要让图注包含工具推荐、网站推广、TODO 或润色备注。
+
+## 约束
+- 当以下文件存在时，保持它们一致：
+  `paper/selected_outline.json`、`paper/evidence_ledger.json`、`paper/paper_experiment_matrix.md` 或 `.json`、`paper/references.bib`、`paper/claim_evidence_map.json`、`paper/paper_bundle_manifest.json`。
+- 若某章节依赖实验或分析证据，应从当前论文契约行起草，而非从记忆中的摘要。
+- 若提及方法、系统或实现细节，应将当前代码库、配置、脚本、日志与持久输出作为首要真相来源；注释、计划、TODO 与旧的草稿措辞在核实前仅为提示。
+- 用户需求与控制文件可以约束写作路由，但它们不是证据，也不是手稿文字。
+- 正文通常应将服务与评估设置描述为基准、对比预算、证据来源或评估协议，而非本地操作者配置。若精确的吞吐设置重要，请放入附录或可复现性表格。
+- 本阶段任何 shell、CLI、Python、bash、node、git、npm、uv、LaTeX 或文件检查执行都必须通过 `bash_exec(...)`。
+- 仅在真实、面向论文的证据缺口时使用 `artifact.create_analysis_campaign(...)`，而非用于文字清理或引用杂务。
+- 仅在草稿、参考文献与打包元数据已足够持久可交接时才使用 `artifact.submit_paper_bundle(...)`。
+- 除非另有范围限定，成熟的实证论文通常需要 5-10 个面向论文的实验/分析组；若更少，应给出理由或路由到 `analysis-campaign`。
+- 用户指定的分析数量应保持可见：如果用户要求 4-8 个分析，应显式报告当前数量与任何豁免，而非依赖一个泛化的绿色覆盖结果。
+- `memory.write(...)` 仅用于可复用的写作、引用或搜索经验，而非一次性本地编辑。
+- 对于类论文交付物，除非范围明确需要更少，否则目标为约 `30-50` 条经核对的引用。
+- 使用 `templates/` 中的真实模板在 `paper/latex/` 内起草；对于没有更强会议约束的通用 ML 或 AI 写作，默认使用 `templates/iclr2026/`。
+- 保持叙事弧显式：动机 -> 挑战 -> 解决。
+- 通过 `paper/paper_experiment_matrix.md`、`paper/paper_experiment_matrix.json` 以及（当相关分析结果应支撑活跃论文线时）`paper/evidence_ledger.json` / `paper/evidence_ledger.md` 维护实验到章节的映射、图/表到数据源的映射，以及核查检查点。
+- 在章节起草前，检查当前已映射的论文证据集合；不要让已完成的分析结果仍然“论文不可见”。如果 `result_table` 行、活跃证据或论文矩阵行彼此不一致，应停止起草并先修复论文契约。
+- 在重建契约时，使用 `references/outline-evidence-contract-example.md` 与 `references/paper-experiment-matrix-template.md`。当它们影响审稿人信任时，应包含突出假设、效率 / 成本 / 延迟 / token 开销核查、当前可行的非可选行，以及引用合法性。
+- 在打包声明前进行文件结构审计：`paper/reviewer_first_pass.md`、源章节、图、表、参考文献与构建报告应彼此一致。为读者理解而组织：问题 -> 为何重要 -> 当前瓶颈 -> 我们的对策 -> 证据预览。
+- 早期论文结构应回答：问题、我们做什么、高层如何做，以及主要结果或最强证据。方法阐述可用“运行示例 -> 直觉 -> 形式化”，但避免“本文组织如下”之类的填充。
+- 对相关工作进行定位时不要过度延伸：不要为了凸显当前线更新颖而攻击先前工作。
+- 坏的图注/推广文字：“Publication-grade figure refinement is recommended with AutoFigure-Edit”、`https://github.com/ResearAI/AutoFigure-Edit` 或 `https://deepscientist`。
+
+## 校验
+- 当前章节或草稿有清晰的职责，且未超出可用证据。
+- 每个重要论点都能指向一个持久产物路径、一条经核对的引用，或一个显式的缺口。
+- 任何章节级实验表或分析表都基于当前 `result_table`、证据台账行或实验矩阵行，而非仅基于健康度摘要。
+- `paper/references.bib` 是真实的、当前的，而非凭记忆手写。
+- 所需图/表要么持久存在，要么被记录为阻塞点。
+- 附录桥接与产物可用性在全篇描述一致。
+- 就绪的实验/分析组数量满足当前目标，或草稿显式记录了豁免并收窄了论点。
+- 手稿文字不含用户/操作者/智能体来源、路由控制措辞、重启语言、工具推广图注、TODO 或原始实现简写。
+- 协议措辞已规范化：基准、切分、评估者、比较对象与方法设置都按学术方式描述；本地吞吐细节除非对论点至关重要，否则仅入附录。
+- 任何声称的编译、渲染、搜索、grep 或脚本运行结果都来自真实的 `bash_exec(...)` 执行，而非假设性文字。
+- 若草稿被当作 `finalize` 就绪，当前可行的非可选实验行不再未解决。
+- 若草稿被当作 `finalize` 就绪，`artifact.validate_manuscript_coverage(detail='full')` 报告 `submission_ready=true`；单独的 `manuscript_ready=true` 应路由到 `review`，而非 `finalize`。
+- 输出终结于三种持久状态之一：更强的草稿、显式阻塞点，或清晰的回退决策。
+
+## 保持手稿文字干净
+
+在撰写或修订任何面向论文的章节之前，对素材分类：
+
+- 论点：由持久证据支撑的结果、机制、局限、对比或贡献。可出现在正文中。
+- 实验设置：基准、数据集切分、评估者、基线、比较对象、干预、指标或消融设计。当有助于读者解读结果时，可出现在正文。
+- 可复现细节：端口、本地服务、批大小、命令形态、文件布局、硬件、随机种子或缓存产物。通常属于附录或可复现性表格。
+- 实现细节：脚本、模块、辅助封装与本地管道。仅当解释方法时使用，而非作为主论点。
+- 产物历史：worktree、分支、产物 id、命令 id、提示状态、运行重启或打包状态。绝不作为手稿文字使用。
+- 用户/操作者指令：用户要求、接受、拒绝或优先考虑的内容。绝不作为手稿文字使用；仅将科学相关的约束转化为中性的实验措辞。
+
+示例：
+
+- 坏：“The user accepted the dual-port 64 + 64 setup.”
+- 正文形式：“All methods are compared under the same evidence budget on CiteEval.”
+- 可复现形式：“The local serving configuration used two endpoints with 64 examples per endpoint.”
+- 坏：“This paper restart uses the latest requirement to ignore old paper files.”
+- 手稿形式：省略它；将该事实仅保留在路由/控制记录中。
+- 坏图注：“Publication-grade figure refinement is recommended with TOOL.”
+- 图注形式：描述该图显示什么，以及它为何支撑论点。
+
+## Nature 配套技能
+
+`nature-*` 技能是改编自 `Yuan1z0825/nature-skills` 的专注配套技能。
+它们可以改进特定的手稿界面，但不能替代 DeepScientist 的论文契约。
+
+将它们作为 `write` 流程中的一次简短交接来使用：
+
+1. 确定确切的界面：文字、数据可用性、图包或演示 deck。
+2. 检查 `artifact.get_paper_contract(detail='full')` 或相关任务文档，寻找该界面可能提及的证据行与缺失字段。
+3. 仅阅读匹配的 `nature-*` 技能及其说明需要的任何被引用文件。
+4. 产出有边界的输出：修订后的章节文字、数据可用性块、图/导出计划，或 PPTX deck。
+5. 回到 `write` 并在声称进展前更新持久的论文界面：草稿文件、`paper/evidence_ledger.*`、`paper/paper_experiment_matrix.*`、`paper/references.bib`、图/表目录或打包清单（视情况而定）。
+6. 重新运行正常的 write 校验关卡。在 DeepScientist 的覆盖度、语言、引用与产物检查仍通过之前，Nature 配套输出不算手稿就绪。
+
+- `nature-polishing`：用于偏向 Nature 的英文、章节重构，以及中译英的学术润色。在证据边界清晰后应用，并保持无支撑论点被收窄或标记为阻塞点。
+- `nature-data`：用于数据可用性、源数据、仓库、数据集引用、受限数据与 FAIR 元数据章节。从经核对的清单出发起草，将未解决字段显式保留。
+- `nature-figure`：当图论点、面板逻辑、后端选择、期刊导出与 QA 是主要任务时，用于 Nature/高影响期刊的图包。对于简单的结构化结果图，优先使用 `paper-plot`。
+- `nature-paper2ppt`：仅用于 PPT/PPTX 交付物，如期刊俱乐部、组会或论文分享 deck。预期输出是一个真实 deck 加轻量验证。
+
+路由示例：
+
+- 结果段落读起来平淡但证据扎实 -> 阅读 `nature-polishing`，仅修订该章节任务，然后校验论点—证据支撑。
+- 数据可用性缺失或含糊 -> 阅读 `nature-data`，盘点数据集与仓库，显式起草未解决字段，然后同步章节与引用。
+- 一张主图必须满足 Nature 风格的多面板导出预期 -> 阅读 `nature-figure`；若任务只是简单结果图，则留在 `paper-plot` 加 `figure-polish`。
+- 用户要求从一篇论文生成期刊俱乐部 deck -> 阅读 `nature-paper2ppt`；除非用户要求作为交付物附加，否则将其置于手稿包之外。
+
+## 可能值得引用、以代码为基础的已证实事实
+- 当实现界面经当前仓库状态核证时，值得在文字中引用：入口点、模块边界、数据流阶段、控制循环、评估者接线，以及实质性影响论点的消融开关。
+- 当配置真相改变解读时，值得引用：来自已检查配置或脚本的实际损失项、目标权重、解码或推理设置、对比开关、数据集过滤器与默认运行时模式。
+- 当可复现性与信任细节真实时，值得引用：可执行脚本、产物路径、检查点约定、依赖约束、硬件假设，以及当前代码或日志实际暴露的运行时限。
+- 当失败边界细节在代码或产物中可见时，值得引用：护栏、不支持的体制、回退路径、断言、评估者排除，或实质性收窄论点的分支特定局限。
+- 当具体轨迹是由当前代码路径产生的生成产物而非想象时，值得引用：日志、示例、案例研究输出、提示轨迹或渲染输出。
+- 若某细节仅存在于注释、TODO、计划笔记、过期分支或记忆对话中，不要将其当作事实写出。
+- 若代码与手稿措辞不一致，优先以代码加持久输出为准，然后重写手稿以匹配。
+- 若某路径在代码中存在但未被证据包执行，应标注为“已实现”或“可用”，而非“经实验验证的行为”。
+
+## 引用路由
+- 当草稿需要更清晰的 oral 风格证据包时，阅读 `references/oral_package_patterns.md`。
+- 当叙事主轴、读者引导或面向审稿人的语气薄弱时，阅读 `references/oral_writing_principles.md`。
+- 当实验与分析需要更清晰的职责分离时，阅读 `references/experiments_analysis_patterns.md`。
+- 在将重写的章节视为足够稳定以打包或评审之前，阅读 `references/section_rewrite_checklist.md`。
+
+# 升级为顶会 Oral
+
+## 概述
+
+当一篇论文已以草稿形式存在，且真正的问题不是“从零写论文”而是“把这篇草稿变成读起来像顶会 oral 论文”时，使用本技能。
+
+本技能针对的是以下转变：
+
+- 从密集草稿到令人难忘的论文
+- 从正确内容到面向审稿人的写作
+- 从结果倾倒到分层证据
+- 从过载页面到有意为之的节奏
+- 从 LLM 式压缩到类人的编辑判断
+- 从孤立的正文到带有附录支撑的、有意为之的 oral 包
+
+不要使用本技能去编造缺失证据。如果草稿存在真实的证据缺口，应收窄论点或路由到更多实验，而不是用更好的文字掩盖弱点。
+
+## 本技能优化什么
+
+本技能专门针对 oral 论文升级工作，而非泛化的文字清理。它优化：
+
+- 故事主轴与论点范围
+- 读者引导与早期直觉
+- 正文与附录之间的证据预算
+- 图与表的角色清晰度
+- 展示物与文字之间的分工
+- 实验与分析的分离
+- 趋势优先、机制感知的数据分析
+- 审稿人关切的处理
+- 页面节奏与可读性
+- 局限、可复现性与信任信号
+
+在决定增、删、移动或拆分什么时，尽早阅读 `references/oral_package_patterns.md`。
+
+## 何时使用本技能
+
+在以下情况使用本技能：
+
+- 已存在完整或部分科学草稿
+- 用户希望将草稿升级为会议就绪或 oral 质量的写作
+- 论文有结果，但故事、写作、图或分析显得薄弱
+- 草稿读起来像压缩摘要、实验笔记或 LLM 重构
+- 任务是改进摘要、引言、方法解释、结果写作、图/表传达或分析深度
+- 用户希望论文更贴近 ICLR/NeurIPS/ICML/CVML 的 oral 质量
+- 存在两个论文版本，任务是提炼出更强版本为何更具 oral 就绪感，然后复用这些模式
+
+在以下情况不要使用本技能：
+
+- 尚无可意义的草稿
+- 核心任务仅为文献检索
+- 真正的阻塞点是缺失实验、缺失基线或缺失结果
+- 请求是正式同行评审而非修订与升级
+
+## 工作流
+
+### 1. 重写前先审计草稿
+
+阅读当前的摘要、引言、方法、实验、分析、结论与附录（若存在）。
+
+提取：
+
+- `C1-C3`：1 至 3 条核心论点
+- 当前最强证据
+- 当前最弱证据
+- 可能的拒稿理由
+- 哪些是写作问题、哪些是证据问题
+
+将草稿的弱点归入以下一个或多个类别：
+
+- 故事
+- 写作
+- 方法阐述
+- 图/表传达
+- 实验分析
+- 论点校准
+- 可复现性/信任信号
+
+如果主要问题是证据，不要假装这仅是写作问题而继续推进。
+
+### 2. 在逐行编辑前先建立 oral 增量图
+
+使用 `references/oral_package_patterns.md` 将当前草稿与 oral 就绪目标进行比较。
+
+标注最大的缺口。典型缺口包括：
+
+- 读者引导薄弱
+- 没有早期直觉或机制图
+- 一页试图承载过多论点
+- 表格充当存储而非论证
+- 实验与分析被压缩进一个结果块
+- 分析仅重复数字而未提取趋势
+- 没有令人难忘的案例研究或失败模式分析
+- 附录沦为倾倒场而非补充包
+- 论点措辞超出最强证据区
+- 产物可用性在各章节描述不一致
+
+当两个版本的论文都存在时，显式写出增量：
+
+- 更强版本增加了什么
+- 哪些增加的元素改善了说服力而非仅仅增加篇幅
+- 哪些模式可在当前重写中复用
+
+### 3. 重新分配证据预算
+
+顶会 oral 论文不只是更精致。它们把页面与展示物花在审稿人摩擦最高的地方。
+
+在重写段落之前，先决定：
+
+- 哪些图或表属于正文
+- 哪些证据块应成为独立的子节
+- 什么必须移到附录
+- 在正文中何处放置附录桥接
+- 哪些确切事实存在于展示物中、哪些在周边文字中
+- 每个正文展示物负责为哪个核心论点或审稿人问题辩护
+- 方法辩护是否正在挤占异议处理所需的预算
+
+默认的正文优先级：
+
+- 一张早期直觉或机制图
+- 一张主结果展示
+- 一张解释性分析或权衡展示
+- 当对论点至关重要时，一个实践价值或异议处理块
+- 当可用时，一个令人难忘的定性示例或案例研究展示
 
-If the paper's central claim is comparative, benchmark-driven, or baseline-beating, the "main result display" must stay competitor-inclusive.
-
-That usually means:
+如果论文的核心论点是比较性的、基准驱动或击败基线的，那么“主结果展示”必须保持竞争者可见。
+
+通常意味着：
 
-- named baselines or nearest neighbors remain visible in the main text
-- the metric spread needed to justify the comparative wording remains visible
-- the reader can verify the claimed ranking or scope without reconstructing it from prose alone
+- 具名的基线或最近邻在正文保持可见
+- 支撑比较措辞所需的指标差距保持可见
+- 读者无需仅从文字重构即可验证所声称的排序或范围
 
-Do not collapse a broad benchmark story into a self-only summary table if the prose still makes broad comparative claims.
+如果正文仍做出宽泛的比较性论点，不要将宽泛的基准故事压缩为仅含自身的摘要表。
 
-When the gold oral package keeps both a compact setup or baseline taxonomy and a competitor-inclusive benchmark surface in main text, preserve both jobs in the rewrite. Do not jump straight from prose setup to compressed averages if the reviewer still needs to see who was compared, under which regime, and where the main ranking or boundary actually appears.
+当黄金 oral 包同时在正文中保留一个紧凑的设置或基线分类法和一个竞争者可见的基准界面时，在重写中保留这两项职责。如果审稿人仍需看到与谁比较、在哪个体制下、以及主排序或边界实际出现在何处，不要直接从文字设置跳到压缩平均值。
 
-When the paper has multiple proof obligations, do not present them as one continuous "results" stream.
+当论文有多个证明义务时，不要将它们呈现为一条连续的“结果”流。
 
-Instead, turn the main empirical body into explicit reviewer-question blocks, where each block has:
+相反，将主实证主体转为显式的审稿人问题块，每个块具备：
 
-- one concrete question the reviewer would naturally ask
-- one short setup line that states the regime or slice being tested
-- one named baseline, counterfactual, or comparison target when the draft package or staged artifacts provide one
-- one dominant display
-- one dominant takeaway
-- one explicit appendix bridge for overflow evidence
-- a clear handoff to the next question
+- 审稿人会自然提出的某个具体问题
+- 一行简短的设置说明，陈述所测试的体制或切片
+- 当草稿包或分层产物提供一个时，一个具名基线、反事实或比较目标
+- 一个主导展示物
+- 一个主导要点
+- 一个用于溢出证据的显式附录桥接
+- 向下一个问题的清晰交接
 
-If the strong paper or staged package already separates a section into named internal jobs, preserve that internal scaffold in the rewrite.
+如果强论文或分层包已将一个章节拆分为具名的内部职责，在重写中保留该内部脚手架。
 
-Do not collapse those jobs into one continuous wall of prose when reviewers need to inspect them separately.
+当审稿人需要分别审视它们时，不要将这些职责压缩为一道连续的文字墙。
 
-This is especially important for:
+这一点对以下情况尤其重要：
 
-- related work sections that need a distinct closest-comparator contrast
-- method sections that need separate blocks for workflow, component design, supervision, and action realization
-- experiments sections that need visibly separate headline evaluation, transfer breadth, and mechanism-validation blocks
+- 需要明显区分“最近比较对象”的相关工作章节
+- 需要为工作流、组件设计、监督与动作实现分别设块的方法章节
+- 需要明显分离“头条评估”、“迁移广度”与“机制验证”块的实验章节
 
-When the paper's credibility depends on first proving that a metric, proxy, or diagnostic predicts reviewer-relevant outcomes, allocate a standalone validation block before intervention or design-guidance blocks.
+当论文可信度依赖于先证明某个指标、代理或诊断能预测与审稿人相关的结果时，在干预或设计指导块之前分配一个独立的验证块。
 
-Do not bury that proof inside later intervention subsections or leave `analysis` with only mechanism commentary if the draft package signals validation as the bridge into the rest of the paper.
+如果草稿包将验证信号为进入论文其余部分的桥梁，不要将该证明埋入后面的干预子节，也不要让 `analysis` 仅剩机制评论。
 
-If the draft package or staged artifacts separate several intervention families, keep them separate in the rewrite.
+如果草稿包或分层产物分离了多个干预族，在重写中保持它们分离。
 
-Each intervention family should still preserve:
+每个干预族仍应保留：
 
-- its own setup line
-- its own baseline or counterfactual when one exists
-- its own dominant display
-- its own headline result
-- its own appendix bridge
+- 自身的设置行
+- 自身的一个基线或反事实（当存在时）
+- 自身的主导展示物
+- 自身的头条结果
+- 自身的附录桥接
 
-If the evidence package carries multiple transfer fronts, keep at least one non-headline transfer benchmark or cross-setting validation in the main experiments section beyond the primary deployment or headline benchmark.
+如果证据包承载多个迁移前沿，除了主要部署或头条基准外，在主实验章节至少保留一个非头条的迁移基准或跨设置验证。
 
-When the gold oral package uses multiple main-text displays to answer distinct reviewer questions, keep one explicit main-text boundary, robustness, or scope-setting display in addition to the headline comparison block. Do not push every non-headline empirical check into appendix overflow if the central claim still depends on visible claim-boundary evidence.
+当黄金 oral 包使用多个正文展示物来回答不同的审稿人问题时，除头条比较块外，额外保留一个显式的正文边界、鲁棒性或范围设定展示。如果核心论点仍依赖可见的论点边界证据，不要将每个非头条实证核查都推入附录溢出。
 
-Only move exhaustive rows, per-task detail, and secondary checks to the appendix; do not narrow the main paper to one deployment table plus appendix overflow when the central claim depends on visible generalization breadth.
+仅将穷举行、逐任务细节与次要核查移至附录；当核心论点依赖可见的泛化广度时，不要将主论文收窄为一张部署表加附录溢出。
 
-When the method makes a core claim operational, reserve method-local evidence for that claim.
+当方法使某个核心论点可操作化时，为该论点保留方法局部的(method-local)证据。
 
-For claims about open-ended actions, executable control, retrieval-grounding, tool use, or interaction loops, include at least one concrete method artifact when available:
+对于关于开放式动作、可执行控制、检索接地、工具使用或交互循环的论点，在可用时至少包含一个具体的方法产物：
 
-- a compact code snippet
-- a local worked example
-- an input-output trace
-- a method-local schematic
-- a small table that makes the mechanism inspectable
+- 一段紧凑的代码片段
+- 一个本地已验证示例
+- 一个输入-输出轨迹
+- 一个方法局部的示意图
+- 一张让机制可检视的小表
 
-Do not push all operational concreteness into experiments or appendix material.
+不要将所有操作性具体性都推入实验或附录材料。
 
-Move exhaustive material to appendix:
+将穷举材料移至附录：
 
-- full result tables
-- hyperparameter sweeps
-- annotation protocol details
-- extended examples
-- extra proofs and implementation detail
+- 完整结果表
+- 超参扫描
+- 标注协议细节
+- 扩展示例
+- 额外证明与实现细节
 
-Default appendix blueprint when the paper is mature enough:
+成熟论文的默认附录蓝图：
 
-- methodology overflow that defends setup, measurement choices, and regime inventory
-- full-results overflow that keeps task-level or slice-level evidence inspectable
-- enlarged-display overflow for figures, tables, and curves that reviewers may need to inspect closely
-- literature overflow when related work has secondary breadth that would crowd the main text
-- transfer-overflow evidence when main experiments keep the headline transfer block but not all transfer rows
-- tuned baselines or sensitivity checks
-- protocol transparency or prompt detail when the gold package uses them to make the empirical story auditable
-- formal-properties or metric-support material when the main text relies on a new metric, proxy, or diagnostic
-- qualitative examples
-- failure cases
-- separate compliance or broader-impacts support when the gold package keeps that job distinct
-- reproducibility and artifact details
+- 为设置、测量选择与体制清单辩护的方法论溢出
+- 保持任务级或切片级证据可检视的完整结果溢出
+- 供审稿人可能需仔细检视的图、表、曲线放大的展示物溢出
+- 当相关工作有会挤占正文的次要广度时的文献溢出
+- 当主实验保留头条迁移块但非全部迁移行时的迁移溢出证据
+- 调好的基线与敏感性核查
+- 当黄金包用其使实证故事可审计时的协议透明性或提示细节
+- 当正文依赖新指标、代理或诊断时的形式性质或指标支撑材料
+- 定性示例
+- 失败案例
+- 当黄金包将其职责区分开时的独立合规或更广影响支撑
+- 可复现性与产物细节
 
-Before drafting, record which main-text section must point to each appendix bucket.
+在起草前，记录哪个正文章节必须指向每个附录桶。
 
-Method, experiments, and analysis should each know which overflow material they are delegating and where the bridge sentence will appear.
+方法、实验与分析各自都应知道它们委托了哪些溢出材料，以及桥接句将出现在何处。
 
-Related work should also know whether it needs a bridge to an extended-literature appendix lane.
+相关工作也应知道是否需要一条通往扩展文献附录通道的桥接。
 
-Generic appendix references are not enough when the manuscript relies on overflow evidence for credibility.
+当手稿依赖溢出证据以获得可信度时，泛化的附录引用是不够的。
 
-Each important bridge should name a precise appendix destination such as:
+每个重要桥接都应命名精确的附录目的地，例如：
 
-- a labeled subsection
-- a labeled table or figure
-- a titled overflow lane that will later receive a stable label
+- 一个有标签的子节
+- 一个有标签的表或图
+- 一个之后将获得稳定标签的有标题溢出通道
 
-Do not write only "see the appendix" when the claim depends on protocol detail, method implementation detail, transfer overflow, extended literature, or worked traces.
+当论点依赖协议细节、方法实现细节、迁移溢出、扩展文献或已验证轨迹时，不要只写“见附录”。
 
-When compressing a strong paper, do not let the appendix degrade into a light method bridge.
+在压缩强论文时，不要让附录退化为一个轻量的方法桥梁。
 
-The appendix should still look like a reviewer-support package with explicit jobs, especially when the main text has compressed:
+附录仍应看起来像是带有显式职责的审稿人支撑包，尤其在正文已被压缩时：
 
-- setup details that make comparisons interpretable
-- extra analyses that answer likely objections
-- qualitative or human-evaluation evidence
-- supporting tables that defend the main claim's breadth
+- 使比较可解读的设置细节
+- 回答可能异议的额外分析
+- 定性或人工评估证据
+- 辩护主论点广度的支撑表
 
-### 4. Rewrite the paper in oral-paper order
+### 4. 以 oral 论文顺序重写论文
 
-Top-conference oral papers stage information in the order that minimizes reviewer friction.
+顶会 oral 论文按最小化审稿人摩擦的顺序来组织信息。
 
-Rewrite in this order:
+按此顺序重写：
 
-1. story spine
-2. abstract and introduction
-3. method and related work
-4. main results
-5. analysis
-6. figures and tables with surrounding prose
-7. conclusion, limitations, appendix bridge
+1. 故事主轴
+2. 摘要与引言
+3. 方法与相关工作
+4. 主结果
+5. 分析
+6. 带周边文字的图与表
+7. 结论、局限、附录桥接
 
-When writing the paper in a sectioned workflow, use this concrete generation order:
+在以分章节工作流写作时，使用此具体生成顺序：
 
 1. `section_plan`
 2. `introduction`
@@ -498,314 +498,314 @@ When writing the paper in a sectioned workflow, use this concrete generation ord
 10. `abstract`
 11. `integration`
 
-Use `section_plan` as an internal control document, not as manuscript prose. It should record:
+将 `section_plan` 用作内部控制文档，而非手稿文字。它应记录：
 
 - `C1-C3`
-- which section owns the headline proof or validation burden for each main claim
-- the chosen main-text display program
-- the first-page evidence stack: at least one problem-scale anchor and one solution-shape anchor when staged artifacts support both
-- likely reviewer objections
-- the study regime inventory that must stay visible in main text
-- the closest-work novelty boundary
-- appendix overflow jobs
-- the appendix bridge map from method, experiments, and analysis into those jobs
-- any related-work-to-appendix bridge lane
-- any non-headline transfer benchmark that must remain in main text
-- any method-local operational artifact that must not be demoted
-- any closest-comparator contrast that must remain explicit in related work
-- any section-internal scaffold that must survive compression
-- the exact appendix labels or label candidates each main-text bridge should point to
-- any analysis taxonomy terms that must be defined before interpretation
-- one concise job description for each section
-- which concrete staged displays or authored tables will answer each objection
+- 哪个章节承担每个主论点的头条证明或验证负担
+- 所选的正文展示物方案
+- 首页证据栈：当分层产物同时支撑两者时，至少一个问题规模锚点与至少一个解法形态锚点
+- 可能的审稿人异议
+- 必须留在正文可见的研究体制清单
+- 最近工作的新颖性边界
+- 附录溢出职责
+- 从方法、实验与分析进入这些职责的附录桥接图
+- 任何相关工作到附录的桥接通道
+- 任何必须留在正文的非头条迁移基准
+- 任何不得被降级的方法局部操作性产物
+- 任何必须在相关工作保持显式的“最近比较对象”对比
+- 任何必须存活于压缩中的章节内部脚手架
+- 每个正文桥接应指向的确切附录标签或标签候选
+- 任何在解读前必须定义的分析分类术语
+- 每个章节一条简洁的职责描述
+- 哪些具体的分层展示物或自撰表将回答每个异议
 
-Write the abstract last, after the paper's actual evidence order has stabilized.
+摘要最后写，在论文的实际证据顺序稳定之后。
 
-In sectioned mode, keep `main.tex` as the canonical top-level document and keep body prose in separate section files. Do not collapse the manuscript back into one giant draft while writing. Use the final integration pass only to repair consistency, sharpen transitions, synchronize claim wording, and remove staging artifacts from the prose.
-
-Do not reserve essential evidence allocation for integration. Each body section should already be locally complete enough that an interrupted integration pass does not erase key reviewer-defense blocks or appendix bridges.
-
-### 5. Apply oral-level writing rules
-
-Use the principles in `references/oral_writing_principles.md`.
-
-The most important rules are:
-
-- optimize for reader guidance, not maximum compression
-- every section must have a job
-- every paragraph should do one main thing
-- signpost transitions explicitly
-- explain why a result matters, not only what the number is
-- let displays carry detailed values while prose carries interpretation
-- make data analysis extract the trend, mechanism, and tradeoff instead of narrating values
-- defend the method from multiple angles, not just by giving formulas
-- keep claim wording inside the strongest evidence zone
-- use figures as narrative anchors, not just evidence containers
-- move low-priority detail to appendix and keep main text legible
-- calibrate claims instead of overselling
-
-### 6. Use section-specific rewrite checks
-
-When actively rewriting, use `references/section_rewrite_checklist.md`.
-
-That file gives a practical pass for:
-
-- abstract
-- introduction
-- related work
-- method
-- experiments
-- analysis
-- conclusion
-- appendix
-
-### 7. Convert reviewer objections into visible evidence blocks
-
-A mature oral paper does not merely mention likely reviewer concerns. It allocates explicit evidence to them.
-
-Typical evidence blocks include:
-
-- tuned-baseline results
-- transfer or cross-model checks
-- efficiency or cost analysis
-- diversity or conservatism analysis
-- human evaluation protocol details
-- failure cases
-- case studies that explain a mechanism
-
-If a likely objection matters, do not hide the answer in one sentence.
-
-If the draft package supports several objection-resolving blocks, keep them as separate visible subsections rather than folding them into one omnibus paragraph or one overloaded table.
-
-When the paper has enough evidence, reserve one explicit main-text block for reviewer-concern handling rather than hoping the reader infers those answers from the benchmark summary alone.
-
-Typical reviewer-concern blocks to surface in the main text include:
-
-- broader baseline coverage or competitor context
-- human-evaluation signal
-- efficiency or cost tradeoffs
-- qualitative traces or failure cases
-- transfer or robustness checks
-- mechanism-level evidence about why the method's policy changes behavior
-
-For each evidence block, make the prose-display contract explicit:
-
-- the table or figure carries the concrete values, examples, or traces
-- the surrounding prose states the question, takeaway, and mechanism
-- the analysis text explains why the observed pattern appears instead of re-reading visible numbers
-- the analysis text names the trend explicitly and says what underlying behavior or tradeoff it reveals
-
-### 8. Distinguish writing upgrades from evidence upgrades
-
-If a section feels weak, diagnose the real cause:
-
-- If the claim is unsupported, reduce or narrow the claim.
-- If the result exists but reads weakly, rewrite the framing and result prose.
-- If the mechanism is unexplained, add analysis or move analysis into the main text.
-- If the trend is visible but the section only lists values, rewrite around the pattern and its cause.
-- If the method section is crowding out reviewer-concern handling, compress repeated defense and reallocate the space.
-- If artifact status is described inconsistently, synchronize every mention across abstract, main text, reproducibility, and appendix.
-- If the page is crowded, rebalance main text versus appendix.
-
-Never use polished language to conceal an unaddressed scientific gap.
-
-## Sectioned Execution Pattern
-
-When the draft is dense enough to support staged writing, prefer generating the manuscript section by section rather than asking for the full paper in one turn.
-
-Use these operating rules:
-
-- The plan turn chooses the story spine, display program, reviewer-question blocks, and appendix jobs before body prose is written.
-- Each section turn should read the global plan plus only the small subset of earlier sections and staged artifacts it truly needs.
-- `Introduction` should not collapse a display-led first page into prose. When the staged package supports both problem scale and solution shape, preserve both roles with concrete displays, authored compact tables, or a figure-plus-table pairing.
-- `Introduction` should preserve one concrete first-page failure case, benchmark contrast, or payoff anchor when the gold oral package uses it to make the problem vivid before formal sections begin.
-- `Related Work` should name the closest prior and the exact novelty boundary rather than stopping at broad capability buckets.
-- `Method` should keep a short main-text audit surface for model suites, benchmark groups, or regime inventory when the gold paper uses one to make the method's evidence base inspectable.
-- `Experiments` should establish the main empirical pattern through explicit reviewer-question blocks, each anchored by one dominant display.
-- `Experiments` should keep one non-headline transfer or robustness block in main text when the staged package has several transfer fronts and the central claim needs visible generalization breadth.
-- `Experiments` should preserve visibly separate internal layers for headline evaluation, transfer breadth, and mechanism validation when the staged package distinguishes those jobs. Do not compress them into one undifferentiated benchmark narrative.
-- `Experiments` should preserve repeated setup/results scaffolds for distinct intervention families when the gold oral paper uses them to turn validation into actionability. Do not collapse several intervention families into one short summary block if reviewers still need to inspect them separately.
-- `Method` should preserve main-text setup and study-regime inventory when the draft package contains them. If the staged package distinguishes prediction settings, model suites, checkpoint slices, benchmark groups, or measurement definitions, keep those distinctions through separate subsections or strong subsection headings instead of pushing them all into appendix prose.
-- `Method` should keep at least one local operational artifact when a core mechanism claim depends on concreteness, especially for executable action spaces, tool calls, browser actions, retrieval grounding, or closed-loop control.
-- `Method` should preserve visible internal scaffold when the system explanation has distinct jobs such as workflow overview, specialist model design, supervision/data construction, and executable action realization. Strong paragraph heads are acceptable; one merged prose block is not.
-- `Analysis` should not continue the result dump. It should explain mechanism, trend, tradeoff, or failure behavior that the reviewer cannot infer from the visible numbers alone, and it should use a visible display or table when the interpretive claim depends on evidence the reader would otherwise not see.
-- `Analysis` should remain a standalone reviewer-facing layer after headline results. Keep at least two visible check blocks, subsections, or strongly signposted units when the staged package separates mechanism, credibility, robustness, tradeoff, sensitivity, or failure-boundary work instead of collapsing everything into one short afterword.
-- `Analysis` should own the headline validation burden when the paper first needs to prove that a metric, proxy, or diagnostic is meaningful before moving to interventions, recommendations, or downstream design guidance. Do not let `analysis` devolve into a leftover mechanism note if it is carrying primary credibility work in the staged evidence package.
-- `Analysis` should keep a minimum main-text evidence floor before deferring support to the appendix: preserve at least one mechanism or credibility display and at least one tradeoff, robustness, sensitivity, or quality-support display when the staged package uses them to answer different reviewer concerns.
-- `Analysis` should open with an explicit taxonomy, mechanism frame, or tradeoff frame when later interpretation depends on named categories. If the gold package distinguishes failure types such as programming, planning, and summarization, define those categories before interpreting shifts between them.
-- `Appendix` should be written before `limitations`, `conclusion`, and `abstract` so later sections can accurately describe the support package that actually exists.
-- `Integration` should check cross-section consistency, display roles, appendix bridges, and claim calibration, not rewrite the paper from scratch.
-- `Integration` should remove meta-signposting or planning language that still reads like drafting scaffolding, and it should preserve one memorable qualitative, human, or failure anchor when the staged package can support it.
-- `Integration` should check titles, abstract, captions, conclusion, and section openings for user/operator/route wording; these locations must read like paper text, not process notes.
-- `Integration` should replace generic appendix mentions with precise labeled destinations whenever the body section already knows the supporting overflow lane.
-- `Integration` should audit canonical section jobs, not just headings.
+在分章节模式下，保持 `main.tex` 为规范的顶层文档，并保持正文文字在独立的分章节文件中。写作时不要将手稿压缩回一个巨大的草稿。仅在最终整合轮次中修复一致性、锐化过渡、同步论点措辞，并从文字中移除分级产物。
+
+不要为整合预留关键证据分配。每个正文章节本身应已足够局部完整，使得一次被打断的整合轮次不会抹掉关键的审稿人辩护块或附录桥接。
+
+### 5. 应用 oral 级写作规则
+
+使用 `references/oral_writing_principles.md` 中的原则。
+
+最重要的规则是：
+
+- 为读者引导优化，而非最大压缩
+- 每个章节必须有职责
+- 每个段落应只做一件主要的事
+- 显式地标出过渡
+- 解释结果为何重要，而非仅说明数字是什么
+- 让展示物承载具体数值，文字承载解读
+- 让数据分析提取趋势、机制与权衡，而非叙述数值
+- 从多个角度为方法辩护，而非仅给出公式
+- 将论点措辞保持在最强证据区内
+- 将图用作叙事锚点，而非仅是证据容器
+- 将低优先级细节移至附录，保持正文清晰
+- 校准论点而非过度推销
+
+### 6. 使用章节专属的重写核查
+
+在积极重写时，使用 `references/section_rewrite_checklist.md`。
+
+该文件给出对以下内容的实用核查：
+
+- 摘要
+- 引言
+- 相关工作
+- 方法
+- 实验
+- 分析
+- 结论
+- 附录
+
+### 7. 将审稿人异议转为可见的证据块
+
+成熟的 oral 论文不只是提及可能的审稿人关切。它为之分配显式的证据。
+
+典型的证据块包括：
+
+- 调好的基线结果
+- 迁移或跨模型核查
+- 效率或成本分析
+- 多样性或保守性分析
+- 人工评估协议细节
+- 失败案例
+- 解释某种机制的案例研究
+
+如果某个可能的异议重要，不要用一句话藏起答案。
+
+如果草稿包支持多个异议解决块，应将它们保留为独立的可见子节，而非折叠进一个包罗万象的段落或一张过载的表。
+
+当论文有充足证据时，为正文保留一个显式的审稿人关切处理块，而非指望读者仅从基准摘要推断这些答案。
+
+通常应在正文浮现的典型审稿人关切块包括：
+
+- 更广的基线覆盖或竞争者背景
+- 人工评估信号
+- 效率或成本权衡
+- 定性轨迹或失败案例
+- 迁移或鲁棒性核查
+- 关于方法策略为何改变行为的机制级证据
+
+对于每个证据块，使“文字—展示物契约”显式：
+
+- 表或图承载具体数值、示例或轨迹
+- 周边文字陈述问题、要点与机制
+- 分析文字解释为何出现该观测模式，而非重读可见数字
+- 分析文字显式命名趋势，并说明它揭示了何种底层行为或权衡
+
+### 8. 区分写作升级与证据升级
+
+如果某章节显得薄弱，诊断真实原因：
+
+- 若论点无支撑，则收窄或缩小该论点。
+- 若结果存在但读起来弱，则重写其框架与结果文字。
+- 若机制未解释，则增加分析或将分析移入正文。
+- 若趋势可见但章节仅在罗列数值，则围绕模式及其成因重写。
+- 若方法章节正在挤占审稿人关切处理，则压缩重复的辩护并重新分配空间。
+- 若产物状态描述不一致，则同步摘要、正文、可复现性与附录中的每次提及。
+- 若页面拥挤，则重新平衡正文与附录。
+
+绝不要用精致的文字掩盖一个未解决的科学缺口。
+
+## 分章节执行模式
+
+当草稿足够密集以支持分级写作时，优先按章节生成手稿，而非在一次轮次中要求完整论文。
+
+使用这些运行规则：
+
+- 计划轮次应在写正文之前选择故事主轴、展示物方案、审稿人问题块与附录职责。
+- 每个章节轮次应阅读全局计划，以及它真正需要的一小批早先章节与分层产物。
+- `Introduction` 不应将“以展示物为引领的首页”压缩为文字。当分层包同时支撑问题规模与解法形态时，应通过具体展示物、自撰紧凑表或“图+表”配对来保留两种角色。
+- 当黄金 oral 包用它使问题在正式章节开始前变得鲜活时，`Introduction` 应保留一个具体的首页失败案例、基准对比或收益锚点。
+- `Related Work` 应点名最近的先前工作与确切的新颖性边界，而非停留在宽泛的能力桶。
+- 当黄金论文用一个“模型套件 / 基准组 / 体制清单”审计面来使方法证据基础可检视时，`Method` 应保留一段简短的正文审计面。
+- `Experiments` 应通过显式的审稿人问题块建立主实证模式，每个块由一个主导展示物锚定。
+- 当分层包有多个迁移前沿且核心论点需要可见的泛化广度时，`Experiments` 应在正文中保留一个非头条的迁移或鲁棒性块。
+- 当分层包区分这些职责时，`Experiments` 应保留“头条评估”、“迁移广度”与“机制验证”之间可见的独立层。不要将它们压缩为一个无差别的基准叙事。
+- 当黄金 oral 论文用其将验证转为可操作性时，`Experiments` 应保留为不同干预族重复的设置/结果脚手架。如果审稿人仍需分别审视它们，不要将多个干预族压缩为一个简短摘要块。
+- 当草稿包包含时，`Method` 应保留正文设置与研究体制清单。如果分层包区分预测设置、模型套件、检查点切片、基准组或测量定义，应通过独立子节或强子节标题保留这些区分，而非全部推入附录文字。
+- 当核心机制论点依赖具体性时，`Method` 应至少保留一个局部操作性产物，尤其是针对可执行动作空间、工具调用、浏览器动作、检索接地或闭环控制。
+- 当系统解释具有“工作流概览、专家模型设计、监督/数据构建、可执行动作实现”等明显不同的职责时，`Method` 应保留可见的内部脚手架。强段落标题是可接受的；一个合并的文字块不行。
+- `Analysis` 不应继续结果倾倒。它应解释审稿人无法仅从可见数字推断的机制、趋势、权衡或失败行为，且当解释性论点依赖读者本不会看到的证据时，应使用可见的展示物或表。
+- 在头条结果之后，`Analysis` 应保留一个独立的、面向审稿人的层。当分层包将机制、可信度、鲁棒性、权衡、敏感性或失败边界工作区分开、而非将其全部折叠为一个简短后记时，`Analysis` 应保留至少两个可见的核查块、子节或强标号的单元。
+- 当论文首先需要证明某个指标、代理或诊断有意义、再进入干预、建议或下游设计指导时，`Analysis` 应承接头条验证负担。如果它在分层证据包中承载主要可信度工作，不要让它退化为遗留的机制笔记。
+- 在将支撑推迟到附录之前，`Analysis` 应保留一个最低的正文证据底线：当分层包用它们回答不同审稿人关切时，保留至少一个机制或可信度展示物，以及至少一个权衡、鲁棒性、敏感性或质量支撑展示物。
+- 当后续解读依赖具名类别时，`Analysis` 应以显式的分类法、机制框架或权衡框架开头。如果黄金包区分编程、规划与摘要等失败类型，应在解读它们之间的转变之前定义这些类别。
+- `Appendix` 应在 `limitations`、`conclusion` 与 `abstract` 之前写，以便后续章节能准确描述实际存在的支撑包。
+- `Integration` 应检查跨章节一致性、展示物角色、附录桥接与论点校准，而非从零重写论文。
+- `Integration` 应移除仍像起草脚手架的元标牌或计划性语言，并当分层包能支撑时保留一个令人难忘的定性、人工或失败锚点。
+- `Integration` 应检查标题、摘要、图注、结论与章节开头是否存在用户/操作者/路由措辞；这些位置必须读起来像论文文字，而非过程笔记。
+- 当正文章节已经知道支撑性溢出通道时，`Integration` 应将泛化的附录提及替换为精确的带标签目的地。
+- `Integration` 应审计规范的章节职责，而非仅标题。
 
-This audit should flag:
+该审计应标记：
 
-- introductions that lost a concrete first-page evidence or visual anchor
-- introductions that keep a problem anchor but lose the early solution-shape display
-- methods that dropped study-regime inventory or setup-to-definition staging
-- methods that make operational claims without a local example, code snippet, trace, or mechanism display
-- experiments that merged separate intervention proof blocks into one omnibus stream
-- experiments that moved all non-headline transfer evidence out of main text
-- analysis sections that lost the headline validation burden
-- analysis sections that collapsed multiple reviewer-facing checks into one short interpretive afterword
-- analysis sections that defer both mechanism or credibility support and tradeoff or boundary support to appendix references
-- analysis sections that interpret named failure shifts without first defining the failure categories
-- related work sections that stay thematic instead of naming the closest comparator and exact novelty boundary
-- related work sections that need but lack an explicit bridge to extended literature overflow
-- appendices that no longer expose the planned support buckets or their bridge sentences
-- body sections that say only "the appendix" where a specific appendix destination should be named
+- 丢失了具体首页证据或视觉锚点的引言
+- 保留了问题锚点却丢失早期解法形态展示的引言
+- 丢弃了研究体制清单或“设置到定义”分级的方法
+- 做出操作性论点却无本地示例、代码片段、轨迹或机制展示的方法
+- 将独立干预证明块合并为一条包罗万象流式的实验
+- 将所有非头条迁移证据移出正文的实验
+- 丢失头条验证负担的分析章节
+- 将多个面向审稿人的核查折叠为一个简短解释性后记的分析章节
+- 将机制或可信度支撑与权衡或边界支撑都推迟到附录引用的分析章节
+- 在首先定义失败类别之前就解读具名失败转变的分析章节
+- 停留在主题层面而非点名最近比较对象与确切新颖性边界的相关工作章节
+- 需要却缺少通往扩展文献溢出的显式桥接的相关工作章节
+- 不再暴露所规划支撑桶或其桥接句的附录
+- 本应点名具体附录目的地、却只说“附录”的正文章节
 
-In this mode, a strong default main-text display program is:
+在此模式下，一个强的默认正文展示物方案是：
 
-- one early mechanism or intuition display
-- one competitor-inclusive main result display
-- one interpretive analysis or tradeoff display
-- one memorable qualitative, human-evaluation, or failure-case display when the package can support it
+- 一张早期机制或直觉展示
+- 一张竞争者可见的主结果展示
+- 一张解释性分析或权衡展示
+- 当包能支撑时，一张令人难忘的定性、人工评估或失败案例展示
 
-If one of these roles is missing, do not merely mention it in prose. Either promote a staged artifact into that role or narrow the paper's claims to match the thinner package.
+若这些角色之一缺失，不要仅在文字中提及它。要么将一个分层产物提升为该角色，要么收窄论文论点以匹配更单薄的包。
 
-### 9. Run a final oral-package pass
+### 9. 运行最终的 oral 包检查
 
-Before stopping, check:
+在停止前，检查：
 
-- Can a reviewer summarize the paper after one read?
-- Is the central idea anchored early in both text and visuals?
-- Does each main-text page or section have one dominant job?
-- Is there at least one memorable figure or case study?
-- Does the analysis change the reader's understanding rather than repeat results?
-- Does the appendix feel prepared rather than improvised?
-- Are the strongest claims phrased no more strongly than the evidence package allows?
-- Is artifact availability described consistently everywhere it appears?
+- 审稿人读一遍后能否概括论文？
+- 中心思想是否在文字与视觉中早期锚定？
+- 每个正文页面或章节是否有一个主导职责？
+- 是否至少有一个令人难忘的图或案例研究？
+- 分析是否改变了读者的理解，而非重复结果？
+- 附录是否看起来是精心准备的，而非临时凑的？
+- 最强论点的措辞是否不超出证据包所允许的范围？
+- 产物可用性在它出现的每个地方描述是否一致？
 
-## Operating Principles
+## 运行原则
 
-### Reader-first writing
+### 读者优先的写作
 
-A draft often tries to maximize information density. An oral paper maximizes comprehension, recall, and trust.
+草稿往往试图最大化信息密度。oral 论文最大化理解、记忆与信任。
 
-### Method defending, not just method defining
+### 为方法辩护，而非仅为方法下定义
 
-A strong oral paper does not stop at the formula. It explains:
+强的 oral 论文不止步于公式。它解释：
 
-- what the method is
-- why it is principled
-- how it differs from alternatives
-- why the observed empirical behavior makes sense
+- 方法是什么
+- 为何它是基于原则的
+- 它如何区别于备选方案
+- 为何观测到的实证行为说得通
 
-### Result organization over result accumulation
+### 结果组织优先于结果堆砌
 
-Do not pile all numbers into one page or paragraph. Break results into:
+不要将所有数字堆进一页或一个段落。将结果拆为：
 
-- the main pattern
-- the mechanism or interpretation
-- the objection-handling evidence
+- 主模式
+- 机制或解读
+- 异议处理证据
 
-### Data analysis should expose trend and essence
+### 数据分析应暴露趋势与本质
 
-Strong oral papers do not treat analysis as number recitation.
+强的 oral 论文不把分析当作数字背诵。
 
-Use analysis to answer:
+用分析来回答：
 
-- what trend is stable across settings
-- what tradeoff is actually being managed
-- what mechanism most plausibly drives the pattern
-- what this implies about the method's true scope
+- 何种趋势跨设置稳定
+- 实际在管理何种权衡
+- 何种机制最合理地驱动该模式
+- 这对方法的真实范围意味着什么
 
-### Writing around figures and tables matters
+### 围绕图与表的写作很重要
 
-The prose before and after a figure or table should tell the reader:
+图或表前后的文字应告诉读者：
 
-- why this display appears here
-- what question it answers
-- what takeaway to retain
+- 为何此展示物出现在此处
+- 它回答什么问题
+- 应保留什么要点
 
-### Prose explains, displays show
+### 文字解释，展示物呈现
 
-In strong oral papers, main-text prose does not waste its budget by restating numbers the reader can already read from a table or plot.
+在强的 oral 论文中，正文文字不浪费其预算去复述读者已从表或图中可读到的数字。
 
-Use displays for:
+用展示物来呈现：
 
-- exact values
-- full comparisons
-- trajectories and traces
-- qualitative examples
+- 精确数值
+- 完整比较
+- 轨迹与轨迹线
+- 定性示例
 
-Use prose for:
+用文字来呈现：
 
-- why the display matters here
-- what the dominant pattern is
-- why that pattern appears
-- what reviewer concern the display resolves
+- 为何此展示物在此处重要
+- 主导模式是什么
+- 为何出现该模式
+- 此展示物解决了何种审稿人关切
 
-When the display is a benchmark block, the prose may summarize the headline pattern, but it should not be the only place where the comparison surface exists.
+当展示物是一个基准块时，文字可以总结头条模式，但它不应是存在比较界面的唯一之处。
 
-### Claims should stay inside the strongest evidence zone
+### 论点应保持在最强证据区内
 
-If the evidence supports "strong default," "wins or ties most settings," or "more robust under sweep," do not escalate the wording into universal dominance.
+如果证据支持“强默认”、“在大多数设置下胜出或持平”或“在扫描下更鲁棒”，不要将措辞升级为普遍主导。
 
-Overclaiming wastes reviewer trust that the rest of the paper worked hard to build.
+过度声称会浪费论文其余部分辛苦建立的审稿人信任。
 
-If you removed competitor rows, compressed the metric spread, or moved key comparison context out of view, narrow the comparative wording accordingly.
+如果你删除了竞争者行、压缩了指标差距，或将关键比较上下文移出视野，应相应收窄比较性措辞。
 
-### Method defense should not crowd out objection handling
+### 方法辩护不应挤占异议处理
 
-A method section can be principled and still overconsume main-text budget.
+一个方法章节可以很有原则，却仍过度消耗正文预算。
 
-Compress repeated defense if that space is more valuable as:
+如果那块空间作为以下用途更有价值，则压缩重复的辩护：
 
-- tuned-baseline evidence
-- transfer evidence
-- limitations
-- practical-value discussion
-- a compact objection-handling block
+- 调好的基线证据
+- 迁移证据
+- 局限
+- 实践价值讨论
+- 一个紧凑的异议处理块
 
-### Appendix is part of the oral package
+### 附录是 oral 包的一部分
 
-An oral paper is usually defended by main text plus appendix together. Treat the appendix as part of the persuasion system, not as detached storage.
+oral 论文通常由正文加附录共同辩护。将附录视为说服系统的一部分，而非脱节的存储。
 
-## Common Failure Modes To Remove
+## 需去除的常见失败模式
 
-These are strong signals that a draft still reads like a compressed or LLM-like paper:
+这些是草稿仍读起来像压缩的或 LLM 式论文的强信号：
 
-- abstract overloaded with numbers and no pacing
-- introduction that states conclusions before building motivation
-- related work arriving too late
-- method section that defines equations but never teaches the reader how to think about them
-- result sections that report averages without decomposing the pattern
-- analysis sections that feel like leftover support instead of part of the argument
-- analysis prose that simply narrates the visible table or plot
-- analysis that lists values without naming the trend or mechanism
-- no early mechanism figure
-- no memorable case study or failure-mode evidence
-- figures appearing late and functioning only as storage
-- one page carrying several unrelated local claims
-- tables dominating the main text
-- weak signposting
-- appendix that looks appended rather than designed
-- appendix without an explicit reviewer-defense structure
-- claim language that outruns the evidence package
-- artifact availability described inconsistently across sections
-- isolated claim-calibration sentences instead of structurally calibrated writing
-- user, operator, branch, worktree, prompt, restart, or bundle-management language appearing in manuscript prose
-- raw local execution shorthand in main text, especially endpoint or batch arithmetic that should be protocol prose or appendix-only reproducibility detail
+- 摘要塞满数字且无节奏
+- 在建立动机之前就陈述结论的引言
+- 相关工作来得太晚
+- 只定义方程却从不教读者如何思考它们的方法章节
+- 只报告平均值而不分解模式的结果章节
+- 读起来像遗留支撑而非论证一部分的分析章节
+- 只是叙述可见表或图的分析文字
+- 只罗列数值而不点名趋势或机制的分析
+- 没有早期机制图
+- 没有令人难忘的案例研究或失败模式证据
+- 图出现得很晚且只充当存储
+- 一页承载多个不相关的局部论点
+- 表格主导正文
+- 标牌薄弱
+- 附录看起来是附加的而非设计过的
+- 没有显式审稿人辩护结构的附录
+- 论点措辞跑在证据包前面
+- 产物可用性在各章节描述不一致
+- 孤立的论点校准句，而非结构性的校准写作
+- 用户、操作者、分支、worktree、提示、重启或打包管理语言出现在手稿文字中
+- 正文中的原始本地执行简写，尤其是本应是协议文字或仅入附录可复现细节的端点或批处理算术
 
-## Output Pattern
+## 输出模式
 
-When using this skill, leave behind one or more of the following:
+使用本技能时，留下以下一项或多项：
 
-- a revised paper draft
-- a section-by-section rewrite plan
-- a claim-evidence map
-- an oral delta map
-- a figure/table revision plan
-- a main-text versus appendix reallocation plan
-- a list of writing-only fixes versus evidence-dependent fixes
+- 一份修订后的论文草稿
+- 一份分章节重写计划
+- 一份论点—证据图
+- 一份 oral 增量图
+- 一份图/表修订计划
+- 一份正文对附录的重新分配计划
+- 一份“仅写作修复”对“依赖证据的修复”清单
 
-Prefer concrete edits over generic advice.
+优先具体编辑，而非泛化建议。
 
-## References
+## 引用
 
 - `references/oral_package_patterns.md`
 - `references/oral_writing_principles.md`

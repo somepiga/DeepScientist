@@ -1,149 +1,148 @@
 ---
 name: nature-paper2ppt
-description: Build a complete but efficient Nature-style Chinese PPTX presentation from a scientific paper, preprint, PDF, article text, abstract, figure legends, or reading notes. Use this skill whenever the user asks to make slides/PPT/PPTX for journal club, group meeting, paper sharing, thesis seminar, lab meeting, department report, or academic presentation from a research paper, not only medical papers. It identifies the paper type and argument, selects only the figures needed for the story, writes Chinese slide content and speaker notes, creates the actual .pptx deck, and performs lightweight verification with cross-platform Python tooling by default.
+description: 从一篇科研论文、预印本、PDF、文章正文、摘要、图注或阅读笔记出发，构建一个完整而精炼的 Nature 风格中文 PPTX 演示文稿。每当用户要求基于研究论文制作期刊读书会、组会、论文分享、开题答辩、实验室例会、系所报告或学术报告用的幻灯片/PPT/PPTX 时使用，不仅限于医学论文。本技能识别论文类型与论证逻辑，仅选取讲故事所需的插图，撰写中文幻灯片内容与讲稿，并在默认情况下用跨平台 Python 工具创建实际的 .pptx 文件并进行轻量验证。
 skill_role: companion
 ---
 
-# Purpose
+# 目标
 
-This companion skill is adapted from `Yuan1z0825/nature-skills/tree/main/nature-paper2ppt`.
-See `UPSTREAM_LICENSE.txt` for the upstream MIT license.
+本辅助技能改编自 `Yuan1z0825/nature-skills/tree/main/nature-paper2ppt`。
+上游 MIT 许可见 `UPSTREAM_LICENSE.txt`。
 
-## DeepScientist integration
+## DeepScientist 集成
 
-- Follow the shared interaction contract injected by the system prompt.
-- Use this only when the user explicitly wants slides, PPT, PPTX, a journal-club deck, a lab-meeting deck, or a paper-sharing presentation.
-- Do not route ordinary paper writing, manuscript polishing, or evidence repair into this skill.
-- The expected output is a real `.pptx` deck plus lightweight verification, not only an outline or talk script.
+- 遵循系统提示注入的共享交互契约。
+- 仅当用户明确要求幻灯片、PPT、PPTX、期刊读书会演示包、实验室例会演示包或论文分享演示时使用。
+- 不要将普通论文写作、稿件润色或证据修复路由到本技能。
+- 预期产出是真实的 `.pptx` 演示包加轻量验证，而非仅一个大纲或讲稿。
 
-Transform a scientific paper or paper-derived notes into a complete Chinese, figure-integrated PPTX presentation package with a Nature-style reporting logic.
+将一篇科研论文或论文衍生的笔记，转化为一套完整的中文、插图集成的 PPTX 演示材料包，并采用 Nature 风格的报道逻辑。
 
-The skill must not stop at an outline or script. The expected end product is a real `.pptx` deck. Keep supporting files minimal unless the user asks for more traceability.
+本技能不能止步于大纲或讲稿。预期的最终产物是一个真实的 `.pptx` 演示包。除非用户要求更多可追溯性，否则保持支撑文件最小化。
 
-Use this skill for papers across scientific fields, including:
-- life sciences and medicine
-- chemistry and materials science
-- environmental and earth sciences
-- physics and engineering
-- computational biology, AI, and methods papers
-- interdisciplinary Nature-family style research
-- reviews, perspectives, resources, datasets, and benchmark papers
+将本技能用于各科学领域的论文，包括：
+- 生命科学和医学
+- 化学与材料科学
+- 环境与地球科学
+- 物理与工程
+- 计算生物学、AI 与方法学论文
+- 跨学科 Nature 系列风格研究
+- 综述、观点、资源、数据集与基准论文
 
-# Core Principle
-Use the paper's scientific argument as the presentation spine.
+# 核心原则
+以论文的科学论证作为演示的脊梁。
 
-The default slide logic should help the audience answer, in order:
-1. Why does this problem matter?
-2. What gap or bottleneck does the paper address?
-3. What did the authors do?
-4. What is the key evidence?
-5. Why should we trust the result?
-6. What is new, reusable, or broadly meaningful?
-7. Where are the boundaries and open questions?
+默认的幻灯片逻辑应帮助听众依次回答：
+1. 为什么这个问题重要？
+2. 论文解决了什么缺口或瓶颈？
+3. 作者做了什么？
+4. 关键证据是什么？
+5. 为什么我们应该相信这个结果？
+6. 什么内容是新的、可复用的或具有广泛意义的？
+7. 边界在哪里，存在哪些开放问题？
 
-This is more important than copying the paper section order.
+这比照搬论文的章节顺序更重要。
 
-# Lean Operating Mode
-Default to the lowest-overhead workflow that still produces a usable PPTX.
+# 精益操作模式
+默认采用最低开销、仍能产出可用 PPTX 的工作流。
 
-Do:
-- read only the source material needed to understand the paper's argument,
-- extract only figures/tables that will actually appear in the deck,
-- create the PPTX as the primary deliverable,
-- run lightweight structural checks on the PPTX package,
-- write a short QA report.
+要做：
+- 仅阅读理解论文论证所需的源材料，
+- 仅提取真正会出现在演示包中的插图/表格，
+- 将 PPTX 作为首要交付物来创建，
+- 对 PPTX 包运行轻量结构检查，
+- 撰写一份简短的 QA 报告。
 
-Avoid by default:
-- exhaustive extraction of every figure, page, image, table, or supplement,
-- full OCR unless normal text extraction fails or the PDF is scanned,
-- saving full raw extracted paper text unless it is needed for debugging or reuse,
-- installing new dependencies when an existing tool can complete the task,
-- launching GUI apps or desktop automation just to render previews,
-- generating long markdown scripts when the user only needs a deck,
-- rendering every slide when no reliable headless renderer is available.
+默认避免：
+- 穷尽式提取每一张图、每一页、每一张图像、每一个表格或补充材料，
+- 除非正常文本提取失败或 PDF 为扫描件，否则不做完整 OCR，
+- 除非调试或复用所需，否则不保存完整原始提取的论文字，
+- 当已有工具能完成任务时不安装新依赖，
+- 仅为渲染预览而启动 GUI 应用或桌面自动化，
+- 当用户只需要演示包时生成冗长的 markdown 讲稿，
+- 当没有可靠的免头渲染器可用时渲染每一张幻灯片。
 
-## Toolchain Policy
-Use a cross-platform Python-first stack unless the user explicitly asks for something else:
-- PyMuPDF for metadata, text extraction, page rendering, and page-level crops,
-- Pillow for figure crops, contact sheets, and lightweight preview images,
-- python-pptx for slide authoring and PPTX-safe editing,
-- zipfile plus a reopen pass through python-pptx for package validation.
+## 工具链政策
+除非用户明确要求其他方案，否则使用以 Python 优先的跨平台技术栈：
+- PyMuPDF 用于元数据、文本提取、页面渲染与页面级裁剪，
+- Pillow 用于插图裁剪、拼版缩略图与轻量预览图，
+- python-pptx 用于幻灯片编写与 PPTX 安全编辑，
+- zipfile 配合通过 python-pptx 重新打开一遍，用于包校验。
 
-This stack must work on macOS, Linux, and Windows. Use `pathlib` paths, project-local output directories, and Office-safe fonts or theme fonts. Do not hardcode OS font paths or platform-specific file locations. If Python packages are missing, create a local virtual environment and install the minimum packages only when policy permits; do not install broad document suites just to finish a normal deck.
+该技术栈必须在 macOS、Linux 与 Windows 上可用。使用 `pathlib` 路径、项目本地输出目录，以及 Office 安全字体或主题字体。不要硬编码操作系统字体路径或平台特定文件位置。若 Python 包缺失，仅在政策允许时创建本地虚拟环境并安装最少的包；不要为了完成普通演示包而安装庞大的文档套件。
 
-Treat LibreOffice/soffice as optional, only when it is already available and a real rendered preview is worth the cost. Avoid Keynote, PowerPoint desktop automation, AppleScript, Preview, Finder, `open`, and any OS-specific font or path dependency in helper scripts. If a preview can be made from extracted slide objects or assets, prefer that over re-rendering the whole deck.
+将 LibreOffice/soffice 视为可选的，仅当它已可用且真实渲染预览值得付出成本时使用。在辅助脚本中避免 Keynote、PowerPoint 桌面自动化、AppleScript、Preview、Finder、`open` 以及任何操作系统特定的字体或路径依赖。若能从提取的幻灯片对象或资源生成预览，优先采用该方式，而非重新渲染整个演示包。
 
-Ask or document the tradeoff before doing expensive extras such as full supplementary-material processing, high-resolution recreation of many figures, full slide-by-slide rendered QA, or very long decks.
+在进行昂贵的额外操作——例如完整补充材料处理、大量插图的高分辨率重绘、逐页渲染的 QA、或超长演示包——之前，先询问或记录其权衡。
 
-# Accepted Inputs
-The skill may receive:
-- a full paper PDF
-- supplementary figures or tables
-- Word or markdown converted paper text
-- abstract + results + figure legends
-- structured reading notes
-- manually pasted article content
-- an `input/source.md` file
-- a user-provided PPTX template
+# 接受的输入
+本技能可能收到：
+- 一份完整的论文 PDF
+- 补充插图或表格
+- Word 或 markdown 转换后的论文正文
+- 摘要 + 结果 + 图注
+- 结构化阅读笔记
+- 手动粘贴的文章内容
+- 一个 `input/source.md` 文件
+- 用户提供的 PPTX 模板
 
-Default output language is simplified Chinese unless the user requests otherwise. Preserve important technical terms, abbreviations, gene/protein names, model names, dataset names, equations, and statistical terms in English when needed.
+默认输出语言为简体中文，除非用户另有要求。必要时保留重要的技术术语、缩写、基因/蛋白名称、模型名称、数据集名称、公式与统计术语的英文原样。
 
-# Default Fast Path
-For a normal selectable-text paper PDF, run the shortest complete path:
-1. Extract metadata, abstract, headings, figure legends, and table captions with PyMuPDF.
-2. Identify the paper type, argument, and candidate figures before rendering high-resolution pages.
-3. Render low-resolution contact sheets only when figure locations are unclear.
-4. Render high-resolution images only for selected figure/table pages and crop only assets that will appear in the deck.
-5. Build the PPTX directly with python-pptx, using native tables/charts when values are explicit and figure crops when the original visual carries the evidence.
-6. Verify by reopening the PPTX and inspecting package structure; render slide previews only if a reliable cross-platform headless renderer is already available.
+# 默认快速路径
+对于一份正常、可选中文本的论文 PDF，运行最短的完整路径：
+1. 用 PyMuPDF 提取元数据、摘要、标题、图注与表格标题。
+2. 在高分辨率渲染页面之前，先识别论文类型、论证与候选插图。
+3. 仅当插图位置不清晰时，才渲染低分辨率拼版缩略图。
+4. 仅对选定的插图/表格页渲染高分辨率图像，并且仅裁剪将出现在演示包中的资源。
+5. 直接用 python-pptx 构建 PPTX，当数值明确时采用原生表格/图表，当原始视觉承载证据时采用插图裁剪。
+6. 通过重新打开 PPTX 并检查包结构来验证；仅当可靠的跨平台免头渲染器已可用时，才渲染幻灯片预览。
 
-OCR, full supplementary extraction, all-page high-resolution rendering, all-slide rendered QA, and long script files are opt-in or justified exceptions, not defaults.
+OCR、完整补充材料提取、全页高分辨率渲染、逐页渲染 QA 以及长讲稿文件，都是可选择或需正当理由的例外，而非默认行为。
 
-# Workflow
+# 工作流
 
-## Step 1. Read and extract source material
-Extract, when available:
-- title, authors, journal/preprint server, year, DOI
-- field and subfield
-- paper type
-- central problem and knowledge gap
-- main claim or thesis
-- study design, workflow, model, dataset, or experimental system
-- key methods and controls
-- main results and quantitative findings
-- key figures, tables, and figure legends
-- validation, robustness, ablation, or sensitivity analyses
-- limitations and unresolved questions
-- broader scientific, clinical, technical, environmental, or translational meaning
+## 第 1 步. 阅读并提取源材料
+在可用时提取：
+- 标题、作者、期刊/预印本服务器、年份、DOI
+- 领域与子领域
+- 论文类型
+- 核心问题与知识缺口
+- 主要主张或论点
+- 研究设计、工作流、模型、数据集或实验系统
+- 关键方法与控制条件
+- 主要结果与量化发现
+- 关键插图、表格与图注
+- 验证、稳健性、消融或敏感性分析
+- 局限性与未解决的问题
+- 更广泛的科学、临床、技术、环境或转化意义
 
-Do not invent missing numbers, mechanisms, datasets, or figure details.
-Use a two-pass reading strategy: first capture metadata, abstract, headings, figure legends, and table captions; then read only the result and methods pages needed to support the slides.
+不要编造缺失的数字、机制、数据集或插图细节。采用两遍阅读策略：先捕获元数据、摘要、标题、图注与表格标题；再仅阅读支撑幻灯片所需的结果与方法页。
 
-## Step 2. Classify the paper before designing slides
-Identify the primary paper type. Choose the closest fit:
-- discovery / mechanism paper
-- translational or applied science paper
-- clinical or population study
-- methods / algorithm / tool paper
-- resource / dataset / atlas paper
-- omics, single-cell, spatial, or multi-modal study
-- materials / chemistry / engineering performance study
-- environmental, ecological, or earth-system study
-- benchmark / evaluation paper
-- review / perspective / commentary
-- meta-analysis / systematic review
+## 第 2 步. 在设计幻灯片前对论文分类
+识别主要论文类型。选择最接近的一项：
+- 发现 / 机制论文
+- 转化或应用科学论文
+- 临床或人群研究
+- 方法 / 算法 / 工具论文
+- 资源 / 数据集 / 图谱论文
+- 组学、单细胞、空间或多模态研究
+- 材料 / 化学 / 工程性能研究
+- 环境、生态或地球系统研究
+- 基准 / 评估论文
+- 综述 / 观点 / 评论
+- 荟萃分析 / 系统综述
 
-Then identify the best presentation logic:
-- `claim-first`: useful when the paper has one strong central claim
-- `question-to-evidence`: useful for mechanism and discovery papers
-- `problem-to-solution`: useful for methods, tools, and engineering papers
-- `workflow-to-validation`: useful for datasets, atlases, omics, and benchmarks
-- `evidence-map`: useful for reviews and perspectives
+然后识别最佳的演示逻辑：
+- `claim-first`：论文有一个强有力的核心主张时适用
+- `question-to-evidence`：机制与发现类论文适用
+- `problem-to-solution`：方法、工具与工程类论文适用
+- `workflow-to-validation`：数据集、图谱、组学与基准类论文适用
+- `evidence-map`：综述与观点类论文适用
 
-## Step 3. Build the Chinese presentation plan
-Default length: 12-16 slides for a 15-20 minute report.
+## 第 3 步. 构建中文演示计划
+默认长度：15-20 分钟报告对应 12-16 张幻灯片。
 
-The default structure is:
+默认结构为：
 1. 标题页
 2. 研究背景：为什么这个问题重要
 3. 知识缺口 / 技术瓶颈
@@ -158,308 +157,307 @@ The default structure is:
 12. 局限性与未解决问题
 13. 总结与讨论
 
-Adapt this structure to the paper type. Do not force every paper into the same template.
+根据论文类型调整该结构。不要将所有论文强行套入同一模板。
 
-For a quick or unspecified request, prefer 10-14 slides. Expand beyond 16 slides only when the user asks for a detailed seminar deck or the paper genuinely needs the extra space to stay readable.
+对于快速或模糊的请求，优先采用 10-14 张幻灯片。仅当用户要求详细研讨型演示包，或论文确实需要的额外空间以保持可读性时，才扩展到 16 张以上。
 
-## Step 4. Select figures as evidence, not decoration
-Inspect the source for:
-- graphical abstracts or summary models
-- study design and workflow diagrams
-- central result figures
-- microscopy or imaging panels
-- heatmaps, dimensionality reduction, networks, maps, or spatial plots
-- survival curves, forest plots, calibration curves, or statistical result plots
-- materials characterization and performance plots
-- model architecture, benchmark, ablation, or error analysis figures
-- key tables
-- validation or control figures
+## 第 4 步. 选择插图作为证据，而非装饰
+检查源材料中：
+- 图文摘要或总结模型
+- 研究设计与工作流示意图
+- 核心结果插图
+- 显微镜或成像面板
+- 热图、降维、网络、地图或空间图
+- 生存曲线、森林图、校准曲线或统计结果图
+- 材料表征与性能图
+- 模型架构、基准、消融或误差分析图
+- 关键表格
+- 验证或对照图
 
-Prioritize figures that carry the paper's argument:
-1. design/workflow,
-2. main evidence,
-3. validation or robustness,
-4. mechanism/model/synthesis,
-5. practical or conceptual implication.
+优先选取承载论文论证的插图：
+1. 设计/工作流，
+2. 主要证据，
+3. 验证或稳健性，
+4. 机制/模型/综合，
+5. 实践或概念意义。
 
-Prefer a few readable key panels over many unreadable full figures.
+优先选取少量可读的关键面板，而非大量不可读的完整插图。
 
-## Step 5. Extract and prepare figure assets
-When the source contains usable figures:
-- extract original images from the PDF or source package when possible, but only for selected figures,
-- render high-resolution page images only for pages containing selected figures or tables,
-- crop relevant panels when full figures are too dense,
-- keep original data visuals unchanged,
-- save images under `output/assets/figures/`,
-- use clear filenames such as `fig1_workflow.png`, `fig2b_main_result.png`, or `fig4ef_validation.png`,
-- record source page, figure number, panel, crop status, and intended slide in `output/asset_manifest.md`.
+## 第 5 步. 提取并准备插图资源
+当源材料含可用插图时：
+- 尽可能仅针对选定插图，从 PDF 或源包中提取原始图像，
+- 仅针对包含选定插图或表格的页面渲染高分辨率页面图，
+- 当完整插图过于密集时，裁剪相关面板，
+- 保持原始数据视觉不变，
+- 将图像保存在 `output/assets/figures/` 下，
+- 使用清晰的文件名，如 `fig1_workflow.png`、`fig2b_main_result.png` 或 `fig4ef_validation.png`，
+- 在 `output/asset_manifest.md` 中记录源页、插图编号、面板、裁剪状态与预期幻灯片。
 
-For a standard 10-14 slide journal-club deck, usually select 4-8 figure/table assets. Add more only when they directly support distinct evidence slides.
+对于标准的 10-14 张读书会演示包，通常选取 4-8 个插图/表格资源。仅当它们直接支撑不同的证据幻灯片时，才增加更多。
 
-For tables and simple quantitative comparisons, prefer editable PPT-native tables/charts when values are explicit in the paper text or table. Use table screenshots only when recreating the table would risk transcription errors or when layout/formatting itself is the evidence.
+对于表格与简单的量化比较，当数值在论文正文或表格中明示时，优先使用可编辑的 PPT 原生表格/图表。仅当重绘表格会有转录错误风险，或布局/格式本身即为证据时，才使用表格截图。
 
-If extraction fails, use the best available fallback:
-- rendered page screenshot with careful crop,
-- recreated editable table only when values are explicitly available,
-- clearly labeled placeholder only when the visual is unavailable.
+若提取失败，使用可用的最佳回退方案：
+- 经仔细裁剪的渲染页面截图，
+- 仅当数值明确可用时重绘可编辑表格，
+- 仅当视觉不可用时使用清晰标注的占位符。
 
-## Step 6. Write slide-by-slide content
-For each slide, write:
-- Chinese title
-- slide purpose
-- suggested layout
-- 3-4 concise Chinese bullets
-- selected figure or table asset, if any
-- Chinese figure caption and interpretation
-- one core takeaway sentence
-- Chinese speaker note when oral explanation is useful
+## 第 6 步. 逐页撰写幻灯片内容
+对每张幻灯片，撰写：
+- 中文标题
+- 幻灯片目的
+- 建议布局
+- 3-4 条简洁的中文要点
+- 选定的插图或表格资源（如有）
+- 中文图注与解读
+- 一句核心要点句
+- 需要口头讲解时的中文讲稿
 
-Each slide should make one point. Result slides should answer:
-- What does this figure show?
-- Why does it matter for the paper's claim?
-- What should the audience believe after seeing it?
+每张幻灯片应只表达一个观点。结果幻灯片应回答：
+- 这张图展示了什么？
+- 它对论文主张为什么重要？
+- 观众看完后应当相信什么？
 
-Speaker notes should be useful but concise. Do not write long narration for every slide when the slide content is self-explanatory.
+讲稿应有用但简洁。当幻灯片内容不言自明时，不要为每张幻灯片都撰写长篇旁白。
 
-### Evidence hierarchy on a slide
-For any result slide, order the visual logic like this:
-1. hero figure or main table crop,
-2. narrow interpretation rail or short annotation band,
-3. only the minimum labels needed to read the evidence,
-4. any deeper explanation moves to speaker notes or the next slide.
+### 幻灯片上的证据层级
+对于任何结果幻灯片，按下述视觉逻辑排序：
+1. 核心插图或主表裁剪，
+2. 窄解读栏或简短注释带，
+3. 仅保留阅读证据所需的最少标签，
+4. 任何更深层的解释移入讲稿或下一张幻灯片。
 
-Do not let the interpretation block become as large or louder than the evidence itself.
+不要让解读块变得与证据本身一样大或一样抢眼。
 
-### Layout adaptation rule
-Do not default to a fixed 50/50 left-right split.
-Choose the layout from the figure's aspect ratio, density, and role in the argument:
-- use a full-width or near-full-width visual when the figure is wide, complex, or the slide's main evidence,
-- use a tall image with a narrow text rail when the figure is vertically oriented or the caption/interpretation is short,
-- use a top/bottom stack when the figure needs more horizontal room or the slide benefits from a short argument above and a visual below,
-- use an asymmetric split such as 70/30, 75/25, or 65/35 when one side clearly dominates,
-- use a compact visual-plus-callout layout when the slide only needs a few annotations,
-- use a table or figure crop instead of shrinking a dense graphic into a small frame.
+### 布局适配规则
+不要默认采用固定的 50/50 左右分栏。根据插图的长宽比、密度及其在论证中的角色选择布局：
+- 当插图较宽、复杂或作为幻灯片主要证据时，使用全宽或近全宽视觉，
+- 当插图呈竖向或图注/解读较短时，使用竖向图像配窄文本栏，
+- 当插图需要更多横向空间，或幻灯片受益于上方短论证加下方视觉时，使用上下堆叠，
+- 当一侧明显占主导时，使用 70/30、75/25 或 65/35 等非对称分栏，
+- 当幻灯片仅需少量注释时，使用紧凑的"视觉+标注"布局，
+- 当密集图形缩小到小框会失真时，使用表格或插图裁剪，而非将其塞进小框。
 
-Treat equal-weight 1:1 layouts as the exception, not the default. Use them only when the text and image truly carry comparable weight and neither needs dominance. In most result slides, one side should clearly dominate.
+将等权重的 1:1 布局视为例外，而非默认。仅当文本与图像确实承载相当权重、且两者都不需要主导时，才使用它们。在大多数结果幻灯片中，应有一侧明显主导。
 
-Prefer the smallest text block that still makes the claim legible. If the visual needs space, give it space; if the text is the main point, let the slide breathe and keep the figure smaller or move it to its own slide.
+优先采用仍能清晰表达主张的最小文本块。若视觉需要空间，就给它空间；若文本是要点，就让幻灯片留白、并将插图缩小或移到单独的幻灯片。
 
-For dense figures or tables, crop to the most relevant panels and avoid squeezing them into equal columns. For sparse slides, do not pad the page with extra boxes just to fill space.
+对于密集插图或表格，裁剪到最相关的面板，避免将其塞进等宽列。对于稀疏幻灯片，不要仅为填满空间而用额外框格填充页面。
 
-### Slide archetype defaults
-Use these defaults unless the source strongly suggests otherwise:
-- Cover slide: one dominant visual or typographic idea, no balanced split, no dashboard-like grid.
-- Background/problem slide: short setup text plus one compact context visual or schematic.
-- Workflow/method slide: full-width or top-to-bottom process diagram, not two equal text/figure columns.
-- Result/evidence slide: one dominant figure or table crop with a narrow interpretation rail; avoid 1:1 layouts unless the evidence and explanation truly balance.
-- Comparison/table slide: full-width table or split table across slides if it becomes cramped.
-- Model/summary slide: a large central model with a brief takeaway strip or short annotation band.
-- Conclusion/discussion slide: text-led but open composition, with 2-4 bullets and no unnecessary containers.
+### 幻灯片原型默认值
+除非源材料强烈暗示其他方案，否则使用以下默认：
+- 封面幻灯片：一个主导视觉或排版概念，无平衡分栏，无仪表盘式网格。
+- 背景/问题幻灯片：简短背景文字配一个紧凑的上下文视觉或示意图。
+- 工作流/方法幻灯片：全宽或自上而下的流程示意图，而非两个等权文本/插图列。
+- 结果/证据幻灯片：一个主导插图或表格裁剪配窄解读栏；除非证据与解释真正平衡，否则避免 1:1 布局。
+- 比较/表格幻灯片：全宽表格，或若变拥挤则跨幻灯片拆分表格。
+- 模型/总结幻灯片：一个大的中心模型配简短要点条或短注释带。
+- 结论/讨论幻灯片：以文本为主但开放式的构图，2-4 条要点，无不必要的容器。
 
-### Title writing rule
-Use conclusion-style titles whenever possible. A good title states the slide's point, not just its topic. Prefer sentences like “PathAgent 主动识别信息不足并补充证据” over labels like “Case Study” or “Figure 3”.
+### 标题撰写规则
+尽可能使用结论式标题。好的标题陈述幻灯片的要点，而不只是主题。优先采用诸如"PathAgent 主动识别信息不足并补充证据"这类句子，而非"Case Study"或"Figure 3"这类标签。
 
-### Visual density rule
-Do not downscale a dense figure, table, or multi-panel graphic into a tiny slot just to preserve symmetry. If a visual cannot be read at presentation scale, crop it, split it, or give it its own slide. Prefer one legible visual over several cramped ones.
+### 视觉密度规则
+不要仅为保持对称，就把密集插图、表格或多面板图形缩小到狭小槽位。若一个视觉在演示尺寸下无法读清，就裁剪、拆分或给它单独的幻灯片。优先一个清晰可读的视觉，而非多个拥挤的视觉。
 
-## Step 7. Build the actual PPTX deck
-Create a real `.pptx` file as the primary deliverable.
+## 第 7 步. 构建真实的 PPTX 演示包
+创建一个真实的 `.pptx` 文件作为首要交付物。
 
-Use `python-pptx` as the default authoring tool for scientific paper decks because it creates editable PPTX files and runs on macOS, Linux, and Windows. Use a user-provided PPTX template if supplied. Use the local Presentations plugin or other PPTX tooling only when it is already available and clearly reduces work without violating the cross-platform policy.
+使用 `python-pptx` 作为科研论文演示包的默认编写工具，因为它能创建可编辑的 PPTX 文件，且可在 macOS、Linux 与 Windows 上运行。若提供了用户自带的 PPTX 模板，则使用该模板。仅在本地 Presentations 插件或其他 PPTX 工具已可用、且不会违反跨平台政策并明显减负时才使用它们。
 
-Use tools already available in the environment first. Install only the minimum Python dependencies when the PPTX cannot otherwise be created and the environment policy permits it.
+优先使用环境中已有的工具。仅当 PPTX 无法以其他方式创建且环境政策允许时，才安装最少的 Python 依赖。
 
-The PPTX should:
-- use 16:9 widescreen layout by default,
-- include the selected original figures,
-- use Chinese titles, bullets, captions, and speaker notes,
-- include source labels for figure slides,
-- keep slide text concise and readable,
-- avoid text-only result slides when visuals are available,
-- maintain consistent typography, spacing, titles, captions, and section transitions.
+该 PPTX 应：
+- 默认采用 16:9 宽屏布局，
+- 包含选定的原始插图，
+- 使用中文标题、要点、图注与讲稿，
+- 为插图幻灯片包含来源标签，
+- 保持幻灯片文字简洁可读，
+- 当视觉可用时，避免纯文本的结果幻灯片，
+- 保持一致的排版、间距、标题、图注与章节过渡。
 
-Use compact, evidence-first page composition. Avoid making every result slide a rigid two-column template or any balanced 1:1 scaffold. Let slide geometry follow the figure rather than forcing the figure to fit a template.
+采用紧凑、证据优先的页面构图。避免将每张结果幻灯片都做成僵化的双栏模板或任何均衡的 1:1 框架。让幻灯片几何形态跟随插图，而非强行让插图去适配模板。
 
-When a slide has one dominant figure, let that figure own the page. Keep the annotation rail narrow and short, and move secondary explanation into speaker notes or a follow-up slide rather than expanding the slide horizontally into a symmetrical split.
+当某张幻灯片有一个主导插图时，就让该插图占据整页。保持注释栏窄而短，并将次要解释移入讲稿或后续幻灯片，而非把幻灯片横向扩展成对称分栏。
 
-## Step 8. Render, inspect, and revise
-After creating the PPTX, render previews only when a reliable headless renderer is readily available.
+## 第 8 步. 渲染、检查与修订
+创建 PPTX 后，仅当可靠的免头渲染器随时可用时才渲染预览。
 
-If rendered previews are available, inspect them for:
-- missing images,
-- distorted or low-resolution figures,
-- unreadable panels,
-- text overflow,
-- overlapping captions, bullets, and figures,
-- excessive bullet density,
-- wrong slide order,
-- missing source labels,
-- missing or unhelpful speaker notes.
+若有渲染预览可用，检查其中是否存在：
+- 缺失图像，
+- 失真或低分辨率插图，
+- 不可读面板，
+- 文字溢出，
+- 图注、要点与插图相互重叠，
+- 要点密度过高，
+- 幻灯片顺序错误，
+- 缺失来源标签，
+- 缺失或无用的讲稿。
 
-If no reliable renderer is available, perform lightweight verification instead:
-- reopen the PPTX with the generation library when possible,
-- check slide count,
-- check embedded media count,
-- check speaker notes presence when notes were planned,
-- check obvious shape bounds if tooling supports it,
-- create a contact sheet from selected extracted assets only if helpful, not a full-deck screenshot set.
+若没有可靠的渲染器可用，则改用轻量验证：
+- 尽可能用生成库重新打开 PPTX，
+- 检查幻灯片数量，
+- 检查嵌入媒体数量，
+- 当计划有讲稿时检查讲稿是否存在，
+- 若工具有支持则检查明显的形状边界，
+- 仅在有助时、而非全套演示截图时，从选定的提取资源制作拼版缩略图。
 
-Revise obvious defects. Document any remaining limitation in `output/qa_report.md`.
+修订明显缺陷。在 `output/qa_report.md` 中记录任何遗留限制。
 
-# Paper-Type Guidance
+# 论文类型指导
 
-## Discovery / mechanism papers
-Use a question-to-evidence arc:
-1. phenomenon and importance,
-2. unknown mechanism,
-3. hypothesis or question,
-4. experimental design,
-5. evidence chain,
-6. model,
-7. limitations and next experiments.
+## 发现 / 机制论文
+采用"问题到证据"的弧线：
+1. 现象与重要性，
+2. 未知机制，
+3. 假设或问题，
+4. 实验设计，
+5. 证据链，
+6. 模型，
+7. 局限性与下一步实验。
 
-## Methods, AI, tool, or algorithm papers
-Use a problem-to-solution arc:
-1. current bottleneck,
-2. proposed method,
-3. workflow or architecture,
-4. evaluation design,
-5. performance compared with baselines,
-6. ablation, robustness, or failure cases,
-7. reuse scenarios and limitations.
+## 方法、AI、工具或算法论文
+采用"问题到解决方案"的弧线：
+1. 当前瓶颈，
+2. 所提出的方法，
+3. 工作流或架构，
+4. 评估设计，
+5. 与基线相比的性能，
+6. 消融、稳健性或失败案例，
+7. 复用场景与局限性。
 
-## Resource, dataset, atlas, omics, or benchmark papers
-Use a workflow-to-validation arc:
-1. why the resource is needed,
-2. dataset/cohort/sample design,
-3. generation and quality control workflow,
-4. main landscape or map,
-5. validation and reproducibility,
-6. example biological or technical insights,
-7. access, reuse, and boundaries.
+## 资源、数据集、图谱、组学或基准论文
+采用"工作流到验证"的弧线：
+1. 为何需要该资源，
+2. 数据集/队列/样本设计，
+3. 生成与质量控制工作流，
+4. 主要景观或图谱，
+5. 验证与可复现性，
+6. 示例性的生物学或技术洞见，
+7. 获取、复用与边界。
 
-## Clinical, population, or intervention studies
-Use a design-to-inference arc:
-1. clinical/public-health problem,
-2. study question,
-3. cohort/trial/design,
-4. endpoints and variables,
-5. primary result,
-6. subgroup/sensitivity/secondary analyses,
-7. bias, limitations, and practical implication.
+## 临床、人群或干预研究
+采用"设计到推断"的弧线：
+1. 临床/公共卫生问题，
+2. 研究问题，
+3. 队列/试验/设计，
+4. 终点与变量，
+5. 主要结果，
+6. 亚组/敏感性/次要分析，
+7. 偏倚、局限性与实际意义。
 
-## Materials, chemistry, physics, engineering papers
-Use a property-to-mechanism or design-to-performance arc:
-1. target property or technical challenge,
-2. design principle,
-3. synthesis/fabrication/setup,
-4. characterization,
-5. performance evidence,
-6. mechanism or structure-property relationship,
-7. scalability, stability, or application boundary.
+## 材料、化学、物理、工程论文
+采用"性质到机制"或"设计到性能"的弧线：
+1. 目标性质或技术挑战，
+2. 设计原理，
+3. 合成/制备/搭建，
+4. 表征，
+5. 性能证据，
+6. 机制或结构-性质关系，
+7. 可扩展性、稳定性或应用边界。
 
-## Reviews and perspectives
-Use an evidence-map arc:
-1. why the topic matters now,
-2. conceptual framework,
-3. theme 1,
-4. theme 2,
-5. theme 3,
-6. controversy or unresolved problem,
-7. author's synthesis,
-8. future directions.
+## 综述与观点
+采用"证据地图"的弧线：
+1. 为何该主题当下重要，
+2. 概念框架，
+3. 主题 1，
+4. 主题 2，
+5. 主题 3，
+6. 争议或未解决的问题，
+7. 作者综合，
+8. 未来方向。
 
-# Style Rules
-Use a restrained Nature-style academic presentation design:
-- clean white or very light background,
-- dark readable text,
-- one or two muted accent colors,
-- compact but not crowded layouts,
-- figure-first result slides,
-- concise captions,
-- no decorative stock images,
-- no decorative gradients,
-- no exaggerated marketing-style section pages.
+# 风格规则
+采用克制的 Nature 风格学术演示设计：
+- 干净的白或极浅背景，
+- 深色可读文本，
+- 一至两种柔和强调色，
+- 紧凑但不拥挤的布局，
+- 结果幻灯片以插图为先，
+- 简洁图注，
+- 无装饰性图库图片，
+- 无装饰性渐变，
+- 无夸张的营销式章节页。
 
-Use Chinese suitable for oral academic reporting:
-- avoid rigid translation,
-- avoid long paragraphs,
-- avoid jargon stacking,
-- preserve technical terms where Chinese translation would reduce precision,
-- prefer evidence-based interpretation over vague praise.
+使用适合口头学术报告的汉语：
+- 避免生硬翻译，
+- 避免长段落，
+- 避免术语堆砌，
+- 在中文翻译会降低精确性时保留技术术语，
+- 优先基于证据的解读，而非模糊的溢美之词。
 
-Borrow Nature-style figure-page composition principles, but keep this skill self-contained and independent from any other skill. Treat each slide like a publication figure page: one dominant idea, one clear evidence hierarchy, and asymmetry when the story needs it.
+借鉴 Nature 风格的插图页构图原则，但保持本技能自洽、独立于任何其他技能。将每张幻灯片视为一个出版插图页：一个主导思想、一条清晰的证据层级，以及在叙事需要时采用非对称。
 
-### Nature-style page composition
-- Prefer one hero visual per slide when the evidence is complex or the claim is central.
-- Use asymmetric layouts by default when the visual and the text are not equally important.
-- Keep gutters real and tight. Use whitespace to separate roles, not to make a balanced grid.
-- Use small panel labels (`a`, `b`, `c`) when a slide contains multiple visual subpanels.
-- Use direct labels or a shared legend strip when categories repeat across panels.
-- Reuse one restrained palette across the slide or slide family; reserve green/red for gains, drops, or directional change.
-- If a slide has a schematic and data, let one dominate and the other validate.
-- Use dark backgrounds only when the dominant visual is an image plate or the source content benefits from it; keep normal chart slides light.
-- Avoid decorative boxes, fake cards, and symmetrical two-column scaffolds unless the content truly calls for them.
-- If a figure would become unreadable when scaled down, crop it, split it, or move it to its own slide.
+### Nature 风格页面构图
+- 当证据复杂或主张处于核心时，优先每张幻灯片一个核心视觉。
+- 当视觉与文本并非同等重要时，默认采用非对称布局。
+- 保留真实而紧凑的留白。用空白分隔角色，而非制造均衡网格。
+- 当一张幻灯片包含多个视觉子面板时，使用小面板标签（`a`、`b`、`c`）。
+- 当类别跨面板重复时，使用直接标签或共享图例条。
+- 在幻灯片或幻灯片族中复用一套克制的配色；将绿/红保留给增益、下降或方向性变化。
+- 若一张幻灯片同时有示意图与数据，让其一主导，另一验证。
+- 仅当主导视觉为图像板或源内容受益于暗色背景时，才使用暗背景；普通图表幻灯片保持浅色。
+- 避免装饰性框格、伪卡片与对称双栏框架，除非内容确实要求如此。
+- 若插图缩小后将变得不可读，就裁剪、拆分或移到单独的幻灯片。
 
-# Citation and Attribution Rules
-Include source information:
-- title slide: paper title, authors if useful, journal/preprint server, year, DOI if available,
-- figure slides: small labels such as `Source: Fig. 2b, Nature, 2024`,
-- adapted or redrawn content: label as `整理自` or `改绘自`,
-- do not remove original figure labels or alter scientific data.
+# 引用与归属规则
+包含来源信息：
+- 标题幻灯片：论文标题、作者（如有用）、期刊/预印本服务器、年份、DOI（如有），
+- 插图幻灯片：小标签如 `Source: Fig. 2b, Nature, 2024`，
+- 改编或重绘内容：标注为 `整理自` 或 `改绘自`，
+- 不要移除原始插图标签或篡改科学数据。
 
-# Output Files
-Generate a minimal but complete output package by default.
+# 输出文件
+默认生成一套精简但完整的输出包。
 
 ## 1. `output/final_presentation_cn.pptx`
-The main deliverable: a complete Chinese PPTX deck with figures, captions, takeaways, source labels, and speaker notes.
+主要交付物：一份完整的中文 PPTX 演示包，含插图、图注、要点、来源标签与讲稿。
 
 ## 2. `output/qa_report.md`
-A short quality report:
-- PPTX creation status,
-- slide count,
-- figures inserted,
-- missing or placeholder figures,
-- verification method used,
-- known limitations,
-- manual follow-up if needed.
+一份简短的质量报告：
+- PPTX 创建状态，
+- 幻灯片数量，
+- 已插入插图，
+- 缺失或占位插图，
+- 所用验证方法，
+- 已知限制，
+- 如需人工后续处理。
 
 ## 3. `output/assets/figures/`
-Extracted or cropped figure assets used in the deck.
+演示包中使用的、提取或裁剪的插图资源。
 
 ## 4. `output/asset_manifest.md`
-Figure asset traceability file, generated only when external figure/table assets are extracted:
-- asset filename,
-- original figure / panel,
-- source page or source file,
-- extraction method,
-- slide placement,
-- quality notes.
+插图资源可追溯文件，仅当提取了外部插图/表格资源时生成：
+- 资源文件名，
+- 原始插图 / 面板，
+- 源页或源文件，
+- 提取方法，
+- 幻灯片位置，
+- 质量备注。
 
-If no external figure/table assets are extracted, omit `asset_manifest.md` or write a one-line note in `qa_report.md` instead.
+若未提取任何外部插图/表格资源，则省略 `asset_manifest.md`，或在 `qa_report.md` 中写一行说明代替。
 
-Create these optional files only when useful for review, debugging, or user-requested traceability:
+仅在有助于审查、调试或用户要求可追溯性时，才创建以下可选文件：
 
-## Optional: `output/ppt_outline_cn.md`
-Chinese outline:
-- paper information,
-- paper type,
-- central argument,
-- slide structure,
-- slide purpose.
+## 可选：`output/ppt_outline_cn.md`
+中文大纲：
+- 论文信息，
+- 论文类型，
+- 核心论证，
+- 幻灯片结构，
+- 幻灯片目的。
 
-## Optional: `output/figure_plan.md`
-Figure selection plan:
-- figure / panel,
-- what it shows,
-- why it matters,
-- recommended slide,
-- Chinese caption,
-- interpretation.
+## 可选：`output/figure_plan.md`
+插图选取计划：
+- 插图 / 面板，
+- 它展示了什么，
+- 为何重要，
+- 推荐幻灯片，
+- 中文图注，
+- 解读。
 
-## Optional: `output/ppt_script_cn_with_figures.md`
-Slide-by-slide script:
+## 可选：`output/ppt_script_cn_with_figures.md`
+逐页讲稿：
 
 ```markdown
 ## Slide X. [中文标题]
@@ -475,33 +473,33 @@ Slide-by-slide script:
 - Speaker note:
 ```
 
-## Optional: `output/rendered/`
-Rendered slide previews only when a reliable headless renderer is available or the user requests visual QA.
+## 可选：`output/rendered/`
+仅当可靠的免头渲染器可用或用户要求视觉 QA 时，渲染的幻灯片预览。
 
-Skip the optional outline/script/figure-plan files by default unless they materially reduce back-and-forth, help verify a complex paper, or are explicitly requested.
+默认跳过可选的大纲/讲稿/插图计划文件，除非它们能切实减少来回沟通、有助于验证复杂论文，或被明确要求。
 
-# Quality Rules
-- Build the `.pptx` whenever tooling is available.
-- Do not stop at a markdown outline or script.
-- Do not fabricate results, methods, numbers, or figure details.
-- Do not add expensive processing steps unless they improve the deck or were requested.
-- Do not overload slides with text.
-- Do not make result slides text-only when figures are available.
-- Make every slide serve the paper's argument.
-- Ensure figures are readable at presentation scale.
-- Ensure text, captions, and figures do not overlap.
-- Document uncertainty and missing source material clearly.
+# 质量规则
+- 只要工具有可用，就构建 `.pptx`。
+- 不要止步于 markdown 大纲或讲稿。
+- 不要编造结果、方法、数字或插图细节。
+- 不要添加昂贵的处理步骤，除非它们能改进演示包或被要求。
+- 不要用文字压满幻灯片。
+- 当插图可用时，不要将结果幻灯片做成纯文本。
+- 让每张幻灯片都服务于论文的论证。
+- 确保插图在演示尺寸下可读。
+- 确保文本、图注与插图不重叠。
+- 清晰记录不确定性与缺失的源材料。
 
-# Fallback Rules
-If only partial content is available:
-- still create a useful PPTX structure when possible,
-- clearly mark uncertain slides or missing details,
-- use placeholders only when a required figure is unavailable,
-- do not invent exact values or claims,
-- write `output/qa_report.md` explaining what could not be verified.
+# 回退规则
+若仅有部分内容可用：
+- 仍尽可能创建一个有用的 PPTX 结构，
+- 清晰标注不确定的幻灯片或缺失细节，
+- 仅当所需插图不可用时才使用占位符，
+- 不要编造确切数值或主张，
+- 撰写 `output/qa_report.md` 说明哪些无法验证。
 
-If PPTX tooling is unavailable:
-- generate a concise markdown outline and figure plan,
-- prepare figure assets if possible,
-- explain why the PPTX could not be built in the current environment,
-- keep the outputs structured enough for a downstream PPTX builder to run without re-reading the paper.
+若 PPTX 工具不可用：
+- 生成一份简洁的 markdown 大纲与插图计划，
+- 尽可能准备插图资源，
+- 解释当前环境为何无法构建 PPTX，
+- 保持输出结构足够清晰，使下游 PPTX 构建器无需重新阅读论文即可运行。

@@ -15,6 +15,13 @@ from ...gitops import commit_detail, compare_refs, diff_file_between_refs, diff_
 from ...memory import MemoryService
 from ...quest import QuestService
 from ...shared import generate_id, read_json, read_text, resolve_within, run_command, sha256_text, utc_now
+from ...prompts.agent_prompts import (
+    get_agent_default_prompt,
+    get_agent_prompt,
+    list_agents,
+    reset_agent_prompt,
+    set_agent_prompt,
+)
 from ...runners import RunRequest
 
 _COPILOT_LEAD_MESSAGE = (
@@ -74,11 +81,22 @@ class ApiHandlers:
         dist_root = self._ui_dist_root()
         if dist_root is None:
             return 404, {"Content-Type": "text/plain; charset=utf-8"}, b"UI bundle is not built."
+        # Serve the SPA entry for the UI root and client-side routes.
+        if ui_path in ("", "index.html"):
+            return self._ui_index_response(dist_root)
         path = resolve_within(dist_root, ui_path)
         if not path.exists() or not path.is_file():
+            # Client-side route (no file extension, e.g. /ui/agents) falls back to index.html.
+            if "." not in ui_path.rsplit("/", 1)[-1]:
+                return self._ui_index_response(dist_root)
             return 404, {"Content-Type": "text/plain; charset=utf-8"}, b"Not Found"
         mime_type = self._guess_static_mime_type(path)
         return 200, self._asset_headers(mime_type), path.read_bytes()
+
+    def _ui_index_response(self, dist_root: Path) -> tuple[int, dict, bytes]:
+        payload = dist_root.joinpath("index.html").read_text(encoding="utf-8")
+        payload = self._inject_ui_runtime(payload)
+        return 200, self._html_headers(), payload.encode("utf-8")
 
     @staticmethod
     def _html_headers() -> dict[str, str]:
@@ -869,6 +887,43 @@ npm --prefix src/ui run build</pre>
         return {
             "quest_id": self.app.quest_service.preview_next_numeric_quest_id(),
         }
+
+    # ------------------------------------------------------------------
+    # Per-agent dedicated prompt management
+    # ------------------------------------------------------------------
+    def agents(self) -> list[dict]:
+        return list_agents(self.app.repo_root)
+
+    def agents_prompt_get(self, agent_id: str) -> dict:
+        try:
+            default = get_agent_default_prompt(self.app.repo_root, agent_id)
+            prompt, has_override = get_agent_prompt(self.app.repo_root, agent_id)
+        except KeyError:
+            return 404, {"ok": False, "message": f"Unknown agent: {agent_id}"}
+        return {
+            "agent_id": agent_id,
+            "default_prompt": default,
+            "prompt": prompt,
+            "has_override": has_override,
+        }
+
+    def agents_prompt_put(self, agent_id: str, body: dict | None = None) -> dict:
+        if not isinstance(body, dict):
+            return 400, {"ok": False, "message": "`body` must be a JSON object."}
+        if body.get("reset") is True:
+            try:
+                result = reset_agent_prompt(self.app.repo_root, agent_id)
+            except KeyError:
+                return 404, {"ok": False, "message": f"Unknown agent: {agent_id}"}
+            return {**result, "ok": True}
+        prompt_text = body.get("prompt")
+        if not isinstance(prompt_text, str):
+            return 400, {"ok": False, "message": "`prompt` must be a string."}
+        try:
+            result = set_agent_prompt(self.app.repo_root, agent_id, prompt_text)
+        except KeyError:
+            return 404, {"ok": False, "message": f"Unknown agent: {agent_id}"}
+        return {**result, "ok": True}
 
     @staticmethod
     def _bad_request(message: str) -> tuple[int, dict]:

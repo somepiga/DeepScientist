@@ -182,6 +182,13 @@ export default function Hero(props: {
   const [autonomousCreating, setAutonomousCreating] = useState(false)
   const [autonomousError, setAutonomousError] = useState<string | null>(null)
   const [benchSetupPacket, setBenchSetupPacket] = useState<BenchSetupPacket | null>(null)
+  const [copilotSeed, setCopilotSeed] = useState<{
+    title?: string
+    message?: string
+    setupQuestId?: string | null
+    setupAttachments?: unknown[]
+    localAttachments?: unknown[]
+  } | null>(null)
   const [activeRunnerName, setActiveRunnerName] = useState(() => normalizeBuiltinRunnerName("codex"))
   const [setupQuestId, setSetupQuestId] = useState<string | null>(null)
   const [setupQuestCreating, setSetupQuestCreating] = useState(false)
@@ -402,6 +409,10 @@ export default function Hero(props: {
     },
     [locale, setupQuestId]
   )
+
+  const openBenchStoreDialog = useCallback(() => {
+    setActiveDialog('quests')
+  }, [])
 
   const shouldShowConnectorCoach = connectorAvailabilityResolved && connectorCoachMode !== null
   const entryCoachOpen =

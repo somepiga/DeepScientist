@@ -5,7 +5,7 @@ import re
 
 ROUTES: list[tuple[str, re.Pattern[str], str]] = [
     ("GET", re.compile(r"^/$"), "root"),
-    ("GET", re.compile(r"^/ui/(?P<ui_path>.+)$"), "ui_asset"),
+    ("GET", re.compile(r"^/ui/?(?P<ui_path>.*)$"), "ui_asset"),
     ("GET", re.compile(r"^/metis/agent/api/health$"), "lingzhu_health"),
     ("POST", re.compile(r"^/metis/agent/api/sse$"), "lingzhu_sse"),
     ("GET", re.compile(r"^/(?P<spa_path>(?!api(?:/|$)|metis(?:/|$)|ui(?:/|$)|assets(?:/|$)).+)$"), "spa_root"),
@@ -189,7 +189,10 @@ ROUTES: list[tuple[str, re.Pattern[str], str]] = [
     ("PUT", re.compile(r"^/api/config/(?P<name>[^/]+)$"), "config_save"),
     ("POST", re.compile(r"^/api/config/validate$"), "config_validate"),
     ("POST", re.compile(r"^/api/config/deepxiv/test$"), "config_deepxiv_test"),
-("POST", re.compile(r"^/api/config/test$"), "config_test"),
+    ("POST", re.compile(r"^/api/config/test$"), "config_test"),
+    ("GET", re.compile(r"^/api/agents$"), "agents"),
+    ("GET", re.compile(r"^/api/agents/(?P<agent_id>[^/]+)/prompt$"), "agents_prompt_get"),
+    ("PUT", re.compile(r"^/api/agents/(?P<agent_id>[^/]+)/prompt$"), "agents_prompt_put"),
     ("GET", re.compile(r"^/assets/(?P<asset_path>.+)$"), "asset"),
 ]
 

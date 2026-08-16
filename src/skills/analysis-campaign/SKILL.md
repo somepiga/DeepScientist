@@ -1,300 +1,300 @@
 ---
 name: analysis-campaign
-description: Use when a quest needs one or more follow-up runs such as ablations, robustness checks, error analysis, or failure analysis after a main experiment.
+description: 当某个探索任务在主实验之后需要一项或多项后续运行（如消融、鲁棒性检查、错误分析或失败分析）时使用。
 skill_role: stage
 ---
 
-# Analysis Campaign
-
-Use this skill when follow-up evidence is needed after a durable result.
-The goal is to answer a bounded, resource-aware evidence question, not to keep opening more slices just because they are imaginable.
-
-## Match signals
-
-Use `analysis-campaign` when:
-
-- a durable main result already exists and follow-up evidence is needed
-- the quest needs ablations, robustness checks, sensitivity checks, failure analysis, error analysis, efficiency or cost checks, or limitation-boundary checks
-- writing, review, or rebuttal pressure exposed an evidence gap that should be answered by bounded follow-up slices
-
-Do not use `analysis-campaign` when:
-
-- the quest still lacks a credible main run or accepted baseline and the proposed work depends on that missing reference
-- the next step is obviously another main experiment rather than follow-up evidence work
-- the proposed slice does not connect to a parent claim, parent result, paper gap, reviewer item, or route decision
-
-## One-sentence summary
+# 分析战役
+
+当已有的持久结果需要后续证据时使用本技能。
+目标是以资源可承受的方式回答一个边界清晰、范围受限的证据问题，而不是仅仅因为某些切片「可以想象」就不断开辟新的分析。
+
+## 匹配信号
+
+在以下情况使用 `analysis-campaign`：
+
+- 已存在持久的主结果，且需要后续证据
+- 该任务需要消融、鲁棒性检查、敏感性检查、失败分析、错误分析、效率或成本检查，或局限性边界检查
+- 写作、评审或反驳压力暴露出应以范围受限的后续切片来回答的证据缺口
+
+在以下情况**不要**使用 `analysis-campaign`：
+
+- 该任务仍缺少可信的主运行或被接受的基线，而所提议的工作依赖于这一缺失的参照
+- 下一步显然是另一个主实验，而不是后续证据工作
+- 所提议的切片未能关联到某个父级断言、父级结果、论文缺口、审稿人条目或路线决策
+
+## 一句话总结
 
-Answer the smallest evidence question that changes, confirms, or blocks a parent claim, then stop when the next route is clear.
+回答那个能够改变、确认或阻断某个父级断言的最小证据问题，然后在下一条路线清晰时停止。
 
-## Control workflow
+## 控制工作流
 
-1. Lock the parent object, evidence question, comparison target, and stop condition.
-   Make explicit what claim, failure mode, or route decision is actually being tested.
-2. Audit the real execution envelope before designing the slice set.
-   Make explicit the current device and runtime limits: available GPU or CPU class, memory, wall-clock budget, storage, concurrency, required dependencies, and any queue or service constraints that materially limit what can run now.
-3. Choose the lightest analysis route and the smallest slice set that can answer the question within that envelope.
-   Prefer slices with the highest soundness gain per unit of compute, time, or engineering effort.
-   Run claim-critical slices first and mark infeasible slices explicitly instead of quietly keeping them in scope.
-4. Keep slices isolated and comparable.
-   Record exactly what changed, what stayed fixed, and whether apples-to-apples comparison still holds.
-5. Record slice-level evidence before making any campaign-level claim.
-   Every meaningful slice should leave a durable outcome and a claim update.
-6. Aggregate only the decision-relevant findings and route the next step.
-   End in continue, write, experiment, idea, decision, blocker, or stop.
-
-## Paper-facing analysis quantity reminder
+1. 锁定父级对象、证据问题、对比目标与停止条件。
+   明确说明真正被检验的究竟是哪条断言、哪种失败模式或哪个路线决策。
+2. 在设计切片集合之前，先审计真实的执行边界。
+   明确说明当前的设备与运行时限制：可用的 GPU 或 CPU 级别、内存、挂钟时间预算、存储、并发度、所需依赖，以及任何会实质限制当前可运行范围的任务队列或服务约束。
+3. 选择最轻量的分析路线，以及在上述边界内能够回答问题的最小切片集合。
+   优先选择「单位计算、时间或工程投入所带来的稳健性收益最高」的切片。
+   先运行对断言至关重要的切片，并将不可行的切片明确标记，而不是悄悄将其保留在范围之内。
+4. 保持切片相互独立且可比较。
+   准确记录哪些内容发生了改变、哪些内容保持不变，以及「同类比较」是否仍然成立。
+5. 在做出任何战役级别的断言之前，先记录切片级别的证据。
+   每一个有意义的切片都应留下一个持久的结果以及对断言的更新。
+6. 仅聚合与决策相关的发现，并路由下一步。
+   以 continue、write、experiment、idea、decision、blocker 或 stop 收尾。
+
+## 面向论文的分析数量提醒
 
-For manuscript-support campaigns, first audit `artifact.get_paper_contract(detail='full')` and, when a draft exists, `artifact.validate_manuscript_coverage(detail='full')`.
-
-- A mature empirical manuscript usually needs 5-10 ready paper-facing experiment/analysis groups total, with 4-8 reviewer-facing analysis jobs in the outline when the paper is full empirical. Fewer is acceptable only for an early/narrow outline with an explicit waiver.
-- If the user requested a concrete analysis count, such as 4-8 analyses, treat it as a tracked target; report the completed/mapped count and any explicit waiver before returning to full-paper writing.
-- Do not pad the count with stale methods, abandoned methods, unrelated baseline repairs, or old exploratory rows. Each slice must identify the current method or claim it supports.
-- If legacy-method analysis is intentionally included, mark it as baseline/comparator/negative evidence and keep it separate from current-method support.
-- Paper-facing slice outputs must separate the `manuscript_takeaway` from internal setup, user instructions, worktree paths, command history, and artifact provenance.
-- Do not encode local throughput shorthand such as `64 + 64` as a manuscript takeaway; record exact per-endpoint settings only as reproducibility/protocol detail when needed.
-- If the count is below the needed range, create the smallest claim-critical frontier rather than pretending the manuscript is ready.
+对于支撑手稿的分析战役，首先审计 `artifact.get_paper_contract(detail='full')`；若已存在草稿，则审计 `artifact.validate_manuscript_coverage(detail='full')`。
+
+- 一篇成熟的实证手稿通常需要 5-10 个可直接用于论文的实验/分析组，在纯实证论文中，大纲里应安排 4-8 个面向审稿人的分析任务。只有在早期/范围狭窄且带有明确豁免说明的大纲中，数量更少才可被接受。
+- 如果用户要求了具体的分析数量（例如 4-8 个分析），应将其视为一个可追踪的目标；在回到全文写作之前，报告已完成/已映射的数量以及任何明确的豁免说明。
+- 不要用陈旧方法、被放弃的方法、无关的基线修补或旧的探索性记录来充数。每个切片都必须标明其支撑的当前方法或断言。
+- 如果有意纳入遗留方法的分析，应将其标记为基线/对比项/否定证据，并与当前方法的支撑性内容分开。
+- 面向论文的切片输出必须将 `manuscript_takeaway` 与内部配置、用户指令、worktree 路径、命令历史以及制品来源信息分开。
+- 不要将 `64 + 64` 这类本地吞吐量的简写编码为手稿要点；仅在作为可复现性/协议细节时才记录各端点的精确设置。
+- 如果数量低于所需范围，应创建最小的、关乎断言前沿的边界，而不是假装手稿已经就绪。
 
-## AVOID / pitfalls
+## 应避免 / 陷阱
 
-- Do not disguise a new main experiment as an analysis slice.
-- Do not hide null, negative, partial, failed, or contradictory slices.
-- Do not change many factors at once and then interpret the result as isolating one factor.
-- Do not widen the campaign after the next route is already clear.
-- Do not use subjective or manual inspection to support a claim without rubric, sample, prompt, trace, and caveat.
-- Do not design a slice frontier that ignores current hardware, memory, runtime, or storage limits.
-- Do not keep infeasible slices as silent assumptions; either downscope them, replace them with runnable proxies, or record them as blocked.
+- 不要把一个新的主实验伪装成分析切片。
+- 不要隐藏无效、负面、部分完成、失败或相互矛盾的切片。
+- 不要一次性改变多个因素，然后将结果解释为隔离了某一个因素。
+- 在下一条路线已经清晰之后，不要再扩大战役范围。
+- 不要在没有评分标准、样本、提示词、执行轨迹与注意事项的情况下，用主观或人工检查来支撑断言。
+- 不要设计一套忽略当前硬件、内存、运行时或存储限制的切片前沿。
+- 不要把不可行的切片当作沉默的假设保留；要么缩小其范围，要么用可运行的替代方案替换，要么将其记录为受阻状态。
 
-## Constraints
-
-- Every meaningful slice must map to a parent claim, parent result, paper gap, reviewer item, or route decision.
-- Every evidence-bearing slice must record question, intervention or inspection target, fixed conditions, metric or observable, evidence path, claim update, comparability verdict, and next action.
-- Keep the same evaluation contract unless the variation itself is the point.
-- When baseline comparison matters, keep slice comparisons aligned with the active baseline metric contract unless the deviation is explicit.
-- Campaign-level conclusions must be derived from per-slice evidence rather than impressions.
-- Campaign design must be conditioned on the current execution envelope, not an idealized future machine.
-- If a slice would materially improve soundness but is infeasible now, record the blocker and choose the best runnable lower-cost alternative or narrower proxy.
-- If a slice is paper-relevant, its result must be bound back into the current paper contract rather than left only in `experiments/analysis-results/*` or chat.
-- Writing-facing slices must carry write-back metadata: `paper_role`, `section_id`, `item_id`, `claim_links`, method/comparator id, display target, and main/appendix role.
-- Writing-facing campaign metadata should keep `selected_outline_ref`, `research_questions`, `experimental_designs`, and `todo_items` explicit; map results back to `paper/paper_experiment_matrix.md` with `exp_id`, `section_id`, `item_id`, `claim_links`, and `paper_role`.
-- Classify paper evidence as claim-carrying, supporting, or auxiliary; keep stable support separate from contradiction, and record `comparison_baselines`, `evaluation_summary`, `takeaway`, and `comparability` when comparisons matter.
-- Include highlight-validation, efficiency or cost, robustness, failure, and limitation checks only when they answer the parent claim or reviewer question.
+## 约束
+
+- 每一个有意义的切片都必须关联到某条父级断言、父级结果、论文缺口、审稿人条目或路线决策。
+- 每一个承载证据的切片都必须记录：问题、干预或检查目标、固定条件、指标或可观测对象、证据路径、断言更新、可比较性判定以及下一步动作。
+- 保持相同的评估契约，除非「变异本身」正是要点所在。
+- 当基线对比重要时，除非存在明确的偏差说明，否则切片对比应与当前生效的基线指标契约保持一致。
+- 战役级别的结论必须源自逐切片的证据，而不是印象。
+- 战役的设计必须以当前执行边界为依据，而不是以理想化的未来机器为依据。
+- 如果某个切片能实质提升稳健性，但当前不可行，则应记录受阻原因，并选择最佳的可运行、低成本的替代方案或更窄的代理方案。
+- 如果某个切片与论文相关，其结果必须回溯绑定到当前论文契约，而不能只留在 `experiments/analysis-results/*` 或聊天记录中。
+- 面向写作的切片必须携带回写元数据：`paper_role`、`section_id`、`item_id`、`claim_links`、方法/对比项 id、展示目标，以及正文/附录角色。
+- 面向写作的战役元数据应保留显式的 `selected_outline_ref`、`research_questions`、`experimental_designs` 与 `todo_items`；将结果通过 `exp_id`、`section_id`、`item_id`、`claim_links` 与 `paper_role` 映射回 `paper/paper_experiment_matrix.md`。
+- 将论文证据分类为承载断言型、支撑型或辅助型；将稳定的支撑与矛盾分开，并在对比重要时记录 `comparison_baselines`、`evaluation_summary`、`takeaway` 与 `comparability`。
+- 仅在能够回答父级断言或审稿人问题时，才纳入亮点验证、效率或成本、鲁棒性、失败以及局限性检查。
 
-## Validation
+## 校验
 
-Before `analysis-campaign` can end, all applicable checks should be true:
+在 `analysis-campaign` 可以结束之前，所有适用的检查都应为真：
 
-- the parent object is explicit
-- the current execution envelope and its binding constraints are explicit when they affect slice design or ordering
-- every launched slice has a durable outcome: completed, partial, failed, blocked, infeasible, or superseded
-- launched and deferred slices were screened against the current device or resource limits
-- null, negative, failed, partial, and contradictory findings remain visible
-- the campaign changed or confirmed the evidence boundary of the parent claim with traceable slice-level evidence
-- the next route is explicit: continue campaign, return to `experiment`, return to `idea`, move to `write`, route through `decision`, stop, reset, or record a blocker
+- 父级对象是明确的
+- 当前的执行边界及其约束性限制是明确的（当它们影响切片设计或排序时）
+- 每一个已启动的切片都有一个持久结果：已完成、部分完成、失败、受阻、不可行或被取代
+- 已启动和已推迟的切片都针对当前设备或资源限制进行了筛选
+- 无效、负面、失败、部分完成以及相互矛盾的发现仍然可见
+- 该战役以可追踪的切片级别证据改变或确认了父级断言的证据边界
+- 下一条路线是明确的：继续战役、回到 `experiment`、回到 `idea`、转向 `write`、经由 `decision` 路由、stop、reset，或记录一个受阻状态
 
-## Interaction discipline
+## 交互纪律
 
-Follow the shared interaction contract injected by the system prompt.
-Keep campaign updates brief unless the evidence boundary, blocker state, cost, or next route changed materially.
-For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-For meaningful long-running slices, include the estimated next reply time or next check-in window whenever it is defensible.
+遵循系统提示注入的共享交互契约。
+除非证据边界、受阻状态、成本或下一条路线发生了实质变化，否则保持战役更新的简洁。
+对于普通的活跃工作，当工作跨越约 6 次工具调用并出现具有用户可感知意义的进展时，优先给出一次简洁的进度更新；且不要在没有用户可见更新的情况下，偏移超过约 12 次工具调用或约 8 分钟。
+对于有意义的长时切片，只要可辩护，就应包含预计的下一次回复时间或下一次检查窗口。
 
-## Authority and freedom
+## 权限与自由度
 
-The agent owns the analysis path.
-It may choose a one-slice check, a lightweight durable report, an artifact-backed one-slice campaign, a full multi-slice campaign, or a writing-facing campaign.
-It may choose slice order, workspace layout, filenames, monitoring strategy, and whether a smoke test, direct verification, or full run is the right first move.
-It may also shrink, reorder, or replace slices to fit the real hardware and runtime envelope, as long as the resulting campaign still answers the parent evidence question honestly.
+该智能体拥有分析路径的所有权。
+它可以选择单一切片检查、一份轻量的持久报告、制品支撑的单一切片战役、完整的多切片战役，或面向写作的战役。
+它可以选择切片顺序、工作区布局、文件名、监控策略，以及将冒烟测试、直接验证还是完整运行作为正确的第一步。
+它也可以缩小、重排或替换切片，以适配真实的硬件与运行时边界，只要最终战役仍能诚实地回答父级的证据问题。
 
-Do not treat `PLAN.md`, `CHECKLIST.md`, `artifact.create_analysis_campaign(...)`, one-slice campaigns, returned worktrees, `evaluation_summary`, smoke tests, detached runs, or paper-matrix updates as universal required paths.
-Do not treat paper-matrix files, `tqdm`, or a fixed phase order as required paths either.
-`PLAN.md`, `CHECKLIST.md`, `paper/paper_experiment_matrix.md`, and local matrix/checklist files are allowed control surfaces, not mandatory success paths.
-They are tactics.
-The hard requirement is traceable evidence that changes, confirms, or blocks the evidence boundary of the parent claim and leaves an explicit next route.
+不要把 `PLAN.md`、`CHECKLIST.md`、`artifact.create_analysis_campaign(...)`、单一切片战役、返回的 worktree、`evaluation_summary`、冒烟测试、分离式运行或论文矩阵更新视为普遍必需的路径。
+也不要把论文矩阵文件、`tqdm` 或固定的阶段顺序视为必需的路径。
+`PLAN.md`、`CHECKLIST.md`、`paper/paper_experiment_matrix.md` 以及本地矩阵/清单文件都是「允许的」控制面，而非强制的成功路径。
+它们只是战术。
+硬性要求是：可追踪的证据能够改变、确认或阻断父级断言的证据边界，并留下明确的下一条路线。
 
-Use the artifact-backed campaign path when durable lineage, branch or worktree isolation, Canvas visibility, paper or rebuttal traceability, or multiple slices matter.
-Use a lighter durable report when one bounded answer is enough and extra campaign overhead would not improve trust, routing, or auditability.
+当持久血缘、分支或 worktree 隔离、Canvas 可见性、论文或反驳可追踪性，或多个切片较为重要时，使用制品支撑的战役路径。
+当只需一个范围受限的回答、而额外的战役开销并不会提升信任、路由或可审计性时，使用更轻量的持久报告。
 
-For campaign prioritization and writing-facing slice design, read `references/campaign-design.md`.
-When the campaign is writing-facing and the mapping fields are not obvious, also read `references/writing-facing-slice-examples.md`.
-For artifact examples and edge-case examples, also read `references/artifact-flow-examples.md` and `references/boundary-cases.md`.
+关于战役优先级排序与面向写作的切片设计，请阅读 `references/campaign-design.md`。
+当战役面向写作、且映射字段不清晰时，另请阅读 `references/writing-facing-slice-examples.md`。
+关于制品示例与边界情况示例，另请阅读 `references/artifact-flow-examples.md` 与 `references/boundary-cases.md`。
 
-## Hard success gates
+## 硬性成功门槛
 
-An analysis campaign succeeds when it changes or confirms the evidence boundary of a parent claim with traceable slice-level evidence, preserves comparability or records why comparability broke, and leaves a durable next-route decision.
+一项分析战役成功，当且仅当它以可追踪的切片级别证据改变或确认了某个父级断言的证据边界，保持了可比较性（或记录了可比较性为何破裂），并留下一个持久的下一步路线决策。
 
-Before treating analysis as successful, all applicable gates must be true:
+在把分析视为成功之前，所有适用的门槛都必须为真：
 
-- the parent object is explicit, such as a main run, accepted idea line, paper gap, reviewer item, or rebuttal item
-- the claim, question, failure mode, or decision being tested is explicit
-- the slice frontier was screened against current compute, memory, storage, dependency, and runtime limits
-- every launched slice has a durable outcome: completed, partial, failed, blocked, infeasible, or superseded
-- every evidence-bearing slice records the question, intervention or inspection target, fixed conditions, metric or observable, evidence path, claim update, comparability verdict, and next action
-- null, negative, failed, partial, and contradictory findings remain visible
-- campaign-level interpretation is derived from per-slice evidence rather than impressions
-- the next route is explicit: continue campaign, return to `experiment`, return to `idea`, move to `write`, route through `decision`, stop, reset, or record a blocker
+- 父级对象是明确的，例如主运行、被接受的思路条目、论文缺口、审稿人条目或反驳条目
+- 被检验的断言、问题、失败模式或决策是明确的
+- 切片前沿已针对当前计算、内存、存储、依赖与运行时限制进行了筛选
+- 每一个已启动的切片都有一个持久结果：已完成、部分完成、失败、受阻、不可行或被取代
+- 每一个承载证据的切片都记录了问题、干预或检查目标、固定条件、指标或可观测对象、证据路径、断言更新、可比较性判定以及下一步动作
+- 无效、负面、失败、部分完成以及相互矛盾的发现仍然可见
+- 战役级别的阐释源自逐切片的证据，而不是印象
+- 下一条路线是明确的：继续战役、回到 `experiment`、回到 `idea`、转向 `write`、经由 `decision` 路由、stop、reset，或记录一个受阻状态
 
-## Analysis routes
+## 分析路线
 
-Use the lightest route that preserves trust and downstream utility.
+使用最轻量、但能保持信任与下游效用的路线。
 
-- `analysis-lite`: one clear follow-up question, one slice or very small slice set, and a compact durable result
-- `artifact-backed campaign`: one or more slices that need durable lineage, branch/worktree isolation, Canvas visibility, or later replay
-- `writing-facing campaign`: evidence directly supports a selected outline, paper experiment matrix, evidence ledger, section, claim, or table
-- `review/rebuttal campaign`: evidence directly answers reviewer pressure or audit findings
-- `failure-analysis route`: evidence explains why a result failed, diverged, or became non-comparable
+- `analysis-lite`：一个清晰的后续问题、一个切片或极小的切片集合，以及一份紧凑的持久结果
+- `artifact-backed campaign`：需要一个或多个切片，且需要持久血缘、分支/worktree 隔离、Canvas 可见性或后续重放
+- `writing-facing campaign`：证据直接支撑某个选定大纲、论文实验矩阵、证据台账、章节、断言或表格
+- `review/rebuttal campaign`：证据直接回应审稿压力或审计发现
+- `failure-analysis route`：证据解释某个结果为何失败、偏离或变得不可比较
 
-Start the smallest route that can answer the current follow-up question.
-Run claim-critical slices first, weighted by soundness gain under the current resource budget, and stop widening once the next route is already clear.
+从能够回答当前后续问题的最小路线开始。
+先运行关乎断言的切片，并按当前资源预算下「稳健性收益」加权，且一旦下一条路线已经清晰便停止扩大范围。
 
-Useful slice classes:
+有用的切片类别：
 
-- `auxiliary`: helps understand settings, thresholds, or mechanisms but does not carry the main claim by itself
-- `claim-carrying`: directly affects whether the main narrative or route decision is justified
-- `supporting`: broadens confidence or interpretability after the main claim is already credible
+- `auxiliary`：有助于理解设置、阈值或机制，但本身不承载主断言
+- `claim-carrying`：直接影响主叙事或路线决策是否成立
+- `supporting`：在主断言已经可信之后，拓宽置信度或可解释性
 
-## Slice evidence contract
+## 切片证据契约
 
-For each meaningful slice, define and record enough of the following to make the evidence reusable:
+对于每一个有意义的切片，定义并记录以下足够内容，以使证据可复用：
 
-- research question
-- hypothesis, expected pattern, or decision-relevant expectation
-- intervention, ablation, variation, inspection target, or failure bucket
-- controls or fixed conditions
-- metric, observable, table, qualitative artifact, or rubric
-- comparison target
-- expected resource class or major execution constraint when it affects feasibility
-- stop condition or completion condition
-- evidence path expectations
-- claim update
-- comparability verdict
-- next action
+- 研究问题
+- 假设、预期模式或与决策相关的预期
+- 干预、消融、变异、检查目标或失败分桶
+- 控制项或固定条件
+- 指标、可观测对象、表格、定性制品或评分标准
+- 对比目标
+- 当影响可行性时的预期资源级别或主要执行约束
+- 停止条件或完成条件
+- 证据路径预期
+- 断言更新
+- 可比较性判定
+- 下一步动作
 
-Code-based, fully automatable analysis is preferred when it is the most faithful and repeatable path.
-But not every valid analysis must be fully automatable: failure-bucket inspection, qualitative artifact review, extracted-text audits, reviewer-linked example checks, or table/figure consistency checks can be valid when the evidence is concrete, sampled or scoped, and reproducible enough for the claim being made.
+基于代码、完全可自动化的分析，在它是最忠实且可复现的路径时，是首选方案。
+但并非每一个有效的分析都必须完全可自动化：失败分桶检查、定性制品审查、抽取文本审计、与审稿人关联的示例检查，或表格/图形一致性检查，在证据具体、已抽样或限定范围、且对于所提断言足够可复现时，同样是有效的。
 
-Do not present subjective judgment as objective measurement.
-If human, model, or qualitative judgment is used, record the rubric, sample, prompt or inspection basis, caveats, and why it is sufficient for the route decision.
+不要将主观判断包装成客观测量。
+如果使用了人工、模型或定性判断，应记录评分标准、样本、提示词或检查依据、注意事项，以及它为何足以支撑路线决策。
 
-## Comparability contract
+## 可比较性契约
 
-Comparability is a hard boundary.
+可比较性是一条硬性边界。
 
-- keep the same evaluation contract unless the variation is the point
-- when `active_baseline_metric_contract_json` exists, read it before defining slice success criteria or comparison tables when baseline comparison matters
-- when `active_baseline_metric_contract_json` exists, keep slice comparisons aligned with it unless the slice explicitly records why it differs
-- state exactly what changed
-- state exactly what stayed fixed
-- keep naming and output paths clean enough that multiple runs can coexist
+- 保持相同的评估契约，除非「变异本身」正是要点
+- 当 `active_baseline_metric_contract_json` 存在时，在定义切片成功标准或对比表格之前（且基线对比重要时）先读取它
+- 当 `active_baseline_metric_contract_json` 存在时，切片对比应保持与它一致，除非切片明确记录了偏离原因
+- 准确说明什么发生了改变
+- 准确说明什么保持不变
+- 保持命名与输出路径足够干净，以便多次运行可以共存
 
-If the variation itself changes the evaluation setup, record that explicitly and do not present the run as a direct apples-to-apples comparison.
+如果变异本身改变了评估设置，应明确记录，且不要将该运行呈现为直接的同类比较。
 
-Do not bring in a new dataset as if it were the same comparison contract.
-A new dataset can be valid as a generalization, external-validity, stress-test, or limitation-boundary slice, but it must be labeled that way and must not replace the accepted baseline or main comparison contract.
+不要引入一个新数据集，并把它当作同一个对比契约。
+一个新数据集可以作为泛化、外部效度、压力测试或局限性边界切片而有效，但必须如此标注，且不得替换被接受的基线或主对比契约。
 
-If a slice needs an extra comparator baseline, place it under the normal baseline roots, do not overwrite the canonical quest baseline gate, and record it back through `record_analysis_slice(..., comparison_baselines=[...])`.
+如果一个切片需要一个额外的对比基线，请将其放在常规基线根目录下，不要覆盖规范的 quest 基线门槛，并通过 `record_analysis_slice(..., comparison_baselines=[...])` 将其记录回去。
 
-## Writing-facing boundary
+## 面向写作的边界
 
-If analysis directly supports a paper or paper-like report, the evidence must be write-backable.
-That does not always mean a selected outline must exist before any pre-outline evidence check, but paper-ready slices must map cleanly back to a selected outline, paper experiment matrix, evidence ledger, section, claim, table, or reviewer item.
+如果分析直接支撑一篇论文或类论文报告，该证据必须是可回写的。
+这并不总是意味着在任意「大纲前」证据检查之前都必须存在选定大纲，但论文就绪的切片必须能够干净地映射回某个选定大纲、论文实验矩阵、证据台账、章节、断言、表格或审稿人条目。
 
-For concrete paper-facing cases:
+具体面向论文的情况：
 
-- if the slice is the only thing keeping a main-text section unsupported, make it `main_required` or `main_text`
-- if the slice is useful but non-blocking, make it `appendix`
-- if the slice is informative but not meant for the manuscript, keep it durable and mark it `reference_only` with a reason
-- if a selected outline exists, map paper-ready slices to named `research_question` and `experimental_design` fields when those fields exist
-- if `paper/paper_experiment_matrix.md` exists and the campaign is directly supporting the paper, read it before launching or reordering the slice set
-- for writing-facing campaigns, prefer stable ids such as `exp_id`, `todo_id`, or `slice_id` over free-form notes
-- paper-ready slices should carry the available write-back fields such as `paper_role`, `section_id`, `item_id`, `claim_links`, `analysis_role`, `reviewer_question`, `target_display`, `main_or_appendix`, and `failure_interpretation` when those fields exist in the paper contract
-- paper-ready slices should record whether they support the latest method, an older comparator, a failure mode, or an appendix-only sanity check
-- paper-ready slices should label implementation/setup details as `reproducibility_detail` or `internal_only` when they should not become main-text prose
-- after every completed paper-ready slice, update or verify the relevant paper experiment matrix, section notes, evidence ledger, or active paper-line summary
+- 如果某个切片是支撑某正文章节的唯一条件，则将其设为 `main_required` 或 `main_text`
+- 如果某个切片有用但不阻塞，则将其设为 `appendix`
+- 如果某个切片有信息量但不拟写入手稿，则将其保持为持久状态，并以理由标记为 `reference_only`
+- 如果已存在选定大纲，当 `research_question` 与 `experimental_design` 字段存在时，将论文就绪切片映射到具名的这些字段
+- 如果 `paper/paper_experiment_matrix.md` 存在且战役正在直接支撑论文，则在启动或重排切片集合之前先读取它
+- 对于面向写作的战役，优先使用 `exp_id`、`todo_id` 或 `slice_id` 这类稳定 id，而非自由格式备注
+- 当论文契约中存在这些字段时，论文就绪切片应携带可用的回写字段，如 `paper_role`、`section_id`、`item_id`、`claim_links`、`analysis_role`、`reviewer_question`、`target_display`、`main_or_appendix` 与 `failure_interpretation`
+- 论文就绪切片应记录它们所支撑的是最新方法、较旧的对比项、某种失败模式，还是仅限附录的健全性检查
+- 论文就绪切片应将实现/配置细节标记为 `reproducibility_detail` 或 `internal_only`（当它们不应成为正文叙述时）
+- 在每个论文就绪切片完成后，更新或核对相关的论文实验矩阵、章节笔记、证据台账或当前论文线摘要
 
-Do not leave a slice "completed" while the paper contract still looks stale and that slice is meant to unblock the paper.
-If no selected outline exists yet but the evidence question is needed to decide whether writing is worthwhile, run it as pre-outline analysis and route to `write` or `decision` afterward.
+不要让某个切片处于「已完成」状态，而论文契约看起来仍然陈旧，且该切片本应解锁论文。
+如果尚不存在选定大纲，但该证据问题对于决定「是否值得写作」是必要的，则将其作为大纲前分析运行，并在之后路由到 `write` 或 `decision`。
 
-## Durable route records
+## 持久路线记录
 
-Durable records are required in substance, not in fixed filenames.
-The agent may choose the shortest durable form that lets a later turn resume without guessing.
+持久记录在「实质」上是必需的，而不是以固定文件名为准。
+智能体可以选择最短的持久形式，使后续一轮无需猜测即可恢复。
 
-For multi-slice, writing-facing, route-changing, expensive, unstable, or long-running analysis, leave a route record that states:
+对于多切片、面向写作、改变路线、昂贵、不稳定或长时间运行的分析，留下一份路线记录，说明：
 
-- parent object and parent claim
-- acceptance or stop condition
-- slice list or first slice frontier
-- comparability boundary
-- execution envelope and the slices ruled infeasible under it
-- available assets and required comparators
-- evidence paths or expected outputs
-- current blocker or fallback
-- next route after success or failure
+- 父级对象与父级断言
+- 验收或停止条件
+- 切片列表或首批切片前沿
+- 可比较性边界
+- 执行边界，以及在该边界下被判定为不可行的切片
+- 可用资产与所需对比项
+- 证据路径或预期输出
+- 当前受阻点或回退方案
+- 成功或失败后的下一条路线
 
-`PLAN.md`, `CHECKLIST.md`, `paper/paper_experiment_matrix.md`, and local matrix or checklist files are allowed control surfaces, not mandatory success paths.
-Use `references/campaign-plan-template.md` and `references/campaign-checklist-template.md` when they help, but do not expand them as paperwork.
+`PLAN.md`、`CHECKLIST.md`、`paper/paper_experiment_matrix.md` 以及本地矩阵或清单文件都是「允许的」控制面，而非强制的成功路径。
+在有帮助时使用 `references/campaign-plan-template.md` 与 `references/campaign-checklist-template.md`，但不要把它们当作文书工作来扩展。
 
-If slice feasibility, ordering, comparators, or campaign interpretation changes materially, revise the durable route record before spending more compute.
+如果切片可行性、排序、对比项或战役阐释发生了实质变化，在投入更多计算之前先修订持久路线记录。
 
-## Operational guidance
+## 操作指引
 
-The main skill keeps the control surface in front.
-For the longer operational notes, read `references/operational-guidance.md`.
+主技能将控制面保持在最前。
+关于更长的操作说明，请阅读 `references/operational-guidance.md`。
 
-- use it when the route needs the exact artifact-backed campaign tactics
-- use it when execution monitoring, stall handling, or slice recording details matter
-- use it when memory handling or connector-facing chart notes materially affect the route
+- 当路线需要精确的制品支撑战役战术时使用
+- 当执行监控、停滞处理或切片记录细节重要时使用
+- 当记忆处理或面向连接器的图表笔记实质影响路线时使用
 
-## Negative cases and stop rules
+## 负面情况与停止规则
 
-Do not treat analysis as successful when:
+在以下情况不要将分析视为成功：
 
-- slices do not map to a parent claim, parent result, paper gap, reviewer item, or decision
-- a summary claims stable support without per-slice evidence
-- negative, null, contradictory, failed, or partial slices are hidden
-- an ablation changes many factors but is interpreted as isolating one factor
-- a robustness slice changes dataset, split, or evaluation protocol but is reported as direct apples-to-apples comparison
-- subjective or manual inspection supports a claim without rubric, sample, prompt, trace, or caveat
-- a writing-facing slice is called paper-ready but cannot be mapped back to the paper matrix, evidence ledger, outline, claim, section, or reviewer item
-- a completed paper-relevant slice remains visible only as a free-floating analysis result and is not bound back into the current paper contract
-- a failed slice is silently skipped and replaced by a different slice
-- the campaign keeps expanding after the next route is already clear
-- the campaign scope assumes hardware, memory, or runtime that is not actually available in the current environment
-- a new comparator overwrites the canonical quest baseline gate instead of being recorded as analysis-local comparison evidence
-- the underlying main result is still untrusted and the proposed work is really baseline recovery or a new main experiment
-- a new main experiment is disguised as an analysis slice to bypass the main-experiment gate
+- 切片未能映射到某条父级断言、父级结果、论文缺口、审稿人条目或决策
+- 一份总结在没有逐切片证据的情况下声称稳定支撑
+- 隐藏了负面、无效、矛盾、失败或部分完成的切片
+- 一次消融改变了多个因素，却被解释为隔离了某一个因素
+- 一个鲁棒性切片改变了数据集、划分或评估协议，却被报告为直接的同类比较
+- 主观或人工检查在没有评分标准、样本、提示词、轨迹或注意事项的情况下支撑了断言
+- 一个面向写作的切片被称为论文就绪，却无法映射回论文矩阵、证据台账、大纲、断言、章节或审稿人条目
+- 一个已完成的论文相关切片仅作为游离的分析结果可见，而未被绑定回当前论文契约
+- 一个失败的切片被静默跳过并被另一个切片替换
+- 战役在下一条路线已经清晰之后仍在持续扩张
+- 战役范围假定了当前环境中实际并不存在的硬件、内存或运行时
+- 一个新的对比项覆盖了规范的 quest 基线门槛，而不是被记录为分析局部的对比证据
+- 底层主结果仍不可信，而所提议的工作实质上是基线恢复或一个新的主实验
+- 一个新的主实验被伪装成分析切片，以绕过主实验门槛
 
-If two slices in a row fail to change the claim boundary, matrix frontier, or next route, stop widening the campaign and route through `decision`, `write`, `experiment`, or an explicit blocker.
+如果连续两个切片都未能改变断言边界、矩阵前沿或下一条路线，则停止扩大战役，并通过 `decision`、`write`、`experiment` 或明确的受阻状态进行路由。
 
-Record blocked or failed campaign states explicitly, such as missing parent run, under-specified analysis question, run failure before evidence, non-comparable metrics, missing assets, missing credentials, or still-ambiguous campaign conclusion.
-A blocked campaign should still name the next best action.
+明确记录受阻或失败的战役状态，例如缺失父级运行、分析问题描述不清、证据之前运行即失败、指标不可比较、资产缺失、凭证缺失，或战役结论仍不明确。
+一个受阻的战役仍应指明下一个最佳动作。
 
-## Aggregation and reporting
+## 聚合与报告
 
-Campaign reporting should explain:
+战役报告应说明：
 
-- which findings are stable
-- which findings are fragile
-- what changed the interpretation of the main result
-- which open questions still remain
-- whether the main claim should be strengthened, weakened, narrowed, abandoned, or left ambiguous
-- which slice changed the interpretation most
-- which planned slices were intentionally skipped because earlier results made them low value
+- 哪些发现是稳定的
+- 哪些发现是脆弱的
+- 什么改变了主结果的阐释
+- 哪些开放问题仍然存在
+- 主断言是应当被加强、削弱、收窄、放弃，还是保持模糊
+- 哪个切片对阐释的改变最大
+- 哪些计划中的切片因早期结果使其价值降低而被有意跳过
 
-Focus on the highest-impact findings first.
-Results matter more than process narration.
-If using tables, show only the most decision-relevant rows.
-Separate stable support, partial support, contradiction, and unresolved ambiguity.
-When there are many slices, summarize the top `3-5` most important ones first, then point to the full evidence paths.
+先聚焦影响力最高的发现。
+结果比过程叙述更重要。
+如果使用表格，只展示最关乎决策的若干行。
+将稳定支撑、部分支撑、矛盾与未决模糊分开。
+当切片数量很多时，先总结最重要的 `3-5` 个，再指向完整的证据路径。
 
-## Exit criteria
+## 退出标准
 
-Exit once one of these is durably true:
+一旦以下任一情况持久为真，即可退出：
 
-- the campaign produced enough evidence for writing or decision-making
-- the campaign exposed a problem that requires returning to `experiment`, `idea`, baseline recovery, or `decision`
-- the campaign is blocked and the blocker is durably recorded
-- the campaign route changed because the original slice set is no longer the best evidence-per-cost path
+- 战役已为写作或决策产生足够证据
+- 战役暴露出需要回到 `experiment`、`idea`、基线恢复或 `decision` 的问题
+- 战役已受阻，且受阻状态已持久记录
+- 战役路线因原始切片集合不再是性价比最佳的取证路径而改变
 
-A good campaign closes when the claim got stronger, weaker, narrower, abandoned, or clearly stuck, not when more slice ideas merely remain possible.
+一个好的战役，应在断言变得更强、更弱、更窄、被放弃或明确卡住时收尾，而不是在还有更多切片设想「仅仅可能」时收尾。

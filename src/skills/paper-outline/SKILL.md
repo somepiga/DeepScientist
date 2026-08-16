@@ -1,66 +1,66 @@
 ---
 name: paper-outline
-description: Use when creating, revising, validating, or repairing a research-paper outline before writing; turns experiment evidence into a clear paper idea, scoped claims, method abstraction, evaluation plan, analysis plan, and evidence boundaries without copying run logs into the manuscript.
+description: 在动笔写作之前，创建、修订、验证或修复研究论文大纲时使用；将实验证据转化为清晰的论文构思、限定范围的主张、方法抽象、评估计划、分析计划与证据边界，而不把运行日志照搬进稿件。
 skill_role: companion
 ---
 
-# Paper Outline
+# 论文大纲
 
-Use this before `write` when the outline feels like a run log, result dump, engineering note, or group-meeting report instead of a paper plan.
+当大纲读起来像是运行日志、结果堆砌、工程笔记或组会报告，而非论文计划时，在 `write` 之前使用本技能。
 
-## One-Sentence Summary
+## 一句话总结
 
-Keep one selected outline, but split two views:
+保留一份选定的大纲，但拆成两种视图：
 
-- `paper_view`: what the paper will say to readers.
-- `evidence_view`: where the exact runs, paths, rows, settings, and reproducibility details live.
+- `paper_view`：论文将对读者说的内容。
+- `evidence_view`：确切的运行、路径、行、设置与可复现性细节所在之处。
 
-The paper should be faithful to the actual evidence, but it should not repeat the agent workflow.
+论文应忠实于实际证据，但不应重复 agent 的工作流。
 
-## Basic Workflow
+## 基本工作流
 
-1. Read the current paper state.
-   Use `artifact.get_paper_contract(detail='full')`, `artifact.list_paper_outlines(...)`, and then `artifact.validate_academic_outline(detail='full')` if an outline exists.
-2. Find the one-sentence paper idea.
-   Ask: "What should a researcher remember after reading this paper?" This is not a metric row and not an implementation setting.
-3. Separate facts from interpretation.
-   Facts are measured results. Interpretations are the careful academic lesson supported by those facts. Unsupported claims go into "must not claim."
-4. Write or repair `paper_view`.
-   Fill the paper idea, problem/gap/method/result/limit, 1-3 scoped claims, method intuition, evaluation plan, and 4-8 useful analysis jobs.
-5. Keep engineering details out of the story.
-   Put ports, worktrees, batch shorthand, route decisions, user requests, artifact ids, exact file paths, and local commands into `evidence_view` or appendix-only reproducibility fields.
-6. Validate and compile.
-   Run `artifact.validate_academic_outline(detail='full')`. If it passes, run `artifact.compile_outline_to_writing_plan(detail='full')`.
+1. 阅读当前论文状态。
+   使用 `artifact.get_paper_contract(detail='full')`、`artifact.list_paper_outlines(...)`，若大纲已存在则再使用 `artifact.validate_academic_outline(detail='full')`。
+2. 找到一句话论文构思。
+   问："读过这篇论文后，研究者应记住什么？" 这不是一行指标，也不是一条实现设置。
+3. 分离事实与解读。
+   事实是实测结果。解读是这些事实所支撑的、审慎的学术结论。无支撑的主张归入"must not claim"。
+4. 撰写或修复 `paper_view`。
+   填入论文构思、问题/缺口/方法/结果/局限、1-3 条限定范围的主张、方法直觉、评估计划，以及 4-8 项有用的分析任务。
+5. 将工程细节排除在故事之外。
+   将端口、worktree、批次简写、路由决策、用户请求、artifact id、确切文件路径与本地命令放入 `evidence_view` 或仅附录的可复现性字段。
+6. 验证并编译。
+   运行 `artifact.validate_academic_outline(detail='full')`。若通过，则运行 `artifact.compile_outline_to_writing_plan(detail='full')`。
 
-## What Good Means
+## 何为"好"
 
-A good outline does three things:
+一份好大纲要做到三件事：
 
-- It has a point: one clear claim or lesson, not a list of what the agent did.
-- It is honest: every claim is tied to durable evidence, and limits are explicit.
-- It is useful to a reader: the method and analyses teach something beyond "this setup got a number."
+- 它有观点：一个清晰的主张或结论，而非"agent 做了什么"的清单。
+- 它诚实：每条主张都绑定到持久证据，且局限被显式说明。
+- 它对读者有用：方法与分析所教给人的东西，超出了"这套设置跑出了某个数字"。
 
-Strong papers often start from simple code but make a useful idea legible. Residual connections are more than a code shortcut; the paper teaches how to make depth trainable. Attention is more than a module; the paper teaches how to remove a bottleneck. Do the same only when the quest evidence supports that kind of interpretation.
+优秀的论文常常始于简单的代码，却让一个有用的想法变得清晰可读。残差连接不只是一个代码捷径；论文教的是如何让深度变得可训练。注意力不只是一个模块；论文教的是如何移除一个瓶颈。只有当探索证据支撑此类解读时，才这样做。
 
-## Mature Outline Reminder
+## 成熟大纲提醒
 
-A mature paper outline is not just a section list. For `paper_type: full_empirical` and `outline_maturity: mature`, surface reminders when these are missing:
+一份成熟的论文大纲不只是一份章节列表。对于 `paper_type: full_empirical` 且 `outline_maturity: mature`，当以下项缺失时，应给出提醒：
 
-- a central thesis and a central insight that are reader-facing, not just metric summaries
-- an `insight_ladder` showing how observed facts become allowed interpretations
-- 1-3 scoped claims, each with `evidence_needed` and `what_would_falsify_it`
-- a closest-neighbor / novelty boundary explaining what the paper is and is not claiming against prior or obvious alternatives
-- at least three likely reviewer objections, each mapped to planned evidence, manuscript revision, claim downgrade, or accepted limitation
-- 4-8 reviewer-facing analysis jobs beyond the headline result unless an explicit analysis-budget waiver downgrades the paper scope
+- 一个面向读者的中心论点与中心洞见，而非仅指标总结
+- 一个 `insight_ladder`，展示观测事实如何成为被允许的解读
+- 1-3 条限定范围的主张，每条带 `evidence_needed` 与 `what_would_falsify_it`
+- 一个最接近邻居 / 新颖性边界，说明相对于先前或显而易见的替代方案，论文主张什么、不主张什么
+- 至少三条可能的审稿人异议，每条映射到计划的证据、稿件修订、主张降级或已接受的局限
+- 除了头条结果外，至少 4-8 项面向审稿人的分析任务，除非有明确的 analysis-budget 豁免而降低了论文范围
 
-Analysis quantity has two reminder levels:
+分析数量有两个提醒层级：
 
-- `paper_view.analysis_plan`: normally 4-8 planned analysis jobs for a mature empirical paper.
-- paper-facing evidence package: normally 5-10 ready experiment/analysis groups total before treating the manuscript as strong. If the user specifies a number such as 4-8 analyses, track that target visibly until completed, waived, or explicitly downgraded.
+- `paper_view.analysis_plan`：对于成熟的实证论文，通常应有 4-8 项计划分析任务。
+- 面向论文的证据包：在将稿件视为扎实之前，通常应有 5-10 组就绪的实验/分析。若用户指定了如 4-8 项分析这样的数字，应显式追踪该目标直至完成、豁免或明确降级。
 
-## Required Shape
+## 要求的形态
 
-Use this inside `artifact.submit_paper_outline(..., detailed_outline={...})`.
+在 `artifact.submit_paper_outline(..., detailed_outline={...})` 中使用本结构。
 
 ```json
 {
@@ -152,19 +152,19 @@ Use this inside `artifact.submit_paper_outline(..., detailed_outline={...})`.
 }
 ```
 
-The field names are machine-facing. The thinking should stay simple:
+字段名是面向机器的。思考应保持简单：
 
-- `central_thesis`: one-sentence paper idea.
-- `central_insight`: what readers learn.
-- `story_spine`: problem -> gap -> method -> result -> limit.
-- `evidence_grounding`: facts, allowed interpretations, and things not to claim.
-- `analysis_plan`: the checks a reviewer would ask for.
+- `central_thesis`：一句话论文构思。
+- `central_insight`：读者学到什么。
+- `story_spine`：problem -> gap -> method -> result -> limit。
+- `evidence_grounding`：事实、被允许的解读，以及不应主张的内容。
+- `analysis_plan`：审稿人会要求的核查。
 
-## Analysis Plan
+## 分析计划
 
-A mature empirical paper usually needs 4-8 analysis jobs beyond the main result. Choose them because they support the story, not because of a fixed checklist.
+一份成熟的实证论文，通常需要在主结果之外有 4-8 项分析任务。选择它们是因为它们支撑故事，而非因为某个固定的检查清单。
 
-Useful analysis roles:
+有用的分析角色：
 
 - component ablation
 - robustness or sensitivity
@@ -175,53 +175,53 @@ Useful analysis roles:
 - cost, budget, or efficiency tradeoff
 - limitation or residual headroom analysis
 
-If there are fewer than 4, mark `outline_maturity: "idea_seed"` or provide `analysis_budget_waiver` with a real reason.
+若不足 4 项，则将 `outline_maturity: "idea_seed"`，或提供带有真实理由的 `analysis_budget_waiver`。
 
-## Bad To Good Examples
+## 从差到好的示例
 
-Bad:
+差：
 
 - "The abstract reports dual ports and 64+64."
 
-Good:
+好：
 
 - "All methods are compared under the same evidence budget; the exact serving setup is appendix-only."
 
-Bad:
+差：
 
 - "The latest route selected outline-008 and reran opposite-port probes."
 
-Good:
+好：
 
 - "The method performs an independent evidence pass and updates a decision only when the new support satisfies preset checks."
 
-Bad:
+差：
 
 - "Section 3 reports all experiments and Section 4 reports more experiments."
 
-Good:
+好：
 
 - "The main result tests whether the method improves the target task. The analyses then ask why: whether the gain comes from the proposed component, whether it survives stronger baselines, where it fails, and what budget it costs."
 
-Bad:
+差：
 
 - "We did only two follow-up analyses because those were the latest completed runs."
 
-Good:
+好：
 
 - "The outline plans six follow-ups: ablation, stronger baseline, sensitivity, failure taxonomy, subgroup breakdown, and cost. If only two can be run, the paper is marked early/narrow instead of mature."
 
-## Validation
+## 验证
 
-Before handing to `write`, check:
+在交给 `write` 之前，检查：
 
-- `artifact.validate_academic_outline(detail='full')` passes.
-- The paper has one clear idea and 1-3 scoped claims.
-- If the outline is mature/full-empirical, `insight_ladder`, novelty boundary, reviewer objections, claim falsification criteria, and analysis-count reminders are present or explicitly waived.
-- The outline says what was observed, what can be interpreted, and what must not be claimed.
-- The analysis plan has 4-8 useful jobs, or a waiver.
-- Main-text experiment/analysis item ids are checked for stale duplicates that inflate evidence count.
-- `paper_view` does not mention quest, worktree, selected outline, route history, user requests, ports, or `64+64`.
-- Exact engineering details are in `evidence_view` or appendix-only fields.
+- `artifact.validate_academic_outline(detail='full')` 通过。
+- 论文有一个清晰的观点与 1-3 条限定范围的主张。
+- 若大纲为 mature/full_empirical，则 `insight_ladder`、新颖性边界、审稿人异议、主张证伪标准与分析数量提醒均已具备或显式豁免。
+- 大纲说明了观测到什么、可以解读什么、以及必须不主张什么。
+- 分析计划有 4-8 项有用任务，或已豁免。
+- 正文中实验/分析项目 id 已检查是否存在夸大证据数量的陈旧重复项。
+- `paper_view` 未提及 quest、worktree、选定大纲、路由历史、用户请求、端口或 `64+64`。
+- 确切的工程细节位于 `evidence_view` 或仅附录字段。
 
-Read `references/outline-patterns.md` when you need more examples.
+需要更多示例时，阅读 `references/outline-patterns.md`。

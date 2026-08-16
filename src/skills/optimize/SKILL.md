@@ -1,185 +1,186 @@
 ---
 name: optimize
-description: Use when an algorithm-first quest should manage candidate briefs, optimization frontier, branch promotion, or fusion-aware search instead of the paper-oriented default loop.
+description: 当某个以算法为先的探索任务应管理候选简报、优化前沿、分支晋升或融合感知搜索，而非面向论文的默认循环时使用。
 skill_role: stage
 ---
 
-# Optimize
+# 优化
 
-Use this skill for algorithm-first quests where the goal is the strongest justified optimization result rather than paper packaging.
-The goal is to move the frontier by one justified step at a time, not to generate a large pile of low-information candidates.
+在以算法为先的任务中使用本技能，其目标是得到「最强且依据充分」的优化结果，而非论文包装。
 
-## Match signals
+目标是一次以充分依据推进前沿一步，而不是生成一大堆低信息量的候选。
 
-Use `optimize` when:
+## 匹配信号
 
-- the quest is algorithm-first
-- the baseline gate is already confirmed or waived
-- the task has at least one plausible optimization direction
-- multiple candidate directions exist and the system should rank them before promotion
-- a durable line exists and the next step is to manage explore, exploit, fusion, debug, or stop
+在以下情况使用 `optimize`：
 
-Do not use `optimize` when:
+- 该任务以算法为先
+- 基线门槛已被确认或豁免
+- 该任务至少有一个合理的优化方向
+- 存在多个候选方向，且系统应在晋升之前对它们排序
+- 存在一条持久线，且下一步是管理探索、利用、融合、调试或停止
 
-- the baseline gate is unresolved
-- the main need is a paper draft, rebuttal, review, or finalize task
-- the quest is still in broad literature scouting with no concrete optimization handle
-- the real blocker is still idea-family selection rather than bounded optimization search inside an accepted family
+在以下情况**不要**使用 `optimize`：
 
-## One-sentence summary
+- 基线门槛尚未解决
+- 主要需求是论文草稿、反驳、评审或收尾任务
+- 该任务仍处于广泛的文献侦察阶段，没有具体的优化抓手
+- 真正的阻塞点仍是思路族选择，而非某个被接受族内部的、范围受限的优化搜索
 
-Recover the current frontier, choose one optimize submode, advance one justified move, then record the new frontier or explicit stop condition.
+## 一句话总结
 
-## Control workflow
+恢复当前前沿，选择一个优化子模式，推进一个有充分依据的一步，然后记录新的前沿或明确的停止条件。
 
-1. Recover the current frontier and recent durable optimization state.
-   Read the frontier, recent memory, and current quest state before creating or promoting anything.
-2. Choose exactly one primary optimize submode for this pass.
-   Keep the pass legible: one dominant optimize move, not several unrelated route changes.
-3. Keep the candidate slate or active pool small and differentiated.
-   If the direction is still fuzzy, shape and rank branchless candidate briefs; if a durable line already exists, manage a bounded implementation pool inside that line.
-4. Promote or execute only bounded candidates with explicit evidence criteria.
-   Promote only the strongest briefs into durable lines, and record implementation-level attempts separately from durable line creation.
-5. Route from evidence to exactly one dominant next action.
-   End in `explore`, `exploit`, `fusion`, `debug`, or `stop`, and record that route durably.
+## 控制工作流
 
-## AVOID / pitfalls
+1. 恢复当前前沿与近期的持久优化状态。
+   在创建或晋升任何内容之前，先读取前沿、近期记忆与当前 quest 状态。
+2. 为本次轮次精确选择一个主要的优化子模式。
+   保持本轮清晰可读：一次主导的优化动作，而非若干互不相关的路线变更。
+3. 保持候选列表或活跃池小而具区分度。
+   如果方向仍模糊，则先成形并排序无分支的候选简报；如果已存在持久线，则在该线内部管理一个范围受限的实现池。
+4. 仅晋升或执行带有明确证据标准的、范围受限的候选。
+   仅将最有力的简报晋升为持久线，并将实现级别的尝试与持久线的创建分开记录。
+5. 从证据路由到唯一的、主导的下一步动作。
+   以 `explore`、`exploit`、`fusion`、`debug` 或 `stop` 收尾，并将该路线持久记录。
 
-- Do not treat every patch or micro-attempt as a new durable idea line.
-- Do not create a new Git branch or worktree for every implementation-level candidate.
-- Do not create a new Git branch/worktree for every implementation-level candidate.
-- Do not promote every plausible brief.
-- Do not keep widening the frontier once a small serious slate already exists.
-- Do not let one optimize pass mix multiple major route changes.
-- Do not keep selecting the same familiar mechanism family after repeated non-improving results.
-- Do not drift into paper-outline, bundle, or finalize work by default while this stage is active.
-- Do not treat one candidate creation or one smoke pass as stage completion.
+## 应避免 / 陷阱
 
-## Constraints
+- 不要把每一次修补或微小尝试都当作一条新的持久思路线。
+- 不要为每一个实现级别的候选创建新的 Git 分支或 worktree。
+- 不要为每一个实现级别的候选创建新的 Git 分支/worktree。
+- 不要晋升每一个看似合理的简报。
+- 一旦已经存在一个严肃的小型候选阵容，就不要继续扩大前沿。
+- 不要让一次优化轮次混入多个重大的路线变更。
+- 在反复出现无改进结果之后，不要继续选择同一个熟悉的机制族。
+- 在本舞台活跃期间，不要默认漂移到论文大纲、论文包或收尾工作。
+- 不要把一次候选创建或一次冒烟轮次当作舞台完成。
 
-- Use these three object levels consistently:
-  - candidate brief
-  - durable optimization line
-  - implementation-level candidate attempt
-- Keep exactly one primary optimize submode active for the current meaningful pass.
-- Keep only one bottom-layer optimize move truly in progress at a time.
-- Before deciding the next route, call `artifact.get_optimization_frontier(...)` when available and use it as the primary optimization-state summary.
-- Candidate briefs should use `artifact.submit_idea(..., submission_mode='candidate')`.
-- Durable lines should use `artifact.submit_idea(..., submission_mode='line')`.
-- Only promote a candidate brief into a durable line when it has enough expected value, differentiation, and execution path clarity to deserve branch/worktree state.
-- Implementation-level candidate attempts inside one durable line should use `artifact.record(... report_type='optimization_candidate' ...)`.
-- Real measured line results should use `artifact.record_main_experiment(...)`.
-- All terminal work in this stage must go through `bash_exec(...)`.
+## 约束
 
-## Validation
+- 一致地使用以下三个对象层级：
+  - 候选简报
+  - 持久优化线
+  - 实现级别的候选尝试
+- 为当前有意义的轮次保持唯一一个主要的优化子模式活跃。
+- 一次只让一个底层的优化动作真正进行中。
+- 在决定下一条路线之前，若 `artifact.get_optimization_frontier(...)` 可用，则调用它，并将其作为主要的优化状态摘要。
+- 候选简报应使用 `artifact.submit_idea(..., submission_mode='candidate')`。
+- 持久线应使用 `artifact.submit_idea(..., submission_mode='line')`。
+- 仅当一条候选简报具备足够的预期价值、区分度与执行路径清晰度，以至于值得拥有分支/worktree 状态时，才将其晋升为持久线。
+- 一条持久线内部的实现级别候选尝试应使用 `artifact.record(... report_type='optimization_candidate' ...)`。
+- 真实测量的线结果应使用 `artifact.record_main_experiment(...)`。
+- 本舞台内的所有终端工作都必须经由 `bash_exec(...)`。
 
-Before `optimize` can end, all applicable checks should be true:
+## 校验
 
-- the frontier was refreshed
-- the active optimize submode is explicit
-- the candidate board and optimize checklist reflect the current state
-- promoted lines are justified and bounded
-- every live candidate has status and next action
-- every major success, failure, promotion, or route change is durably recorded
-- the pass ends with one durable next action or stop condition
+在 `optimize` 可以结束之前，所有适用的检查都应为真：
 
-## Interaction discipline
+- 前沿已被刷新
+- 活跃的优化子模式是明确的
+- 候选看板与优化清单反映了当前状态
+- 晋升的线是合理且范围受限的
+- 每一个活跃候选都有状态与下一步动作
+- 每一个重大的成功、失败、晋升或路线变更都被持久记录
+- 本轮以一个有充分依据的下一步动作或停止条件收尾
 
-- Follow the shared interaction contract injected by the system prompt.
-- For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-- Ordinary candidate creation, smoke checks, and route updates should stay concise.
-- Use richer milestone updates only when a candidate is promoted, a strong run finishes, the frontier shifts materially, or a fusion/debug route becomes the new main path.
-- When the user asks for the current optimization state, answer from the frontier and durable artifacts rather than from chat memory.
-- Every terminal command in this stage must go through `bash_exec`; do not use any other terminal path for smoke checks, quick validations, long runs, Git, Python, package-manager, or file-inspection commands.
+## 交互纪律
 
-## Working surfaces
+- 遵循系统提示注入的共享交互契约。
+- 对于普通的活跃工作，当工作跨越约 6 次工具调用并出现具有用户可感知意义的进展时，优先给出一次简洁的进度更新；且不要在没有用户可见更新的情况下，偏移超过约 12 次工具调用或约 8 分钟。
+- 普通的候选创建、冒烟检查与路线更新应保持简洁。
+- 仅当候选被晋升、一次强运行完成、前沿发生实质偏移，或融合/调试路线成为新的主路径时，才使用更丰富的里程碑更新。
+- 当用户询问当前优化状态时，应基于前沿与持久制品回答，而不是基于聊天记忆。
+- 本舞台内的每一条终端命令都必须经由 `bash_exec`；对于冒烟检查、快速验证、长时运行、Git、Python、包管理器或文件检查命令，不要使用任何其他终端路径。
 
-Before broad optimization search or candidate management becomes substantial, maintain these quest-visible control files:
+## 工作界面
 
-- quest-root `plan.md` as the research map and loop tracker for the whole quest
-- workspace `PLAN.md` as the active optimize-node contract
-- `OPTIMIZE_CHECKLIST.md` as the optimize-specific execution frontier
-- workspace `CHECKLIST.md` as a mirror of the immediate next move when it exists
-- `CANDIDATE_BOARD.md` as the compact candidate ledger
+在广泛的优化搜索或候选管理变得可观之前，维护以下 quest 可见的控制文件：
 
-Use these templates:
+- quest 根目录的 `plan.md` 作为整个 quest 的研究地图与循环追踪器
+- 工作区的 `PLAN.md` 作为活跃的优化节点契约
+- `OPTIMIZE_CHECKLIST.md` 作为优化专属的执行前沿
+- 工作区的 `CHECKLIST.md` 作为（存在时）紧随其后的下一步动作的镜像
+- `CANDIDATE_BOARD.md` 作为紧凑的候选台账
+
+使用以下模板：
 
 - `references/optimize-checklist-template.md`
 - `references/candidate-board-template.md`
 
-`optimize` is the looped search controller for algorithm-first quests, not a replacement for the quest-level roadmap.
-When a result becomes the new incumbent, plateaus, or stops, update quest-root `plan.md` so the next loop edge is explicit.
+`optimize` 是以算法为先的任务的循环搜索控制器，而非 quest 级路线图的替代品。
+当一个结果成为新的在位者、进入平台期或停止时，更新 quest 根目录的 `plan.md`，使下一次循环边界明确。
 
-## Core object model
+## 核心对象模型
 
-Use these three object levels consistently:
+一致地使用以下三个对象层级：
 
-1. candidate brief
+1. 候选简报
    `artifact.submit_idea(mode='create', submission_mode='candidate', ...)`
-   Record a possible direction or method brief without opening a branch yet.
-2. durable optimization line
+   在不开启分支的情况下记录一个可能的方向或方法简报。
+2. 持久优化线
    `artifact.submit_idea(mode='create', submission_mode='line', ...)`
-   Open a real branch or worktree and make it a formal optimization path.
-3. implementation-level candidate attempt
+   开启一个真实的分支或 worktree，并将其设为正式的优化路径。
+3. 实现级别的候选尝试
    `artifact.record(payload={'kind': 'report', 'report_type': 'optimization_candidate', ...})`
-   Record one within-line attempt such as one patch, one smoke candidate, one debug candidate, or one fusion candidate.
+   记录一次线内尝试，例如一次修补、一次冒烟候选、一次调试候选或一次融合候选。
 
-Use `artifact.record(payload={'kind': 'decision', ...})` when the frontier route changes, a line is promoted, a line is stopped, or the next optimize submode is selected.
+当前沿路线变更、某条线被晋升、某条线被停止，或选择了下一个优化子模式时，使用 `artifact.record(payload={'kind': 'decision', ...})`。
 
-## Optimize submodes
+## 优化子模式
 
-Treat `optimize` as one stable stage skill with six internal submodes:
+将 `optimize` 视为一个稳定的舞台技能，其内部有六个子模式：
 
-- `brief`: turn loose directions into compact candidate briefs
-- `rank`: compare briefs on one shared surface and choose promotion candidates
-- `seed`: create a small implementation-level pool inside one durable line
-- `loop`: advance one durable line with bounded smoke/full-eval/record actions
-- `fusion`: combine complementary strengths from multiple lines
-- `debug`: rescue a strategically valuable candidate blocked by a concrete failure mode
+- `brief`：将松散的方向转化为紧凑的候选简报
+- `rank`：在一个共享界面上比较简报并选择晋升候选
+- `seed`：在一条持久线内部创建一个小型实现级别池
+- `loop`：通过范围受限的冒烟/完整评估/记录动作推进一条持久线
+- `fusion`：融合来自多条线的互补优势
+- `debug`：挽救一个因具体失败模式受阻、但具战略价值的候选
 
-Do not treat these as separate public skills.
-Treat them as internal execution modes inside one optimize workflow.
+不要将这些视为独立的公开技能。
+应将它们当作一个优化工作流内部的执行模式。
 
-Default selection order:
+默认选择顺序：
 
-1. `fusion` when the frontier explicitly says `fusion`
-2. `debug` when a strategically valuable candidate failed for a concrete and likely fixable reason
-3. `rank` when several candidate briefs already exist and promotion is the main unresolved question
-4. `brief` when the candidate-brief slate is too thin or too weak
-5. `seed` when a durable line exists but there is no live implementation-candidate pool
-6. `loop` when a live candidate pool or leading durable line already exists and the main need is bounded execution progress
+1. 当前沿明确说 `fusion` 时，选 `fusion`
+2. 当一个具战略价值的候选因具体且很可能可修复的原因失败时，选 `debug`
+3. 当多个候选简报已存在、而晋升是主要未决问题时，选 `rank`
+4. 当候选简报阵容过薄或过弱时，选 `brief`
+5. 当一条持久线存在、但没有活跃的实现候选池时，选 `seed`
+6. 当已存在活跃候选池或领先的持久线、且主要需求是范围受限的执行进展时，选 `loop`
 
-## Frontier route meanings
+## 前沿路线含义
 
-At meaningful route boundaries, choose exactly one dominant route meaning:
+在有意义的路线边界处，精确选择一个主导的路线含义：
 
-- `explore`: widen search with fresh candidate directions
-- `exploit`: focus on the strongest current line
-- `fusion`: merge insights from multiple successful or complementary lines
-- `debug`: rescue a candidate or line blocked by a concrete failure mode
-- `stop`: the current frontier is saturated or the remaining routes are not justified
+- `explore`：以全新的候选方向拓宽搜索
+- `exploit`：聚焦当前最强的线
+- `fusion`：融合来自多条成功或互补线的洞见
+- `debug`：挽救一个因具体失败模式受阻的候选或线
+- `stop`：当前前沿已饱和，或剩余路线缺乏依据
 
-Default heuristics:
+默认启发式：
 
-- choose `explore` when no line is clearly dominant or the current lines are too similar
-- choose `exploit` when one line clearly leads on evidence and comparability
-- choose `fusion` when at least two lines have meaningful complementary strengths
-- choose `debug` when a strategically valuable candidate failed for a concrete and likely fixable reason
-- choose `stop` when the frontier is saturated or the remaining routes are low-value relative to cost
+- 当没有哪条线明显主导、或当前各线过于相似时，选 `explore`
+- 当一条线在证据与可比较性上明显领先时，选 `exploit`
+- 当至少两条线具有有意义的互补优势时，选 `fusion`
+- 当某个具战略价值的候选因具体且很可能可修复的原因失败时，选 `debug`
+- 当前沿饱和、或剩余路线相对于成本价值较低时，选 `stop`
 
-## Non-negotiable rules
+## 不可妥协的规则
 
-- Keep all major optimization successes and failures durable through artifacts and memory.
-- Do not convert ranking uncertainty into premature branch creation.
-- Do not treat an implementation-level candidate report as a new durable optimization line.
-- Before broad new search, inspect recent optimization memory and the same-line local attempt memory when relevant.
-- If the same line stalls repeatedly, switch route instead of pretending more of the same is new evidence.
-- Plateau is a route signal, not a reason to keep issuing tiny tweaks.
+- 通过制品与记忆，将所有重大的优化成功与失败保持持久。
+- 不要把排序不确定性转化为过早的分支创建。
+- 不要把一次实现级别的候选报告当作一条新的持久优化线。
+- 在广泛的新搜索之前，在相关时检查近期的优化记忆以及同线的本地尝试记忆。
+- 如果同一条线反复停滞，应切换路线，而不是假装「再来一次同样的」是新证据。
+- 平台期是一个路线信号，而不是继续发出微小调整的理由。
 
-## Operational guidance
+## 操作指引
 
-The main skill keeps the control surface in front.
-For the longer playbooks, templates, and protocol details, read the references:
+主技能将控制面保持在最前。
+关于更长的操作手册、模板与协议细节，请阅读以下参考：
 
 - `references/operational-guidance.md`
 - `references/brief-shaping-playbook.md`
@@ -194,17 +195,17 @@ For the longer playbooks, templates, and protocol details, read the references:
 - `references/plateau-response-playbook.md`
 - `references/prompt-patterns.md`
 
-Use them when:
+在以下情况使用它们：
 
-- the candidate brief is still fuzzy
-- explicit ranking or promotion notes are needed
-- the frontier route is unclear
-- implementation-route choice, debug, fusion, or plateau handling needs the full playbook
-- memory writing, checklist maintenance, or prompt shaping materially affect the route
+- 候选简报仍然模糊
+- 需要明确的排序或晋升说明
+- 前沿路线不清晰
+- 实现路线选择、调试、融合或平台期处理需要完整手册
+- 记忆写入、清单维护或提示词塑造实质影响路线
 
-## Integrated reference appendix
+## 集成参考附录
 
-Use these reference sections as needed without copying them into chat:
+按需使用以下参考章节，无需将它们复制到聊天中：
 
 ### optimize-checklist-template.md
 ### candidate-board-template.md
@@ -219,36 +220,36 @@ Use these reference sections as needed without copying them into chat:
 ### prompt-patterns.md
 ### plateau-response-playbook.md
 
-Codegen route choices should stay explicit: stepwise generation for incremental edits, diff / patch generation for contained changes, and full rewrite only when the old surface is genuinely the blocker.
-Mandatory first-call sequence: refresh `artifact.get_optimization_frontier(...)`, recover quest state, then choose `brief`, `rank`, `seed`, `loop`, `fusion`, `debug`, or `stop`.
-Use memory.search(...) for same-line local attempt memory before repeating a known failure or reopening stale frontier assumptions.
+代码生成路线的选择应明确：增量式生成用于增量编辑，diff / patch 生成用于受限改动，仅在旧界面确为阻塞点时才使用完整重写。
+强制性首次调用序列：刷新 `artifact.get_optimization_frontier(...)`，恢复 quest 状态，然后选择 `brief`、`rank`、`seed`、`loop`、`fusion`、`debug` 或 `stop`。
+在重复一个已知失败或重新开启陈旧的前沿假设之前，使用 memory.search(...) 查找同线的本地尝试记忆。
 
-Stall-recovery protocol: if a line stops improving, decide whether the issue is mechanism family, change-layer diversity, validation-cost-aware seed policy, validation-cost-aware loop policy, or execution noise.
-Internal submode selection should preserve a coverage contract and a distinct promotion policy for each route.
-InternAgent maps most naturally to codegen-route and execution-surface optimization; MLEvolve maps most naturally to search-loop, mutation, and validation orchestration.
+停滞恢复协议：如果某条线停止改进，判断问题出在机制族、变更层多样性、感知验证成本的种子策略、感知验证成本的循环策略，还是执行噪声。
+内部子模式选择应 preserve 一个覆盖契约，以及每条路线各自的晋升策略。
+InternAgent 最自然地映射到代码生成路线与执行界面优化；MLEvolve 最自然地映射到搜索循环、变异与验证编排。
 
-Brief shaping should clarify the bottleneck, constraints, and comparability boundary first, then generate a small differentiated slate, usually `2-3` serious approaches.
-Recommend one approach with explicit tradeoffs against the alternatives, and self-check the winning brief for ambiguity, overlap, and weak justification before submission.
+简报塑造应首先厘清瓶颈、约束与可比较性边界，然后生成一个小而具区分度的阵容，通常为 `2-3` 个严肃方法。
+推荐一个带有对替代方案明确权衡的方法，并在提交前自检获胜简报的模糊性、重叠与薄弱依据。
 recommend one approach with explicit tradeoffs against the alternatives
-Candidate briefs should expose `why_now`.
+候选简报应暴露 `why_now`。
 
-For seed mode, use a validation-cost-aware seed policy: if checks are under about `20` minutes, a separate smoke stage is optional; direct submission into quick parallel validation is acceptable.
-Only skip smoke when the parallel quick validations are expected to produce distinguishable conclusions.
+对于 seed 模式，使用感知验证成本的种子策略：如果检查在约 `20` 分钟以内，单独的冒烟阶段是可选的；直接提交进行快速并行验证是可接受的。
+仅当并行快速验证预期能产生可区分的结论时，才跳过冒烟。
 only skip smoke when the parallel quick validations are expected to produce distinguishable conclusions
-Use smoke test or direct quick validation according to uncertainty, and you may skip a separate smoke stage and submit several quick validations in parallel when the hypotheses are separable.
-For loop mode, use a validation-cost-aware loop policy; if the validation loop is slow, do not keep paying for frontier uncertainty that could have been reduced in `brief`.
-Gate evolution on clear objective signal rather than small local preference.
+根据不确定性使用冒烟测试或直接快速验证；当假设可分离时，你可以跳过单独的冒烟阶段，并并行提交若干快速验证。
+对于 loop 模式，使用感知验证成本的循环策略；如果验证循环很慢，不要持续为那些本可在 `brief` 阶段就降低的前沿不确定性付出代价。
+依据明确的客观信号来 gate 演化，而非微小的局部偏好。
 gate evolution on clear objective signal
 
-Family-shift trigger: when repeated same-family edits stall, revisit the mechanism family.
-Task-category primer: prefer simple-first changes, one atomic improvement per pass, and bugfix-only passes when the failure is localized.
+族切换触发条件：当重复的同一族编辑停滞时，重新审视机制族。
+任务类别入门：优先简单优先的改动、每轮一次原子式改进，以及当失败局部化时仅修复 bug 的轮次。
 
-## Exit criteria
+## 退出标准
 
-Exit `optimize` only when one of these is durably true:
+仅在以下任一情况持久为真时，才退出 `optimize`：
 
-- a stronger line was promoted and the next anchor is clear
-- the current line produced a real measured result and the next route is recorded
-- the optimization frontier says stop and that stop decision is durably recorded
+- 一条更强的线被晋升，且下一个锚点清晰
+- 当前线产生了一个真实测量的结果，且下一条路线已记录
+- 优化前沿说 stop，且该停止决策已持久记录
 
-Do not treat one candidate creation or one smoke pass as stage completion.
+不要把一次候选创建或一次冒烟轮次当作舞台完成。

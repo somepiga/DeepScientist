@@ -1,407 +1,407 @@
 ---
 name: finalize
-description: Use when the quest is ready to consolidate final claims, limitations, recommendations, summary state, and graph exports before stopping or archiving.
+description: 当任务已准备好在停止或归档前，整合最终主张、局限性、建议、摘要状态与图谱导出时使用。
 skill_role: stage
 ---
 
-# Finalize
+# Finalize（收尾）
 
-Use this skill to close or pause a quest responsibly.
-The goal is to leave a stable stopping point and a clean resume path, not to keep rediscovering work that is already done.
+使用本技能负责任地关闭或暂停一个任务（quest）。
+目标是在已完成的成果之上留下一个稳定的停止点，以及一条干净的恢复路径，而不是反复重新发现已经完成的工作。
 
-## Interaction discipline
+## 交互纪律
 
-- Follow the shared interaction contract injected by the system prompt.
-- For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-- Do not emit another finalize progress update when the user-visible state is unchanged.
-- If the runtime starts an auto-continue turn with no new user message, keep finalizing from the durable quest state and active requirements instead of replaying the previous user turn.
-- If a threaded user reply arrives, interpret it relative to the latest finalize progress update before assuming the task changed completely.
-- When finalize reaches a real closure state, pause-ready packet, or route-back decision, send one threaded `artifact.interact(kind='milestone', ...)` update that names the recommendation, why it is the right call, and any reopen condition that still matters.
-- True quest completion still requires explicit user approval through the runtime completion flow before calling `artifact.complete_quest(...)`.
-- Rechecking that the same bundle files still exist, or re-aligning status surfaces without changing the closure judgment, does not by itself count as a fresh milestone.
-- Hard execution rule: if this stage needs terminal work such as Git inspection, packaging checks, document builds, or file inspection, every such command must go through `bash_exec`.
+- 遵循系统提示注入的共享交互约定。
+- 对于普通的主动工作，当工作跨越约 6 次工具调用且出现了对人类有意义的增量时，优先给出一次简洁的进度更新；在没有用户可见更新的情况下，不要超出约 12 次工具调用或约 8 分钟。
+- 当用户可见状态未发生变化时，不要再次发出 finalize 进度更新。
+- 如果运行时在没有新用户消息的情况下启动自动续做回合，应从持久化的任务状态和当前生效的需求继续收尾，而不是重放上一轮用户回合。
+- 如果收到线程化的用户回复，在假定任务已完全改变之前，应先依据最新的 finalize 进度更新来理解它。
+- 当 finalize 达到真正的关闭状态、可暂停数据包，或回退路由决策时，发送一次线程化的 `artifact.interact(kind='milestone', ...)` 更新，指明该建议、为何这是正确的判断，以及仍重要的任何重新开启条件。
+- 真正的任务完成仍需通过运行时完成流程获得用户的显式批准，才能调用 `artifact.complete_quest(...)`。
+- 仅仅重新核对同一批打包文件仍然存在，或在未改变关闭判断的情况下重新对齐状态面，本身并不构成一个新的里程碑。
+- 硬性执行规则：如果本阶段需要进行终端类工作，例如 Git 检查、打包检查、文档构建或文件检查，则每一个此类命令都必须通过 `bash_exec` 执行。
 
-## Three-layer todo contract
+## 三层待办约定
 
-- keep quest-root `plan.md` as the top-level research map and closure map
-- keep workspace `PLAN.md` as the active finalize-node contract when closure work is multi-step
-- keep workspace `CHECKLIST.md` as the finalize execution frontier with one real in-progress item and a short `Next` list
-- if the frontier stops changing, stop nesting closure chores and make the route judgment explicit
+- 将任务根目录的 `plan.md` 保留为顶层研究地图与关闭地图。
+- 当关闭工作是多步骤时，将工作区的 `PLAN.md` 保留为当前 finalize 节点的契约。
+- 将工作区的 `CHECKLIST.md` 保留为 finalize 执行前沿，其中包含一个真正进行中的事项和一个简短的 `Next`（下一步）列表。
+- 如果前沿不再变化，应停止嵌套关闭杂务，并显式给出路由判断。
 
-## Research-map role
+## 研究地图角色
 
-- `finalize` is the loop-closure controller, not automatic quest death
-- the finalize outcome should update quest-root `plan.md` to one of: `stop`, `park_and_continue_later`, or `publish_and_continue_from_new_incumbent`
-- every finalize handoff should leave explicit reopen conditions and, when relevant, the next loop candidate
+- `finalize` 是循环闭合控制器，而不是自动的任务终结。
+- finalize 的结果应将任务根目录 `plan.md` 更新为以下之一：`stop`、`park_and_continue_later`，或 `publish_and_continue_from_new_incumbent`。
+- 每一次 finalize 交接都应留下显式的重新开启条件，并在相关时给出下一个循环候选。
 
-## Current-node plan and checklist
+## 当前节点计划与检查清单
 
-When finalize work is multi-step, create or refresh:
+当 finalize 工作为多步骤时，创建或刷新：
 
-- workspace `PLAN.md` as the finalize-node contract
-- workspace `CHECKLIST.md` as the finalize execution frontier
+- 工作区 `PLAN.md` 作为 finalize 节点契约。
+- 工作区 `CHECKLIST.md` 作为 finalize 执行前沿。
 
-The finalize node should make explicit:
+finalize 节点应显式说明：
 
-- which closure state is currently most justified
-- what evidence still blocks closure
-- what reopen condition still matters
-- whether the next edge is stop, park, or a new loop
+- 当前哪一种关闭状态最合理。
+- 哪些证据仍然阻碍关闭。
+- 哪些重新开启条件仍然重要。
+- 下一个分叉是停止、暂停，还是一个新的循环。
 
-## Stage purpose
+## 阶段目的
 
-The finalize stage should not pretend every line succeeded.
-It should produce the most accurate final state of the quest:
+finalize 阶段不应假装每一行都成功了。
+它应产出任务最准确的最终状态：
 
-- what is supported
-- what is only partially supported
-- what failed
-- what remains open
-- whether the right move is stop, archive, publish, or continue later
+- 哪些是被支持的。
+- 哪些只是部分被支持。
+- 哪些失败了。
+- 哪些仍然开放。
+- 正确的举措是停止、归档、发布，还是稍后继续。
 
-Finalize is not just a short summary.
-It is the durable closure protocol that turns a long-running research graph into a recoverable stopping point, a publishable handoff, or an honest continue-later checkpoint.
+finalize 不只是一个简短的摘要。
+它是将长期运行的研究图谱转化为可恢复的停止点、可发布的移交物，或诚实的稍后继续检查点的持久关闭协议。
 
-## Use when
+## 使用时机
 
-- the evidence base is stable enough for a final recommendation
-- the writing line is sufficiently complete
-- the user asked for a final summary or closure
-- the quest should be paused or archived with a clean state
+- 证据基础已足够稳定，可以形成最终建议。
+- 写作线已足够完整。
+- 用户要求最终摘要或关闭。
+- 任务应以干净的状态暂停或归档。
 
-## Do not use when
+## 不使用时机
 
-- major evidence gaps are still unresolved
-- the current line obviously needs another experiment or analysis pass
-- the quest is still in exploratory ideation
+- 主要的证据缺口仍未解决。
+- 当前线显然还需要另一次实验或分析轮次。
+- 任务仍处于探索性构思阶段。
 
-## Preconditions and gate
+## 前置条件与闸口
 
-Before finalizing, gather:
+在收尾之前，收集：
 
-- latest baseline state
-- latest accepted run and analysis state
-- latest writing state
-- latest decisions and open blockers
-- latest quest documents
-- latest review / proofing / submission state when a paper bundle exists
-- the paper bundle manifest and its referenced paths when the quest has a paper-like deliverable
-- the paper evidence ledger and selected-outline section statuses when the quest has a paper-like deliverable
+- 最新的 baseline 状态。
+- 最新的已接受运行与分析状态。
+- 最新的写作状态。
+- 最新的决策与开放阻塞项。
+- 最新的任务文档。
+- 当存在论文打包物时，最新的评审 / 校对 / 投稿状态。
+- 当任务具有类论文交付物时，论文打包物清单及其引用的路径。
+- 当任务具有类论文交付物时，论文证据账本与所选大纲的分节状态。
 
-If finalization reveals that the quest is still too uncertain, route back through `decision` rather than forcing closure.
-For paper-like deliverables, do not finalize while any of these remain true:
+如果收尾发现任务仍过于不确定，应通过 `decision` 回退路由，而不是强行关闭。
+对于类论文交付物，在以下任一情况仍成立时，不得进行收尾：
 
-- required main-text outline items are still unresolved
-- completed analysis remains unmapped into the paper contract
-- the active paper line still reports open supplementary work that is expected to block the manuscript
-- the current paper contract rows still fail to expose the main experiment or required analysis rows that the manuscript depends on
-- `artifact.validate_manuscript_coverage(detail='full')` does not report `submission_ready=true`
-- `artifact.validate_academic_outline(detail='full')` does not pass for the selected outline
-- `artifact.validate_manuscript_language(detail='full')` reports main-text wording blockers
-- the latest bundle is only a `draft_checkpoint` or `review_package`
+- 所需的主文大纲条目仍未解决。
+- 已完成的分析仍未映射到论文契约中。
+- 当前论文线仍报告着预期会阻碍稿件的开放补充工作。
+- 当前论文契约行仍未能暴露稿件所依赖的主实验或所需分析行。
+- `artifact.validate_manuscript_coverage(detail='full')` 未报告 `submission_ready=true`。
+- `artifact.validate_academic_outline(detail='full')` 未通过所选大纲。
+- `artifact.validate_manuscript_language(detail='full')` 报告主文措辞阻塞项。
+- 最新的打包物只是 `draft_checkpoint` 或 `review_package`。
 
-If the current paper-state blocker is not obvious from the existing files, call `artifact.get_paper_contract_health(detail='full')` before deciding whether finalize is legitimate.
-If the exact section rows, evidence rows, or experiment-matrix rows matter, call `artifact.get_paper_contract(detail='full')` before deciding whether finalize is legitimate.
-If a paper bundle exists, call `artifact.validate_manuscript_coverage(detail='full')` before treating the paper line as final.
-If a selected outline or draft exists, call `artifact.validate_academic_outline(detail='full')` and `artifact.validate_manuscript_language(detail='full')` before treating the paper line as final.
-If the active quest/runtime state is unclear after restart or long pause, call `artifact.get_quest_state(detail='summary')` first.
-If the exact latest `SUMMARY.md`, `status.md`, or active user requirement wording matters for closure, call `artifact.read_quest_documents(...)`.
-If earlier user/assistant continuity matters for whether the quest should really stop, call `artifact.get_conversation_context(...)` instead of guessing from prompt context alone.
+如果当前的论文状态阻塞项从现有文件中无法判断，在决定 finalize 是否合法之前，先调用 `artifact.get_paper_contract_health(detail='full')`。
+如果具体的分节行、证据行或实验矩阵行很重要，在决定 finalize 是否合法之前，先调用 `artifact.get_paper_contract(detail='full')`。
+如果存在论文打包物，在将论文线视为最终之前，先调用 `artifact.validate_manuscript_coverage(detail='full')`。
+如果存在所选大纲或草稿，在将论文线视为最终之前，先调用 `artifact.validate_academic_outline(detail='full')` 与 `artifact.validate_manuscript_language(detail='full')`。
+如果在重启或长时间暂停后，当前任务/运行时状态不清晰，先调用 `artifact.get_quest_state(detail='summary')`。
+如果用于关闭的确切最新 `SUMMARY.md`、`status.md` 或当前用户需求措辞很重要，调用 `artifact.read_quest_documents(...)`。
+如果更早的用户/助手连续性对任务是否真的应停止很重要，调用 `artifact.get_conversation_context(...)`，而不是仅从提示上下文猜测。
 
-## Truth sources
+## 真相来源
 
-Use:
+使用：
 
 - `SUMMARY.md`
-- latest decisions
-- baseline artifacts
-- run artifacts
-- analysis reports
-- writing outputs
-- review, proofing, and submission outputs when they exist
-- Git history and graph
-- durable literature notes already produced during the quest
-- outputs or notes gathered through `artifact.arxiv(...)` when final claim checks require rereading an arXiv paper
+- 最新决策。
+- baseline 产物。
+- 运行产物。
+- 分析报告。
+- 写作输出。
+- 评审、校对与投稿输出（当它们存在时）。
+- Git 历史与图谱。
+- 任务期间已产出的持久化文献笔记。
+- 当最终主张核查需要重读某篇 arXiv 论文时，通过 `artifact.arxiv(...)` 收集的输出或笔记。
 
-Do not finalize from chat memory alone.
+不要仅凭聊天记忆进行收尾。
 
-## Required durable outputs
+## 必需的持久化输出
 
-The finalize stage should usually leave behind:
+finalize 阶段通常应留下：
 
-- refreshed `SUMMARY.md`
-- refreshed `status.md`
-- final report artifact
-- final decision artifact
-- refreshed Git graph
-- explicit limitations and next-step recommendation
-- a final claim ledger or equivalent claim-status summary
-- a compact resume packet or handoff packet when later continuation is plausible
+- 刷新后的 `SUMMARY.md`。
+- 刷新后的 `status.md`。
+- 最终报告产物。
+- 最终决策产物。
+- 刷新后的 Git 图谱。
+- 显式的局限性与下一步建议。
+- 最终主张账本或等价的主张状态摘要。
+- 当稍后继续合理时，一份紧凑的恢复数据包或移交数据包。
 
-If the quest produced a paper-style bundle, finalization should also check that the writing stage left behind enough closure evidence, such as:
+如果任务产出了论文式打包物，收尾还应核查写作阶段是否留下了足够的关闭证据，例如：
 
-- selected outline and outline selection records
-- evidence ledger records and section-level result tables
-- review output
-- proofing output
-- submission or packaging checklist
-- final draft or bundle manifest
+- 所选大纲与大纲选择记录。
+- 证据账本记录与分节级结果表。
+- 评审输出。
+- 校对输出。
+- 投稿或打包检查清单。
+- 最终草稿或打包物清单。
 
-## Workflow
+## 工作流
 
-### 1. Consolidate the accepted evidence and package inventory
+### 1. 整合已接受的证据与打包物清单
 
-State clearly:
+清楚地说明：
 
-- accepted baseline
-- strongest supported claims
-- weaker or partial claims
-- important negative results
-- unresolved risks
-- key deliverables that exist and where they live
+- 已接受的 baseline。
+- 支持度最强的主要主张。
+- 较弱或部分被支持的主张。
+- 重要的负面结果。
+- 未解决的风险。
+- 已存在的关键交付物及其位置。
 
-Do not only say that evidence exists.
-Say clearly what exists and why it matters. Name concrete paths or artifact ids only when the user asks for them or needs them to act.
-When a paper bundle exists, verify the manifest inventory explicitly, including:
+不要只说证据存在。
+要清楚说明存在什么、以及它为何重要。只有在用户要求或需要其采取行动时，才点明具体路径或产物 id。
+当存在论文打包物时，显式核查清单清单，包括：
 
 - `paper/paper_bundle_manifest.json`
 - `paper/evidence_ledger.json`
-- the recorded `paper_branch` and source evidence branch / run fields in that manifest
-- referenced `outline_path`
-- referenced `draft_path`
-- referenced `writing_plan_path`
-- referenced `references_path`
-- referenced `claim_evidence_map_path`
-- referenced `evidence_ledger_path`
-- referenced `baseline_inventory_path`
-- referenced `compile_report_path`
-- referenced `pdf_path`
-- referenced `latex_root_path`
-- `release/open_source/manifest.json` when open-source preparation has started
-- `release/open_source/cleanup_plan.md` when the paper line is being prepared for a public code release
+- 该清单中记录的 `paper_branch` 与源证据分支 / 运行字段。
+- 所引用的 `outline_path`。
+- 所引用的 `draft_path`。
+- 所引用的 `writing_plan_path`。
+- 所引用的 `references_path`。
+- 所引用的 `claim_evidence_map_path`。
+- 所引用的 `evidence_ledger_path`。
+- `baseline_inventory_path`。
+- `compile_report_path`。
+- `pdf_path`。
+- `latex_root_path`。
+- 当开源准备已启动时，`release/open_source/manifest.json`。
+- 当论文线正为公开代码发布做准备时，`release/open_source/cleanup_plan.md`。
 
-### 2. Build the final claim ledger
+### 2. 构建最终主张账本
 
-For every important outcome, classify it as one of:
+对每一个重要结果，将其归类为以下之一：
 
-- supported
-- partially supported
-- unsupported
-- deferred
+- supported（已支持）。
+- partially supported（部分支持）。
+- unsupported（未支持）。
+- deferred（延后）。
 
-For each claim, record:
+对每一条主张，记录：
 
-- claim text or claim id
-- evidence paths
-- key caveats
-- whether it is safe to surface in summaries or papers
+- 主张文本或主张 id。
+- 证据路径。
+- 关键注意事项。
+- 是否适合在摘要或论文中呈现。
 
-If a claim was once believed and later weakened, preserve that downgrade history rather than silently deleting it.
+如果某一主张曾被认为成立、后来被削弱，应保留该降级历史，而不是悄悄删除。
 
-Also build a compact belief-change log for the most important claim transitions, such as:
+还应就最重要的主张转变构建一份紧凑的"信念变化日志"，例如：
 
-- supported -> partial
-- partial -> unsupported
-- promising route -> abandoned
-- draft-ready -> evidence-gap
+- supported -> partial（已支持 -> 部分）。
+- partial -> unsupported（部分 -> 未支持）。
+- promising route -> abandoned（有前景的路线 -> 放弃）。
+- draft-ready -> evidence-gap（草稿就绪 -> 证据缺口）。
 
-For each transition, record:
+对每一次转变，记录：
 
-- what changed
-- which evidence caused the change
-- what the new recommendation is
+- 发生了什么变化。
+- 哪些证据导致了变化。
+- 新的建议是什么。
 
-### 3. Produce a final limitations and failure section
+### 3. 产出最终的局限性与失败小节
 
-Limitations should include:
+局限性应包含：
 
-- data or split limitations
-- metric limitations
-- implementation limitations
-- robustness limitations
-- reproducibility risks
-- claims intentionally not made
+- 数据或切分局限性。
+- 指标局限性。
+- 实现局限性。
+- 鲁棒性局限性。
+- 可复现性风险。
+- 有意不提出的主张。
 
-Also preserve:
+还应保留：
 
-- failed branches that meaningfully changed the research direction
-- blocked items that remain unresolved
-- confounders or comparability issues that weaken confidence
-- handoff cautions for anyone resuming the quest later
+- 显著改变了研究方向的失败分支。
+- 仍未解决的被阻塞项。
+- 削弱信心的混杂因素或可比性问题。
+- 供日后恢复该任务的任何人的移交注意事项。
 
-### 4. Produce the final recommendation
+### 4. 产出最终建议
 
-Choose the most honest next recommendation, such as:
+选择最诚实的下一步建议，例如：
 
-- stop and archive
-- stop and publish
-- continue later with a targeted experiment
-- continue later with a targeted analysis campaign
-- reset the current line and revisit ideation
+- 停止并归档。
+- 停止并发布。
+- 稍后通过一次针对性实验继续。
+- 稍后通过一次针对性分析活动继续。
+- 重置当前线并重新回到构思。
 
-The recommendation should include:
+建议应包含：
 
-- the chosen action
-- why that action is appropriate now
-- what evidence most strongly supports it
-- what would have to become true to justify a different recommendation
+- 所选的行动。
+- 为何该行动在当前合适。
+- 哪些证据最强地支持它。
+- 必须变成事实才能证明不同建议合理的条件。
 
-When deciding whether the quest is publish-ready or only archive-ready, be explicit about which writing or validation gates have actually passed.
+在判断任务是"可发布就绪"还是仅"可归档就绪"时，要明确说明哪些写作或校验闸口已真正通过。
 
-### 5. Build a resume or handoff packet
+### 5. 构建恢复或移交数据包
 
-If the quest may continue later, leave behind a compact restart packet that answers:
+如果任务可能稍后继续，留下一份紧凑的重启数据包，回答：
 
-- where the strongest evidence is
-- what the current accepted baseline is
-- what the current preferred route is
-- what the top blockers are
-- what should be read first on resume
-- what should not be repeated
+- 最强证据在哪里。
+- 当前已接受的 baseline 是什么。
+- 当前偏好的路线是什么。
+- 最顶层的阻塞项是什么。
+- 恢复时应首先阅读什么。
+- 不应重复什么。
 
-This packet should be short, high-signal, and directly usable by a future agent turn.
+该数据包应简短、高信号、可被未来的一个 agent 回合直接使用。
 
-### 6. Refresh the durable quest view
+### 6. 刷新持久化任务视图
 
-Refresh:
+刷新：
 
-- `SUMMARY.md`
-- `status.md`
-- Git graph export
+- `SUMMARY.md`。
+- `status.md`。
+- Git 图谱导出。
 
-If the summary changes materially, make it clear why the quest is now considered final or paused.
+如果摘要发生了实质性变化，应清楚说明为何任务现在被视为最终或可暂停。
 
-When summarizing long histories, prefer the highest-impact findings and decisions rather than a full chronological replay.
+在总结冗长历史时，优先呈现影响最大的发现与决策，而不是完整的时间顺序重放。
 
-### 7. Record the final decision
+### 7. 记录最终决策
 
-The final stage should end with an explicit durable decision or report rather than an implied stopping point.
-If multiple closure options were available, record why the chosen one beat the alternatives.
+最终阶段应以一次显式的持久化决策或报告结束，而不是一个隐含的停止点。
+如果存在多个关闭选项，记录为何所选的胜过了其它备选。
 
-## Finalization-quality rules
+## 收尾质量规则
 
-Good finalization:
+良好的收尾：
 
-- distinguishes supported findings from hopes
-- preserves negative evidence
-- names open questions honestly
-- leaves a clean state for later resumption
-- exposes whether writing/proofing/submission gates passed or failed
-- makes reopen conditions explicit
+- 区分被支持的研究发现与愿望。
+- 保留负面证据。
+- 诚实地点出开放问题。
+- 为日后恢复留下干净的状态。
+- 暴露写作 / 校对 / 投稿闸口是通过还是失败。
+- 显式给出重新开启条件。
 
-Weak finalization:
+薄弱的收尾：
 
-- overclaims unresolved work
-- hides failed branches
-- skips limitations
-- leaves no clear recommendation
-- claims “done” without showing what is actually done
-- drops the package or file inventory needed for resumption
-- ignores unmapped completed analysis that never entered the paper contract
+- 对未解决的工作过度主张。
+- 隐藏失败分支。
+- 跳过局限性。
+- 没有清晰的建议。
+- 在未展示实际完成内容的情况下声称"完成"。
+- 丢弃恢复所需的打包物或文件清单。
+- 忽略从未进入论文契约的、未映射的已完成分析。
 
-## Memory rules
+## 记忆规则
 
-Stage-start requirement:
+阶段开始要求：
 
-- begin every finalize pass with `memory.list_recent(scope='quest', limit=5)`
-- then run at least one finalize-relevant `memory.search(...)` before closure writing
-- if several idea, run, or campaign lines exist, retrieve only the memory tied to the line being finalized unless the final report is explicitly comparing lines
+- 每次 finalize 轮次都以 `memory.list_recent(scope='quest', limit=5)` 开始。
+- 然后在关闭写作之前，至少运行一次与 finalize 相关的 `memory.search(...)`。
+- 如果存在多条 idea、run 或 campaign 线，除非最终报告明确地在比较各条线，否则只检索与被收尾线相关的记忆。
 
-Finalize should read memory before writing closure, especially:
+finalize 应在写作关闭之前先读取记忆，尤其是：
 
-- quest `decisions`
-- quest `knowledge`
-- quest `episodes`
-- quest `papers` when the final story depends on citation or literature context
+- 任务 `decisions`。
+- 任务 `knowledge`。
+- 任务 `episodes`。
+- 当最终叙事依赖引用或文献上下文时，任务 `papers`。
 
-If final closure depends on rereading a paper, keep the same split:
+如果最终关闭依赖重读一篇论文，保持同样的区分：
 
-- use web search only to relocate or verify the paper reference
-- use `artifact.arxiv(paper_id=..., full_text=False)` for the actual paper reading or refresh
-- switch to `full_text=True` only when the shorter view is insufficient
+- 仅使用网络搜索来重新定位或核验论文引用。
+- 使用 `artifact.arxiv(paper_id=..., full_text=False)` 进行实际的论文阅读或刷新。
+- 仅当较短视图不足时才切换到 `full_text=True`。
 
-Write to memory only when the lesson is reusable across quests, such as:
+仅当该经验可跨任务复用时才写入记忆，例如：
 
-- general methodological pitfalls
-- robust baseline lessons
-- durable writing or evaluation lessons
+- 通用方法论陷阱。
+- 鲁棒的 baseline 经验。
+- 持久化的写作或评估经验。
 
-If later continuation remains plausible, also write or refresh one compact checkpoint-style quest memory card that mirrors the live resume packet.
-That checkpoint-style memory should usually state:
+如果稍后继续仍合理，还应写入或刷新一张紧凑的检查点式任务记忆卡，与实时恢复数据包相呼应。
+该检查点式记忆通常应说明：
 
-- current route
-- current active node such as the live paper line, accepted bundle pair, or active continue-later checkpoint
-- node history: which earlier node(s), report/decision pairs, or closure paths were superseded
-- strongest retained result or blocker
-- what not to reopen by default
-- next resume step
-- first files to read
-- reopen conditions
+- 当前路线。
+- 当前活动节点，例如实时论文线、已接受的打包物对，或活动"稍后继续"检查点。
+- 节点历史：哪些更早的节点、报告/决策对，或关闭路径被取代。
+- 保留的最强结果或阻塞项。
+- 默认不应重新开启的内容。
+- 下一步恢复动作。
+- 首先阅读的文件。
+- 重新开启条件。
 
-Preferred tags usually include:
+偏好的标签通常包括：
 
 - `stage:finalize`
 - `type:checkpoint-memory`
 - `type:status-clarification`
 - `route:<current_route>`
-- `node:<current_active_node>` when the node label is stable enough to reuse
+- `node:<current_active_node>`，当节点标签稳定到可复用时。
 
-Use `references/checkpoint-memory-template.md` when helpful so the current node history stays explicit.
+在有帮助时使用 `references/checkpoint-memory-template.md`，以使当前节点历史保持显式。
 
-Stage-end requirement:
+阶段结束要求：
 
-- if finalize produced a durable cross-quest lesson worth reusing later, write at least one `memory.write(...)` before leaving the stage
-- if the quest is stopping at continue-later / pause-ready rather than true completion, write or refresh one checkpoint-style quest memory card before leaving the stage
+- 如果 finalize 产出了值得日后复用的持久化跨任务经验，在离开阶段前至少写入一次 `memory.write(...)`。
+- 如果任务停止于"稍后继续 / 可暂停"，而非真正的完成，在离开阶段前写入或刷新一张检查点式任务记忆卡。
 
-Quest-specific closure state belongs in files and artifacts first, not only memory.
+任务特定的关闭状态首先属于文件与产物，而不仅仅属于记忆。
 
-## Artifact rules
+## 产物规则
 
-Typical final artifacts:
+典型的最后产物：
 
-- report artifact summarizing final state
-- decision artifact indicating stop, archive, or continue-later recommendation
-- graph artifact via `artifact.render_git_graph()`
+- 总结最终状态的报告产物。
+- 指示停止、归档或稍后继续建议的决策产物。
+- 通过 `artifact.render_git_graph()` 的图谱产物。
 
-Good final artifacts often include:
+良好的最终产物通常包括：
 
-- a final report focused on supported findings, limitations, and packaging state
-- a final decision with action, reasons, and reopen conditions
-- a graph export when the path through the quest matters for later resumption
-- a milestone only when a human-facing checkpoint helps
+- 聚焦于已支持发现、局限性与打包状态的最终报告。
+- 带有行动、理由与重新开启条件的最终决策。
+- 当穿过任务的路径对日后恢复很重要时的图谱导出。
+- 仅当面向人类的检查点有帮助时的一个里程碑。
 
-## Failure and blocked handling
+## 失败与阻塞处理
 
-If finalization is premature, record that explicitly.
+如果收尾为时过早，应显式记录。
 
-Common blocked finalize states:
+常见的被阻塞 finalize 状态：
 
-- unresolved_major_claim
-- unresolved_write_gate
-- missing_proofing_or_submission_checks
-- unclear_final_recommendation
-- missing_handoff_packet
-- stale_summary_or_graph
-- unresolved_package_inventory
+- unresolved_major_claim（未解决的主要主张）。
+- unresolved_write_gate（未解决的写作闸口）。
+- missing_proofing_or_submission_checks（缺失校对或投稿检查）。
+- unclear_final_recommendation（不清晰的最后建议）。
+- missing_handoff_packet（缺失移交数据包）。
+- stale_summary_or_graph（过时的摘要或图谱）。
+- unresolved_package_inventory（未解决的打包物清单）。
 
-In that case, route back to the proper stage through `decision`.
+在这种情况下，通过 `decision` 回退到正确的阶段。
 
-## Extra references
+## 额外参考
 
-Use these references when you need a denser closure checklist:
+当你需要更密集的关闭检查清单时，使用这些参考：
 
 - `references/finalization-checklist.md`
 - `references/resume-packet-template.md`
 - `references/checkpoint-memory-template.md`
 
-## Exit criteria
+## 退出标准
 
-Exit the finalize stage once one of the following is durably true:
+一旦以下任一情况持久成立，即可退出 finalize 阶段：
 
-- a final or pause-ready summary exists
-- the graph is refreshed
-- the limitations and recommendation are explicit
-- the stopping point is recorded through artifact
-- the claim ledger and package inventory are clear enough for later resumption or publication handoff
+- 存在最终或可暂停就绪的摘要。
+- 图谱已刷新。
+- 局限性与建议已显式给出。
+- 停止点已通过产物记录。
+- 主张账本与打包物清单已清晰到足以支持日后恢复或发布移交。
 
-A good finalize pass leaves the quest easier to reopen correctly than it was before finalization began.
+一次良好的 finalize 轮次，应使任务比收尾开始前更容易被正确重新开启。

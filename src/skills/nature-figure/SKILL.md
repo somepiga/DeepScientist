@@ -1,98 +1,60 @@
 ---
 name: nature-figure
 description: >-
-  Submission-grade Nature/high-impact journal figure workflow for Python or R. Use whenever the user asks to create, revise, audit, or polish manuscript figures, multi-panel scientific plots, or journal-ready SVG/PDF/TIFF outputs, especially for Nature-family or other high-impact journals. Before plotting, define the figure's conclusion, evidence logic, export needs, and review risks. If the user has not chosen Python or R, ask "Python or R?" and stop. Use only the selected backend for figure generation, previewing, exporting, and QA. Supports matplotlib/seaborn and ggplot2/patchwork/ComplexHeatmap. Not for dashboards or Illustrator/Figma-first infographics.
+  面向 Python 或 R 的、符合投稿标准的 Nature / 高影响力期刊作图工作流。每当用户要求创建、修订、审查或润色稿件插图、
+  多面板科学绘图，或期刊就绪的 SVG/PDF/TIFF 输出时（尤其是 Nature 系列或其他高影响力期刊）使用。绘图前，
+  先明确图表结论、证据逻辑、导出需求与审查风险。若用户未选择 Python 或 R，须询问"Python 还是 R？"并停止。
+  仅使用所选后端进行图形生成、预览、导出与质量检查。支持 matplotlib/seaborn 与
+  ggplot2/patchwork/ComplexHeatmap。不适用于仪表盘或 Illustrator/Figma 优先的信息图。
 skill_role: companion
 ---
 
-# Nature Figure Making Skill
+# Nature 插图制作技能
 
-This companion skill is adapted from `Yuan1z0825/nature-skills/tree/main/nature-figure`.
-See `UPSTREAM_LICENSE.txt` for the upstream MIT license.
+本辅助技能改编自 `Yuan1z0825/nature-skills/tree/main/nature-figure`。
+上游 MIT 许可见 `UPSTREAM_LICENSE.txt`。
 
-## DeepScientist integration
+## DeepScientist 集成
 
-- Follow the shared interaction contract injected by the system prompt.
-- Use this for Nature-family or other high-impact journal figure work when the figure itself is a submission-grade deliverable, especially multi-panel or journal-export work.
-- Keep `paper-plot` as the faster default for simple structured bar, line, scatter, or radar figures from measured data; use `nature-figure` when the venue/export/review contract is the main constraint.
-- Keep `figure-polish` available for final render-inspect-revise checks when a figure already exists and the remaining issue is local readability or surface quality.
-- Respect this skill's Python/R backend gate even in autonomous mode.
+- 遵循系统提示注入的共享交互契约。
+- 当插图本身就是投稿级交付物（尤其是多面板或期刊导出类工作）时，将本技能用于 Nature 系列或其他高影响力期刊的插图工作。
+- 对于来自实测数据的简单结构化柱状图、折线图、散点图或雷达图，将 `paper-plot` 作为更快的默认选择；当发表场合/导出/审查契约是主要约束时，使用 `nature-figure`。
+- 当图形已存在、且遗留问题仅为局部可读性或表层质量时，保留 `figure-polish` 用于最终的"渲染—检查—修订"核查。
+- 即使在自主模式下，也须遵守本技能的 Python/R 后端闸门。
 
-A guide for producing publication-quality scientific figures as a visual argument, not
-as isolated pretty plots. Every figure starts from a claim, an evidence hierarchy, and a
-review-risk check before code or aesthetics.
+本技能是一份将出版质量科学插图作为"视觉论证"来制作的指南，而非孤立的漂亮绘图。每一幅图都始于主张、证据层级与审查风险检查，之后才是代码与美学。
 
-The older Python/matplotlib rules in this skill remain valid. The skill now also supports
-R, especially `ggplot2 + patchwork + ComplexHeatmap + ggrepel + svglite/cairo_pdf + ragg`.
-If the user provides a private plotting template collection, use it only as an internal
-adaptation source and do not reveal its path, filenames, or provenance in user-facing output.
+本技能中较早的 Python/matplotlib 规则仍然有效。该技能现在也支持 R，尤其是 `ggplot2 + patchwork + ComplexHeatmap + ggrepel + svglite/cairo_pdf + ragg`。若用户提供了私有的绘图模板集合，仅将其作为内部改编来源使用，且不得在面对用户的输出中透露其路径、文件名或来源。
 
-Color policy: prefer **unified method families across all panels** over maximal hue separation.
-For dense Nature Machine Intelligence-style figure pages, use the low-saturation `NMI pastel`
-family described in `references/api.md` and reserve green/red mainly for gains, drops, and other directional cues.
+配色策略：优先采用**跨所有面板的统一方法族**，而非最大化的色相分离。对于密集的 Nature Machine Intelligence 风格插图页，使用 `references/api.md` 中描述的低饱和度 `NMI pastel` 色族，并将绿/红主要保留给增益、下降及其他方向性提示。
 
-## First move: figure contract before plotting
+## 第一步：绘图前先确立图表契约
 
-Before generating or editing code, establish the contract below.
+在生成或编辑代码前，先确立以下契约。
 
-**Backend selection is a blocking gate.** If the user has not explicitly chosen Python
-or R in the current request or provided a clearly language-specific input file/workflow,
-ask one concise question: **Python or R?** Then stop and wait for the user's answer.
-Do not generate mock data, write scripts, create figures, or choose Python/R by default.
-This overrides general autonomy/default-execution behavior for figure tasks.
+**后端选择是一道阻塞式闸门。** 若用户在当前请求中未明确选择 Python 或 R，也未提供明显特定语言的输入文件/工作流，则提出一个简洁的问题：**Python 还是 R？** 然后停止并等待用户回答。不要生成模拟数据、编写脚本、创建插图，也不要默认选择 Python/R。这对于插图任务优先于通用自主/默认执行行为。
 
-**The selected backend is exclusive for all figure generation.** Once Python or R is
-selected, every plotting script, preview image, SVG/PDF/TIFF/PNG export, QA render,
-and visual workaround must be produced by that same backend. Do not use Python to
-draw a preview for an R figure, and do not use R to draw a preview for a Python figure,
-even if the selected runtime or packages are missing locally. The non-selected language
-may only be used for non-visual file inspection or data conversion when it does not
-open a graphics device, import plotting libraries, create image/vector files, or
-change the final visual appearance.
+**所选后端独占全部插图生成。** 一旦选定 Python 或 R，每个绘图脚本、预览图、SVG/PDF/TIFF/PNG 导出、质量检查渲染以及视觉替代方案，都必须由同一个后端产出。即便所选运行时或软件包在本地缺失，也不得使用 Python 为 R 插图绘制预览，亦不得使用 R 为 Python 插图绘制预览。未被选择的语言，仅可在不开图形设备、不导入绘图库、不创建图像/矢量文件、不改变最终视觉外观的前提下，用于非视觉的文件检查或数据转换。
 
-**Missing runtime/package rule.** After the backend is selected, check the selected
-runtime early (`Rscript`/R for R; Python and required plotting packages for Python).
-If the selected runtime or required packages are unavailable, stop before rendering
-and report the exact blocker. You may provide a selected-backend script and installation
-commands, or ask permission to install dependencies, but you must not fall back to the
-other language to make a substitute figure.
+**缺失运行时/软件包规则。** 后端选定后，尽早检查所选运行时（`Rscript`/R 对应 R；Python 及其所需绘图包对应 Python）。若所选运行时或所需软件包不可用，在渲染前停止并报告确切的阻塞原因。你可以提供所选后端的脚本与安装命令，或请求安装依赖的许可，但不得退回到另一种语言去制作替代插图。
 
-Only recommend a backend when the user explicitly asks you to choose or recommend one.
-In that case, use `references/backend-selection.md`, state the reason, and then proceed
-with the recommended backend.
+仅当用户明确要求你选择或推荐后端时，才推荐后端。此时使用 `references/backend-selection.md`，说明理由，然后采用推荐的后端继续。
 
-1. Core conclusion: write the one-sentence claim the figure must defend.
-2. Evidence chain: map each planned panel to the claim, and drop panels that do not carry
-   a unique piece of evidence.
-3. Archetype: classify the figure as `quantitative grid`, `schematic-led composite`,
-   `image plate + quant`, or `asymmetric mixed-modality figure`.
-4. Backend: use the selected Python or R track exclusively for all figure drawing,
-   previewing, exporting, and visual QA. Do not cross-render with the other language.
-5. Journal/export contract: set final dimensions, editable text, source data, statistics,
-   image-integrity notes, and export formats before styling.
+1. 核心结论：写出该图必须捍卫的一句话主张。
+2. 证据链：将每个计划中的面板映射到该主张，并剔除不承载独特证据的面板。
+3. 原型分类：将插图归类为 `quantitative grid`、`schematic-led composite`、`image plate + quant` 或 `asymmetric mixed-modality figure`。
+4. 后端：所有插图绘制、预览、导出与视觉质量检查，均独占使用所选的 Python 或 R 轨。不得用另一种语言交叉渲染。
+5. 期刊/导出契约：在排版前，设定最终尺寸、可编辑文本、源数据、统计说明、图像完整性备注与导出格式。
 
-The highest-priority rule is: **the chart serves the scientific logic**. Aesthetic polish,
-template matching, and complex layout are subordinate to making the core conclusion clear,
-defensible, and reviewable.
+最高优先级的规则是：**图表服务于科学逻辑**。美学润色、模板匹配与复杂布局，都从属于让核心结论清晰、可辩护且可审查。
 
-## User-facing privacy rule
+## 面向用户的隐私规则
 
-Do not disclose private local paths, private filenames, chat-attachment names, internal
-reference filenames, template identifiers, or the provenance of private working materials
-in user-facing replies, generated code comments, figure legends, reports, or manuscript
-text. Use generic descriptions such as "the provided R template collection", "a private
-working draft", or "the internal figure contract". Only reveal an exact path or source
-file when the user explicitly asks for that audit trail.
+不得在面对用户的回复、生成的代码注释、图注、报告或稿件文本中，披露私有本地路径、私有文件名、聊天附件名、内部参考文件名、模板标识符或私有工作材料的来源。使用诸如"所提供的 R 模板集合"、"一份私有工作草稿"或"内部插图契约"之类的通用描述。仅当用户明确要求该审计线索时，才透露确切路径或源文件。
 
-## Python quick-start
+## Python 快速上手
 
-**Python-only execution rule.** When the user has selected Python, do all figure
-drawing, previewing, exporting, and visual QA in Python. Do not call R/ggplot2,
-ComplexHeatmap, patchwork, or any R graphics device to create a temporary preview,
-fallback export, or layout approximation. If Python or required Python plotting
-packages are missing, stop before rendering and report the missing dependency. You
-may still write the Python script, provide `pip`/environment install commands, or
-ask permission to install dependencies, but do not cross-render the figure in R.
+**仅限 Python 执行规则。** 当用户选择 Python 时，所有插图绘制、预览、导出与视觉质量检查都在 Python 中完成。不得调用 R/ggplot2、ComplexHeatmap、patchwork 或任何 R 图形设备来创建临时预览、替代导出或布局近似。若 Python 或所需的 Python 绘图包缺失，在渲染前停止并报告缺失的依赖。你仍可编写 Python 脚本、提供 `pip`/环境安装命令或请求安装依赖的许可，但不得用 R 交叉渲染该插图。
 
 ```python
 import matplotlib as mpl
@@ -116,9 +78,9 @@ def save_pub_py(fig, filename, dpi=600):
     fig.savefig(f"{filename}.tiff", dpi=dpi, bbox_inches="tight")
 ```
 
-Use `text.usetex = True` only when LaTeX is installed and math-rich labels are required.
+仅当已安装 LaTeX 且需要富数学标签时，才使用 `text.usetex = True`。
 
-## R quick-start
+## R 快速上手
 
 ```r
 library(ggplot2)
@@ -152,46 +114,44 @@ save_pub_r <- function(plot, filename, width_mm = 183, height_mm = 120, dpi = 60
 }
 ```
 
-## Default operating stance
+## 默认操作立场
 
-- Start by classifying the requested figure into one of four archetypes:
-  `quantitative grid`, `schematic-led composite`, `image plate + quant`, or `asymmetric mixed-modality figure`.
-- Prefer one **hero panel** plus subordinate evidence panels over filling the canvas with equal-sized subplots.
-- If the user asks for a single chart, still identify its role in the manuscript claim:
-  discovery, mechanism, validation, comparison, robustness, or clinical/biological relevance.
-- Keep the background white for plots and diagrams; switch to black only for microscopy / volume-rendering image plates.
-- Prefer direct labels over legends when categories are spatially fixed or the legend would force unnecessary eye travel.
-- Keep one restrained palette per figure: usually one neutral family, one signal family, and one accent family.
-- Treat statistics, `n`, error-bar definitions, source-data traceability, and image-integrity notes as part of the figure,
-  not as optional caption cleanup.
-- When the user asks for broad `Nature` style rather than ML/NMI-specific style, read `references/nature-2026-observations.md` before choosing layout.
+- 先将请求的插图归类到四种原型之一：
+  `quantitative grid`、`schematic-led composite`、`image plate + quant` 或 `asymmetric mixed-modality figure`。
+- 优先采用一个**核心面板**加从属证据面板，而非用等大小子图填满画布。
+- 即使用户只要求单张图，仍须明确其在稿件主张中的角色：发现、机制、验证、比较、稳健性或临床/生物学相关性。
+- 绘图与示意图背景保持白色；仅当为显微镜 / 体渲染图像板时才切换为黑色。
+- 当类别在空间中固定，或图例会迫使不必要的视线移动时，优先使用直接标签而非图例。
+- 每幅图保持一套克制的配色：通常一个中性色族、一个信号色族、一个强调色族。
+- 将统计、`n`、误差棒定义、源数据可追溯性与图像完整性备注视为插图本身的一部分，而非可选的图注清理。
+- 当用户要求进行宽泛的 `Nature` 风格而非 ML/NMI 特定风格时，在选择布局前先阅读 `references/nature-2026-observations.md`。
 
-## When to load this skill
+## 何时加载本技能
 
-- Python or R figures for **papers, slides, or reports** targeting Nature, Science, Cell, NeurIPS, ICLR, or similar venues.
-- Requests involving **grouped bars, trend lines, heatmaps, radar plots, multi-panel grids**, or **PDF/SVG/high-DPI** output.
-- Any mention of "Nature style", "publication figure", "paper figure", "SCI figure", "R plotting template", or "high-quality scientific plot".
-- Requests to improve a figure's logic, aesthetics, panel layout, figure legend, export quality, or journal-readiness.
+- 面向 Nature、Science、Cell、NeurIPS、ICLR 或类似场合的**论文、幻灯片或报告**的 Python 或 R 插图。
+- 涉及**分组柱状图、趋势线、热图、雷达图、多面板网格**，或 **PDF/SVG/高 DPI** 输出的请求。
+- 任何提及"Nature 风格"、"publication figure"、"paper figure"、"SCI figure"、"R plotting template"或"高质量科学绘图"的表述。
+- 要求改进插图逻辑、美学、面板布局、图注、导出质量或期刊就绪度的请求。
 
-## When NOT to load
+## 何时不加载
 
-- Plotly, Altair, Bokeh, or other interactive/web-first plotting.
-- EDA-only plots without a publication target.
-- Primary workflow is 3D, GIS, or non-scientific illustration tooling.
-- Illustrator / Figma–first layout.
+- Plotly、Altair、Bokeh 或其他交互式/Web 优先绘图。
+- 无发表目标的纯探索性数据分析（EDA）图。
+- 主要工作流为 3D、GIS 或非科学插画工具。
+- Illustrator / Figma 优先的布局。
 
-## Related files
+## 相关文件
 
-| File | Open when |
+| 文件 | 何时打开 |
 |------|-----------|
-| [references/figure-contract.md](references/figure-contract.md) | Need to convert a user request into core conclusion, evidence hierarchy, panel map, and review-risk checks |
-| [references/backend-selection.md](references/backend-selection.md) | User has not chosen Python/R, asks for a recommendation, or a mixed Python/R workflow is possible |
-| [references/r-workflow.md](references/r-workflow.md) | User chooses R or provides R scripts/templates/data |
-| [references/r-template-index.md](references/r-template-index.md) | Need to adapt a user-provided or private R template collection without exposing source paths |
-| [references/qa-contract.md](references/qa-contract.md) | Before final delivery, revision package, microscopy/blot figure, or journal-specific audit |
-| [references/design-theory.md](references/design-theory.md) | Typography, color theory, layout rationale, export policy |
-| [references/api.md](references/api.md) | Python PALETTE, helper function signatures, validation rules |
-| [references/common-patterns.md](references/common-patterns.md) | Python layout patterns: hero panels, legend-only axes, dark image plates, asymmetric layouts |
-| [references/nature-2026-observations.md](references/nature-2026-observations.md) | Real `Nature` page archetypes: schematic-led composites, dark image plates, clinical triptychs, asymmetric hero layouts |
-| [references/tutorials.md](references/tutorials.md) | End-to-end walkthroughs: bars, trends, heatmaps |
-| [references/chart-types.md](references/chart-types.md) | Radar, 3D sphere, fill_between, scatter patterns |
+| [references/figure-contract.md](references/figure-contract.md) | 需要将用户请求转化为核心结论、证据层级、面板映射与审查风险检查时 |
+| [references/backend-selection.md](references/backend-selection.md) | 用户尚未选择 Python/R、要求推荐，或可能采用混合 Python/R 工作流时 |
+| [references/r-workflow.md](references/r-workflow.md) | 用户选择 R，或提供了 R 脚本/模板/数据时 |
+| [references/r-template-index.md](references/r-template-index.md) | 需要改编用户提供的或私有的 R 模板集合、且不暴露源路径时 |
+| [references/qa-contract.md](references/qa-contract.md) | 在最终交付、修订包、显微镜/印迹图或期刊特定审查之前 |
+| [references/design-theory.md](references/design-theory.md) | 排版、配色理论、布局原理、导出政策 |
+| [references/api.md](references/api.md) | Python PALETTE、辅助函数签名、验证规则 |
+| [references/common-patterns.md](references/common-patterns.md) | Python 布局模式：核心面板、仅图例轴、暗色图像板、非对称布局 |
+| [references/nature-2026-observations.md](references/nature-2026-observations.md) | 真实的 `Nature` 页面原型：示意图主导的复合图、暗色图像板、临床三联图、非对称核心布局 |
+| [references/tutorials.md](references/tutorials.md) | 端到端演练：柱状图、趋势图、热图 |
+| [references/chart-types.md](references/chart-types.md) | 雷达图、3D 球体、fill_between、散点模式 |

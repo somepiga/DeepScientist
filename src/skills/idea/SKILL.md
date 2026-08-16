@@ -1,581 +1,581 @@
 ---
 name: idea
-description: Use when a quest needs concrete hypotheses, limitation analysis, candidate directions, or a selected idea relative to the active baseline.
+description: 当某个 quest 需要具体的假设、局限性分析、候选方向，或相对于当前活跃 baseline 而言一个被选中的想法时使用。
 skill_role: stage
 ---
 
 # Idea
 
-Use this skill to turn the current baseline and problem frame into concrete, literature-grounded, frontier-aware, testable directions.
-The goal is to choose the next executable research route, not to maximize brainstorming volume or reward shallow novelty.
-
-When `startup_contract.need_research_paper = false` and the quest already has a concrete optimization handle, `idea` may stop after selecting or seeding a direction and then hand off into `optimize` instead of insisting on the full paper-oriented ideation loop.
-In that algorithm-first case, `idea` should usually produce a small method-brief frontier and then defer candidate ranking, promotion, and bounded search to `optimize`.
-When doing that handoff, prefer the brief-shaping discipline later used by `optimize`: clarify the bottleneck and constraints, keep only a small differentiated `2-3` option slate, and hand off a recommended brief rather than a pile of loose intuitions.
-
-## Match signals
-
-Use `idea` when:
-
-- the accepted baseline and metric contract already exist, but the next route is still unresolved
-- the current line failed and the quest needs a new falsifiable direction
-- the problem is not "build a new module" but "decide what kind of route should be tried next"
-- the current bottleneck might be a mechanism problem, an objective mismatch, a measurement/evaluator problem, or an infrastructure constraint that changes what should be tested next
-
-Do not use `idea` when:
-
-- the baseline gate is still unresolved
-- the current board state is too stale or conflicting to say what the mainline actually is
-- the next step is already obviously `write`, `review`, or `finalize`
-
-If the current board cannot be compressed cleanly, route through `decision` or `intake-audit` before widening the frontier.
-
-## One-sentence summary
-
-Turn the current objective, board state, and bottleneck into a small differentiated frontier, then select the next falsifiable route.
-
-## Control workflow
-
-1. Write the objective contract.
-   Use `references/objective-contract-template.md`.
-   Make the real target, trusted proxies, false-progress signals, and hard constraints explicit before generating ideas.
-   Default durable path: `artifacts/idea/objective_contract.md`.
-2. Write the current board packet.
-   Use `references/current-board-packet-template.md`.
-   Compress the incumbent, latest decisive result, active blocker, and stale routes-to-ignore into one current state surface.
-   Default durable path: `artifacts/idea/current_board_packet.md`.
-3. Identify the important contradiction and plausible novelty source.
-   Use `references/high-value-idea-sourcing.md`.
-   Start from the most important unresolved contradiction, anomaly, bottleneck, or failure region rather than from a preferred mechanism.
-4. Run a broad, history-aware literature search before proposing serious ideas.
-   Use `references/related-work-playbook.md`, `references/research-history-playbook.md`, and `references/literature-survey-template.md`.
-   Cover direct in-domain frontier papers, foundational papers, strongest nearby competitors, and cross-domain papers whose mechanisms may translate into the current task.
-   If the runtime prompt explicitly enables cross-quest recall, follow that injected policy before going outside; otherwise stay inside the current quest's memory/artifacts and explicit user-provided files. See playbook §2.1 for the full source-order protocol.
-   If DeepXiv is available, use it for broad paper-centric discovery and citation expansion; otherwise use search engines and citation chaining directly.
-   Do not promote or even seriously shortlist a new idea until the durable survey and closest-prior-work comparison are updated enough to judge novelty and feasibility honestly.
-   For an `algorithmic_sota` line, formal promotion also requires a structured `novelty_audit`: mechanism-and-claim signature, at least three stable direct-neighbor references, one marked strongest overlap, explicit overlap and delta for every neighbor, direct/adjacent/temporal coverage, durable survey paths, an outside-family alternative, a falsification plan, and a `clear` collision verdict.
-5. Extract the limitation pattern and novelty opportunity from the survey.
-   Distinguish what is already saturated, what is only a decorative tweak, and what could still support a differentiated route.
-   Default against small local edits unless they are explicitly shown to be the highest-value surviving route.
-6. Choose the idea family mix.
-   At minimum, decide whether the current pass should consider some mix of:
-   - mechanism-family routes
-   - objective-family routes
-   - measurement-family routes
-   - infrastructure-family routes
-7. Run bounded brainstorming.
-   Use `references/controlled-brainstorming-playbook.md` when the route is not already obvious.
-   Generate a small, meaningfully different slate rather than a pile of micro-variants.
-   Prefer candidate families that could change the conclusion, capability boundary, or paper value materially, not just move a knob.
-8. Write a compact pre-idea draft for the serious surviving candidates.
-   Use `references/pre-idea-draft-template.md`.
-   Normally write drafts for the top `1-3` candidates, not for the whole raw slate.
-   The draft must surface hidden assumptions, local-optimum lock-in risk, strongest outside-family alternative, strongest rejection case, and the cheapest falsification path before any formal idea submission.
-   Default durable path per candidate: `artifacts/idea/pre_idea_drafts/<candidate_id>.md`.
-9. Filter aggressively.
-   Use `references/selection-gate.md`.
-   Remove candidates that only improve a surrogate, reopen a stale route without new evidence, violate leakage or submission-time boundaries, or lack a cheap falsification path.
-10. Select and hand off.
-   The selected package must include the route, why now, novelty type, main risk, anti-win condition, core hypothesis, mechanism sketch, strongest falsification experiment, minimal validation, abandonment condition, and the next stage.
-
-## Draft-before-submit SOP
-
-Before a direction is formally submitted as the selected idea, write a compact pre-idea draft or equivalent durable challenge memo for each serious surviving candidate.
-
-The default rule is:
-
-- raw brainstorming can widen the frontier
-- pre-idea drafts narrow and stress-test the frontier
-- only then can a final selected idea be submitted
-
-The pre-idea draft exists to stop three failure modes:
-
-- local-optimum lock-in around the current mainline
-- hidden assumptions staying implicit
-- attractive ideas being promoted before the strongest rejection case is written down
-
-Unless there is already an up-to-date equivalent artifact, do not formally submit the final idea until at least one pre-idea draft has:
-
-- been written for the likely winner
-- been compared against the incumbent and at least one outside-family or assumption-reversal alternative
-- been revised, rejected, or promoted based on that comparison
-
-Default durable path rules:
-
-- objective contract: `artifacts/idea/objective_contract.md`
-- current board packet: `artifacts/idea/current_board_packet.md`
-- candidate frontier summary: `artifacts/idea/candidates.md`
-- pre-idea draft per serious candidate: `artifacts/idea/pre_idea_drafts/<candidate_id>.md`
-- final selected idea: `artifacts/idea/selected_idea.md`
-
-When a candidate is promoted, `artifacts/idea/selected_idea.md` should point back to the winning pre-idea draft path instead of losing that lineage in prose only.
-
-## AVOID / pitfalls
-
-- Do not start from swapping method A for method B before naming the important contradiction or bottleneck.
-- Do not brainstorm before the real objective and false-progress signals are explicit.
-- Do not treat lower loss, better average surrogate, or cleaner intermediate metrics as route health if the real target is unchanged.
-- Do not reopen stale routes unless new evidence explicitly weakens the current mainline.
-- Do not generate a large within-family variant swarm before the mechanism family itself is chosen.
-- Do not propose an idea as "new" before the direct-field and adjacent transferable literature have both been checked.
-- Do not default to cosmetic modifications, parameter nudges, or tiny architecture swaps unless the survey and bottleneck analysis show they are genuinely the best surviving route.
-- Do not let the current mainline, favorite mechanism, or easiest implementation path lock the search into a local optimum while the hidden assumptions behind that line remain unchallenged.
-- Do not jump from brainstorming notes straight to final idea submission without a compact draft that forces the hidden assumptions, strongest rejection case, and falsification path into the open.
-- Do not treat novelty as “totally unprecedented”; it may come from a new problem, view, mechanism, method, setting, evaluation, or boundary condition.
-- Do not promote a direction that fails a value/feasibility screen simply because it sounds exciting.
-- Do not promote a direction without a cheap falsification path and a visible anti-win condition.
-
-## Constraints
-
-- Keep the accepted dataset, metric, and evaluation contract fixed unless scope explicitly changed.
-- Do not propose routes that depend on submit-time unavailable features.
-- Do not propose routes that introduce leakage-prone targets or labels into training.
-- Do not let implementation convenience outrank target alignment.
-- Search should be broad enough to map the main paradigms, history, and strongest overlaps, not just skim a few recent papers.
-- Search must cover both the current field's strongest direct papers and adjacent or cross-domain papers whose mechanisms may translate into the current task, evaluator, or systems setting.
-- If DeepXiv is available, prefer it for broad paper-centric discovery; otherwise use search engines, citation chaining, and open-web search directly.
-- Serious idea generation should happen only after the survey is broad enough to rule out obvious rediscoveries and to reveal non-trivial opportunity gaps.
-- A serious candidate should be explainable in terms of importance, novelty type, feasibility, verification path, and failure value.
-- By default, prefer routes with step-change or boundary-changing potential over small local refinements.
-- Small refinements are allowed only when the literature and current evidence indicate they are still the highest-value route and the reason is stated explicitly.
-- In system optimization work, a valid idea may be a mechanism change, an objective/evaluator correction, a measurement fix, or an infrastructure change if that is what best improves the real target.
-
-## Validation
-
-Before the idea pass can end, the durable selected idea package should make explicit:
-
-- the important contradiction, gap, anomaly, or bottleneck it is targeting
-- the literature coverage used to justify the route, including direct-field papers and adjacent transferable papers
-- the dominant novelty type
-- the targeted limitation
-- the real objective and the strongest false-progress signal
-- the pre-idea draft or equivalent challenge memo that preceded promotion
-- the selected direction and why it won now
-- why the selected route is not merely a decorative tweak relative to the closest prior work or current baseline
-- the value/feasibility screen or equivalent judgment
-- the core hypothesis
-- the mechanism sketch
-- the strongest falsification experiment
-- the anti-win condition
-- the minimal validation
-- the abandonment condition
-- the next stage
-
-If those fields are still fuzzy, continue ideation or route back through `decision` rather than pretending the route is ready.
-
-## Interaction discipline
-
-- Follow the shared interaction contract injected by the system prompt.
-- For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
-- Keep ordinary subtask completions concise. When the idea stage actually finishes a meaningful deliverable such as a selected idea package, a rejected-ideas summary, or a route-shaping ideation checkpoint, upgrade to a richer `artifact.interact(kind='milestone', reply_mode='threaded', ...)` report.
-- That richer idea-stage milestone report should normally cover: the final selected or rejected direction, why it won or lost, the main remaining risk, and the exact recommended next stage or experiment.
-- That richer milestone report is still normally non-blocking. If the next experiment or route is already clear from durable evidence, continue automatically after reporting instead of waiting.
-- If the runtime starts an auto-continue turn with no new user message, keep advancing from the active requirements and current durable state instead of re-answering the previous user turn.
-- Message templates are references only. Adapt to the actual context and vary wording so updates feel natural and non-robotic.
-- If a threaded user reply arrives, interpret it relative to the latest idea progress update before assuming the task changed completely.
-
-## Three-layer todo contract
-
-- keep quest-root `plan.md` as the research map for the whole quest loop
-- keep workspace `PLAN.md` as the active idea-node contract when ideation is multi-step, literature-heavy, or route-sensitive
-- keep workspace `CHECKLIST.md` as the active ideation frontier with one real in-progress item and a short `Next` list
-- if the execution frontier stops changing across repeated passes, revise the node contract or the research map instead of nesting more substeps
-
-## Research-map role
-
-- `idea` selects or refreshes the next route within the current loop; it does not replace the whole quest roadmap
-- when an idea is selected, rejected, or downgraded, update quest-root `plan.md` so the next experiment node or fallback decision node is explicit
-- when a strong result later becomes the new incumbent, the next idea pass should open a new loop entry in quest-root `plan.md` rather than drifting into ad hoc brainstorming
-
-## Current-node plan and checklist
-
-When ideation becomes multi-step, create or refresh:
-
-- workspace `PLAN.md` as the current idea-node contract
-- workspace `CHECKLIST.md` as the ideation frontier
-
-The idea node should make explicit:
-
-- which bottleneck is being attacked now
-- which candidate families are still live
-- what selection gate must be cleared before experiment
-
-Before widening the frontier, the node should also make explicit:
-
-- the current objective contract
-- the current board packet
-- which candidate-family mix is actually being explored in this pass
-
-## Stage purpose
-
-The idea stage should not generate vague inspiration.
-It should produce executable hypotheses tied to:
-
-- the active baseline
-- the current codebase
-- the accepted evaluation contract
-- the strongest relevant prior work
-
-This stage is not just "brainstorming".
-It is a controlled brainstorming plus route-selection stage.
-It still needs a bounded creative-divergence phase before convergence.
-Do not collapse onto the first plausible route just because it sounds implementable.
-Do not settle for a low-amplitude tweak when a broader, still-feasible route remains live.
-It should normally create a new candidate direction branch and node; it does not by itself decide the next optimization round.
-The output must survive three checks at once:
-
-- novelty or at least clear research value
-- feasibility in the current repo and resource budget
-- manuscript defensibility if the line later becomes a paper claim
-
-When multiple routes survive, prefer the most differentiated route that is still falsifiable and executable in the current repo, rather than the easiest tiny patch.
-
-When the route already looks likely to become a paper-facing line, seed one lightweight structured outline candidate during idea work.
-Use `artifact.submit_paper_outline(mode='candidate', ...)` for that seed instead of leaving the future paper structure only in prose.
-Use `references/outline-seeding-example.md` for the minimum acceptable shape.
-The idea-stage outline candidate is not the full paper line yet, but it should already name the likely one-sentence paper idea, scoped claims, `research_questions`, `experimental_designs`, and the first section-level evidence needs that later supplementary slices must satisfy.
-Keep that seed minimal and executable: a short `paper_view` plus expected evidence items is better than a long narrative outline with no concrete evidence hooks.
-If the current research head, strongest measured branch, or active runtime refs are unclear after resume, call `artifact.get_quest_state(detail='summary')` and `artifact.list_research_branches(...)` before choosing a foundation.
-If the current brief / plan / status wording matters for direction choice, call `artifact.read_quest_documents(...)`.
-If earlier user conversation materially changes the direction-selection target, call `artifact.get_conversation_context(...)` before locking the next idea.
-
-Finishing one idea deliverable is not quest completion.
-After reporting a completed idea package, continue into the next justified stage unless a real blocking decision is still unresolved.
-
-When the quest disables research-paper delivery, keep manuscript defensibility secondary to:
-
-- algorithmic value
-- feasibility
-- clean experimental follow-through
-- durable recording of why this direction should be the next measured attempt
-
-Before starting a genuinely new round, default to the current research head as the foundation.
-However, you may deliberately choose a different foundation when the durable evidence says it is better.
-When the best starting point is not obvious, inspect `artifact.list_research_branches(...)` first and compare:
-
-- current head
-- baseline foundation
-- strongest recent measured branch
-- older but cleaner branch
-
-If you do not use the default current head, record the reason explicitly in the new idea submission.
-Treat a newly accepted branch as one durable research round.
-If the active branch already has a durable main-experiment result and you are starting a genuinely new optimization round, prefer creating a child branch from the chosen foundation rather than revising the old branch in place.
-
-At the direction level, prefer elegant algorithmic or theoretical improvements over brute-force cost-for-performance tradeoffs whenever possible.
-
-This stage should preserve the strongest old DeepScientist direction-selection logic:
-
-- understand the baseline and its failure modes
-- search related work broadly before claiming an idea is good, including adjacent fields with translatable mechanisms
-- derive limitations
-- produce a compact set of candidate ideas from an explicit direction set
-- rank them with explicit tradeoffs
-- choose a direction with a clear evidence-based decision path
-- ensure the selected direction is manuscript-defensible rather than merely implementation-plausible
-
-Use a compact search discipline during ideation:
-
-- first identify the current strongest line from existing results, literature, and branch history
-- treat that line as the current `incumbent`
-- keep only a small serious `frontier`, usually `2-3` serious alternatives and rarely more than `5` after one bounded widening pass
-- ensure the frontier is meaningfully differentiated rather than the same idea renamed
-- prefer selecting from existing evidence over expanding the candidate list indefinitely
-
-Candidate sets should usually cover some mix of:
-
-- a strong local refinement of the incumbent
-- an orthogonal alternative that addresses the same bottleneck differently
-- a cleaner or more defensible route with lower conceptual complexity
-- an objective/evaluator fix when the current route may be optimizing the wrong thing
-- an infrastructure or throughput fix when measurement cost itself is blocking useful iteration
-
-Do not default to “run a small experiment and see” as the way to break ties.
-Break ties primarily through careful reasoning over:
-
-- existing experiment results
-- failure patterns
-- related-work overlap
-- code-path feasibility
-- claim defensibility
-
-## Non-negotiable rules
-
-- Do not claim novelty without a written related-work comparison.
-- Do not select an idea before checking whether close prior work already did it.
-- Treat the collision audit as adversarial evidence, not self-scoring: the strongest neighboring paper should be the one most likely to invalidate the proposal, and its remaining mechanism-plus-claim delta must be concrete.
-- For `algorithmic_sota`, do not promote `incremental_but_valuable` or `collision` into an experiment line. Return to search or retain it only as a candidate.
-- Do not confuse "I can implement this" with "this is a publishable or useful research direction".
-- Do not treat a weak literature search as sufficient because the idea sounds elegant.
-- Do not start serious ideation from memory or taste alone; refresh the external literature unless the existing survey already covers the needed frontier and that reuse is recorded explicitly.
-- Do not treat the current field as the only search space; check cross-domain mechanism transfer whenever the bottleneck might admit it.
-- Do not promote a small tweak by default; if an incremental route wins, record why broader routes failed on novelty, feasibility, or claim value.
-- For paper-ready idea packages, aim for a durable survey that usually covers at least `5` and often `5-10` task-modeling-related, mechanism-relevant, or otherwise directly usable papers.
-- If the direct task-modeling neighborhood truly contains fewer than `5` usable papers, record that evidence explicitly and fill the remaining coverage with the closest adjacent papers whose mechanism can still be translated into the current task and codebase.
-- Algorithm-first exception:
-  - when `startup_contract.need_research_paper = false` and a concrete optimization handle already exists, you may stop after a memory sweep plus a small targeted paper check instead of satisfying the full `5-10` paper floor
-  - use that exception only when the immediate goal is method-brief selection for `optimize`, not paper-level novelty claims
-  - if you use the exception, say explicitly that the output is an optimization brief frontier rather than a paper-ready idea package
-  - still shape that frontier deliberately: clarify the bottleneck and comparability boundary first, keep a differentiated `2-3` candidate slate, and explain why one brief is recommended now
-- Every fresh idea build or idea-refinement pass should begin with:
-  - a memory sweep, and
-  - an external literature sweep or a clear reason why the existing survey is already sufficient.
-- For paper-ready promotion, refresh `artifacts/idea/literature_survey.md` or an equivalent durable survey report before the direction is promoted.
-- Every survey update must explicitly separate:
-  - reused prior survey coverage
-  - newly added papers or comparisons from this pass
-  - still-missing or unresolved overlaps
-- When a web/search tool is available, actively use it.
-  Prefer web search for paper discovery, usually targeting arXiv first, then expand with citation and open-web search for neighborhood coverage.
-- If DeepXiv is declared available by the system prompt, prefer the DeepXiv route for paper-centric discovery and shortlist paper triage before broad open-web search.
-- If DeepXiv is declared unavailable, do not try to force it; stay on the legacy route.
-- When a concrete arXiv paper needs to be read, compared, or summarized, use `artifact.arxiv(paper_id=..., full_text=False)`.
-  Keep search in web discovery by default; use `artifact.arxiv(...)` for reading shortlisted papers, and set `full_text=True` only when needed.
-- Before opening a broad new search, check quest and global memory with `memory.search(...)` and reuse existing paper notes, idea notes, and knowledge cards.
-- Search for genuinely missing, newly relevant, or more recent papers whenever possible.
-  Do not rerun the same broad search without stating what gap the new search is meant to close.
-- Do not introduce a new dataset or a new evaluation regime unless the quest scope explicitly changed.
-- Do not rely on human evaluation or subjective assessment for idea validation; the eventual experiment must remain automatable with code and accepted metrics.
-- Treat ideation as read-heavy and write-light: inspect code and papers, but avoid substantial implementation during this stage.
-- Do not propose directions that require new datasets.
-- Do not default to brute-force engineering escalation when a cleaner first-principles direction is available.
-- Do not keep generating more ideas once a small, clearly ranked frontier already exists.
-- Do not treat superficial variation as a new idea if the expected mechanism and evidence burden are effectively unchanged.
-- Separate generation from evaluation during ideation: generate first, judge second.
-- Start each fresh ideation pass by classifying the current framing as `problem-first` or `solution-first`.
-- Unless strong durable evidence already narrows the route to one obvious serious option, run one bounded divergent pass that produces a small but meaningfully varied slate, usually `6-12` raw ideas before collapsing to a serious frontier that is usually `2-3` and at most `5`.
-- If all surviving candidates belong to the same mechanism family, widen once with at least two new ideation lenses before converging.
-- Keep structurally coherent rejected ideas in a parking-lot or rejected-candidate section so they can be recombined later if needed.
-- In algorithm-first work, `idea` should usually produce direction families, not a large within-family variant swarm.
-- Treat within-family micro-variants as `optimize` brief work unless the mechanism family itself is still unresolved.
-- Every serious candidate must answer `why now?` or `what changed?`, not just `what is the mechanism?`
-- Every selected idea must survive a two-sentence pitch and strongest-objection check before promotion.
-- Do not promote a direction unless you can explain:
-  - what limitation it targets
-  - why prior methods do not already solve it
-  - what evidence would later be needed to defend the claim
-- When the likely next route is a paper-facing main experiment plus analysis package, do not stop at prose-only idea notes; seed the likely `research_questions`, `experimental_designs`, and per-section evidence needs in the outline candidate.
-- If the likely route already has a clear paper-facing structure, seed the future paper line early:
-  - identify the likely main-text sections
-  - identify which sections will need supplementary evidence rather than only the main run
-  - identify the concrete evidence items that must later be maintained in the paper line's outline folder or compiled outline contract
-- If the idea is not novel but still worth doing, state that honestly as:
-  - replication value
-  - transfer-to-new-setting value
-  - stronger evidence on an unresolved question
-  - negative-result value
-  - infrastructure/platform value
-
-## Use when
-
-- the baseline is ready
-- the task and metric contract are already clear
-- the quest needs a concrete research direction
-- the current idea line failed and a new direction is needed
-
-## Do not use when
-
-- the baseline gate is unresolved
-- the quest still lacks basic problem framing
-- the next step is obviously a write-up or finalization rather than ideation
-
-## Preconditions and gate
-
-Before ideation, confirm:
-
-- there is an active or accepted baseline
-- the dataset and metric contract are explicit
-- the relevant code path and papers are available
-- the strongest obvious related-work cluster can be searched from available references and tools
-
-If these are still unclear, route back to `baseline` or `scout`.
-
-## Companion skill rule
-
-`idea` is the anchor skill for direction selection.
-However, when the quest still needs literature grounding or novelty checking, actively open `scout` as a companion skill before final idea selection.
-
-In practice:
-
-- use `scout` to expand the paper set, search adjacent methods, and clarify the baseline landscape
-- use `idea` to convert that landscape into limitations, candidate directions, and a selected idea
-
-Do not skip the `scout` pass just because the quest is already in the `idea` stage.
-
-## Direction-shaping protocol
-
-Use `references/idea-thinking-flow.md` when the main need is better reasoning hygiene.
-Use `references/idea-generation-playbook.md` when the main need is to create a new idea slate and select one clear next research object.
-Use `references/high-value-idea-sourcing.md` when the main need is to identify a truly important contradiction or bottleneck before widening.
-
-Default creation flow for a fresh idea pass:
-
-1. frame one concrete limitation
-2. separate symptom / mechanism hypothesis / consequence
-3. keep one main hypothesis plus `2-3` competing hypotheses
-4. name the primary lever bucket
-5. generate a bounded candidate slate from that framing
-6. record selected / deferred / rejected outcomes explicitly
-
-Set the frontier width with a validation-cost estimate before widening:
-
-- `fast-check`: the first objective validation loop is likely under about `20` minutes
-- `slow-check`: the first objective validation loop is likely over about `20` minutes or otherwise expensive in compute, queue time, or human delay
-
-For `fast-check` idea work:
-
-- allow a slightly wider serious slate when the candidates are meaningfully different
-- prefer candidates with cheap, orthogonal falsification paths
-- keep more alternatives alive into `optimize` because validation is cheaper than overthinking
-
-For `slow-check` idea work:
-
-- keep the serious slate tighter, usually `1-3`
-- demand a clearer bottleneck story and stronger evidence before adding another family
-- prefer the route with the best expected evidence-per-run, not the route with the most speculative upside
-- do not hand off a broad speculative slate just because it sounds interesting
-
-Do not start by shopping for modules to add.
-Do not let one attractive mechanism become the de facto framing before the limitation is pinned down.
-Do not let direction-family ideation collapse into within-family variant generation too early.
-
-In normal idea work, stop at the direction-family level:
-
-- select which mechanism families deserve serious consideration
-- identify the strongest one to carry forward
-- hand off within-family brief shaping to `optimize` when the quest is algorithm-first
-
-If the task still requires choosing among mechanism families, stay in `idea`.
-If the family is already chosen and the next need is branchless method-brief shaping, hand off to `optimize`.
-
-## Truth sources
-
-Use:
-
-- baseline artifacts and verification notes
-- baseline paper and source repo
-- current codebase and recent diffs
-- scout notes and paper memory cards
-- prior failed runs and decisions
-- current task constraints
-- quest and global memory cards returned by `memory.list_recent(...)` and `memory.search(...)`
-- prior literature survey reports and related-work artifacts
-- web-search discovery results for arXiv and related sources
-- paper-reading notes produced after using `artifact.arxiv(...)`
-- citation trails and open-web search results for nearby work
-- citation trails from the baseline paper and strongest nearby papers
-- recent papers that share the same task, metric, dataset, mechanism, or bottleneck
-
-Do not rank ideas on style alone.
-Rank them on evidence, feasibility, and testability.
-
-## Related-work and novelty mandate
-
-Before you choose a direction, perform a broad but bounded literature sweep.
-
-The sweep must be grounded in actual retrieval, not recall alone.
-If durable quest memory already contains a recent and explicit survey, reuse it first and search externally only for the missing buckets, newer papers, or unresolved overlaps.
-For a normal selected-idea decision, the durable sweep must end with at least `5` and usually `5-10` papers that are close enough to the task-modeling problem, failure mode, mechanism, or codebase translation question to inform the actual design.
-This floor exists to prevent thin novelty claims and under-motivated ideas, not to reward quota chasing.
-
-Do not treat “recent papers” as a substitute for “the field history”.
-At minimum, map:
-
-- seminal or foundational papers
-- turning-point or paradigm-shift papers
-- current mainstream or SOTA papers
-
-Then use citation chaining to reconstruct how the question evolved and where the real breakpoints still are.
-
-When tools allow it, combine:
-
-- `memory.search(...)` and recent memory reads
-- DeepXiv for broad paper-centric discovery and citation expansion when available
-- otherwise web search for arXiv and adjacent sources
-- `artifact.arxiv(paper_id=..., full_text=False)` for actually reading shortlisted papers
-- citation expansion or open-web search for follow-up papers, code, and comparisons
-
-The sweep should cover at least these search angles:
-
-- direct same-task / same-dataset / same-metric competitors
-- methods using the same mechanism or main lever you are considering
-- papers targeting the same failure mode or bottleneck
-- strong recent papers that may have closed the gap already
-
-When the direct neighborhood looks saturated or too incremental, extend the sweep to adjacent conceptual neighborhoods:
-
-- optimization methods targeting the same instability or objective mismatch
-- representation-learning methods targeting the same information bottleneck
-- signal-processing, geometry, probabilistic, or control-inspired methods addressing an analogous failure mode
-- methods from neighboring tasks that solve the same structural problem under a different surface form
-
-The point is principled translation, not superficial import.
-Borrow the core mechanism or mathematical idea only if you can explain why it should survive translation into the current codebase and metric contract.
-
-For each promising idea, you must be able to answer:
-
-- which papers are the closest prior art?
-- what exactly is the overlap with your proposed mechanism?
-- what is still missing, weak, or untested in those papers?
-- if they already did most of it, why is this still worth pursuing?
-
-The goal is not to cite everything on Earth.
-The goal is to avoid fake novelty and to identify a direction that has credible research value.
-However, do not stop the sweep early once the first plausible argument appears.
-Keep going until the strongest obvious overlaps are mapped and the `5-10` usable-paper floor is durably satisfied.
-
-Recommended search outputs:
-
-- a compact related-work map
-- a closest-prior-work table
-- a novelty / value verdict for each serious candidate
-- a paper bucket split:
+使用本技能将当前的 baseline 与问题框架转化为具体的、有文献支撑的、具备前沿视野的、可检验的方向。
+目标在于选择下一条可执行的研究路线，而不是最大化头脑风暴的数量或追逐浅层的"新意"。
+
+当 `startup_contract.need_research_paper = false` 且该 quest 已经拥有一个具体的优化抓手时，`idea` 可以在选定或播下一个方向之后停止，然后移交给 `optimize`，而不是坚持走完整的、以论文为导向的构思循环。
+在那种"算法优先"的情形下，`idea` 通常应当先产出一份小型的方法简报式前沿，然后将候选排序、提升与有界搜索推迟交给 `optimize`。
+在做这种交接时，优先采用之后 `optimize` 会使用的简报塑形规范：厘清瓶颈与约束，只保留一份小型的、差异化的 `2-3` 选项清单，并交接一份带推荐意见的简报，而不是一堆松散的直觉。
+
+## 匹配信号
+
+在以下情形使用 `idea`：
+
+- 已接受的 baseline 与指标契约已经存在，但下一步路线仍未确定
+- 当前路线失败，且该 quest 需要一条新的可证伪方向
+- 问题不是"构建一个新模块"，而是"决定下一步应当尝试何种路线"
+- 当前瓶颈可能是机制问题、目标错配问题、测量/评估器问题，或是会改变下一步应被检验内容的基础设施约束
+
+在以下情形不要使用 `idea`：
+
+- baseline 闸门仍未解决
+- 当前盘面状态过于陈旧或相互冲突，无法说清主线究竟是什么
+- 下一步显然已经是 `write`、`review` 或 `finalize`
+
+如果当前盘面无法被干净地压缩，在拓宽前沿之前，先经过 `decision` 或 `intake-audit` 路由。
+
+## 一句话总结
+
+将当前目标、盘面状态与瓶颈转化为一份小型的差异化前沿，然后选出下一条可证伪的路线。
+
+## 控制工作流
+
+1. 编写目标契约。
+   使用 `references/objective-contract-template.md`。
+   在生成想法之前，明确真正的目标、可信的代理指标、虚假进展信号与硬性约束。
+   默认持久化路径：`artifacts/idea/objective_contract.md`。
+2. 编写当前盘面数据包。
+   使用 `references/current-board-packet-template.md`。
+   将在位方案、最新决定性结果、活跃阻塞点，以及应当忽略的陈旧路线压缩为一份当前状态面。
+   默认持久化路径：`artifacts/idea/current_board_packet.md`。
+3. 识别重要的矛盾与可信的新意来源。
+   使用 `references/high-value-idea-sourcing.md`。
+   从最重要、尚未解决的矛盾、异常、瓶颈或失败区域出发，而不是从某个偏爱的机制出发。
+4. 在提出严肃想法之前，先进行一次广泛的、有历史意识的文献检索。
+   使用 `references/related-work-playbook.md`、`references/research-history-playbook.md` 与 `references/literature-survey-template.md`。
+   覆盖直接同领域的前沿论文、奠基性论文、最强的邻近竞争者，以及机制可能迁移到当前任务的跨领域论文。
+   如果运行时提示显式启用了跨 quest 召回，在向外检索之前先遵循该注入的策略；否则停留在当前 quest 的记忆/产物与用户明确提供的文件内部。详见 playbook §2.1 的完整来源顺序协议。
+   如果 DeepXiv 可用，使用它进行广泛的、以论文为中心的发现与引文扩展；否则直接使用搜索引擎与引文追溯。
+   在持久化综述以及最接近的既有工作比较被更新到足以诚实地判断新意与可行性之前，不要提升、甚至不要认真地把一个新想法列入短名单。
+   对于 `algorithmic_sota` 路线，正式的"提升"还要求一份结构化的 `novelty_audit`：机制与主张签名、至少三篇稳定的直接邻居引文、一篇被标注为最强重叠的论文、针对每一篇邻居的显式重叠与差异、直接/相邻/时间维度的覆盖、持久化综述路径、一个家族外的替代方案、一份证伪计划，以及一份 `clear` 的碰撞判定。
+5. 从综述中提取局限性模式与新意机会。
+   区分哪些已经饱和、哪些只是装饰性微调、哪些仍可能支撑一条差异化的路线。
+   默认反对小型局部改动，除非它们被明确证明是价值最高、得以存续的路线。
+6. 选择想法家族的组合。
+   至少应决定本轮是否应当考虑以下某种组合：
+   - mechanism-family 路线
+   - objective-family 路线
+   - measurement-family 路线
+   - infrastructure-family 路线
+7. 进行有界头脑风暴。
+   当路线尚未显而易见时，使用 `references/controlled-brainstorming-playbook.md`。
+   生成一份小型、但有实质差异的清单，而不是一堆微变体。
+   优先选择能够实质性地改变结论、能力边界或论文价值的候选家族，而不仅仅是在调一个旋钮。
+8. 为存活下来的严肃候选者撰写一份紧凑的"想法前"草稿。
+   使用 `references/pre-idea-draft-template.md`。
+   通常只为排名前 `1-3` 的候选者撰写草稿，而不是为整份原始清单撰写。
+   在正式提交任何想法之前，该草稿必须暴露隐藏假设、局部最优锁定风险、最强的家族外替代方案、最强的反驳理由，以及最廉价的证伪路径。
+   每个候选者的默认持久化路径：`artifacts/idea/pre_idea_drafts/<candidate_id>.md`。
+9.  aggressively 筛选。
+   使用 `references/selection-gate.md`。
+   剔除那些只是改进了一个代理指标、在没有新证据的情况下重开一条陈旧路线、违反泄漏或提交时边界，或缺乏廉价证伪路径的候选者。
+10. 选定并交接。
+   选定的包必须包含路线、为何是现在、新意类型、主要风险、反胜利条件、核心假设、机制草图、最强的证伪实验、最小验证、放弃条件，以及下一阶段。
+
+## 提交前草稿 SOP
+
+在一个方向被正式提交为被选想法之前，为每一个存活下来的严肃候选者撰写一份紧凑的"想法前"草稿或等价的持久化挑战备忘。
+
+默认规则是：
+
+- 原始头脑风暴可以拓宽前沿
+- "想法前"草稿收窄并对前沿进行压力测试
+- 只有在那之后才能提交最终的被选想法
+
+"想法前"草稿的存在是为了阻止三种失败模式：
+
+- 围绕当前主线陷入局部最优锁定
+- 隐藏假设保持隐式
+- 在写下最强的反驳理由之前，就先把诱人的想法提升上去
+
+除非已经有一份最新且等价的产物，否则在至少一份"想法前"草稿做到以下各项之前，不要正式提交最终想法：
+
+- 已为可能的胜出者撰写
+- 已与在位方案以及至少一个家族外或假设反转的替代方案做过比较
+- 已基于该比较进行了修订、拒绝或提升
+
+默认持久化路径规则：
+
+- 目标契约：`artifacts/idea/objective_contract.md`
+- 当前盘面数据包：`artifacts/idea/current_board_packet.md`
+- 候选前沿摘要：`artifacts/idea/candidates.md`
+- 每个严肃候选者的"想法前"草稿：`artifacts/idea/pre_idea_drafts/<candidate_id>.md`
+- 最终被选想法：`artifacts/idea/selected_idea.md`
+
+当一个候选者被提升时，`artifacts/idea/selected_idea.md` 应当指回胜出的"想法前"草稿路径，而不是只在散文中丢失这条血缘关系。
+
+## 避免 / 陷阱
+
+- 在指名重要矛盾或瓶颈之前，不要从"把方法 A 换成方法 B"开始。
+- 在真实目标与虚假进展信号变得明确之前，不要头脑风暴。
+- 如果真实目标没有改变，不要将更低的损失、更好的平均代理指标或更好看的中间指标当作路线健康度。
+- 除非有新证据明确削弱了当前主线，否则不要重开陈旧路线。
+- 在机制家族本身被选定之前，不要生成一大堆同家族的变体簇。
+- 在直接领域与相邻可迁移文献都已被核查之前，不要把一个想法当作"新"的提出来。
+- 除非综述与瓶颈分析表明它们确实是价值最高的存续路线，否则不要默认采用装饰性修改、参数微调或微小的架构替换。
+- 不要让当前主线、偏爱机制或最易实现的路径把搜索锁进局部最优，而该路线背后的隐藏假设仍未被质疑。
+- 不要在没有一份能迫使隐藏假设、最强反驳理由与证伪路径浮出水面的紧凑草稿的情况下，直接从头脑风暴笔记跳到最终想法提交。
+- 不要把新意当作"完全前所未有的"；它可能来自一个新的问题、视角、机制、方法、设定、评估或边界条件。
+- 不要仅仅因为一个方向听起来令人兴奋，就去提升一个未通过价值/可行性筛选的方向。
+- 不要提升一个缺乏廉价证伪路径与可见反胜利条件的方向。
+
+## 约束
+
+- 除非范围被显式改变，否则保持已接受的数据集、指标与评估契约固定。
+- 不要提出依赖提交时不可用功能的路线。
+- 不要提出会把容易泄漏的目标或标签引入训练中的路线。
+- 不要让实现上的便利凌驾于目标对齐之上。
+- 检索应当足够广泛，以勾勒出主要范式、历史与最强的重叠，而不只是略读几篇近期论文。
+- 检索必须覆盖当前领域最强的直接论文，以及机制可能迁移到当前任务、评估器或系统设定中的相邻或跨领域论文。
+- 如果 DeepXiv 可用，优先用它进行广泛的、以论文为中心的发现；否则直接使用搜索引擎、引文追溯与开放网络检索。
+- 严肃的想法生成应仅在综述足够广泛、足以排除明显的重新发现并揭示非平凡的机遇缺口之后进行。
+- 一个严肃候选者应当能在重要性、新意类型、可行性、验证路径与失败价值方面被解释清楚。
+- 默认情况下，优先选择具有阶跃式或边界改变潜力的路线，而不是小型局部改进。
+- 只有当文献与当前证据表明它们仍是价值最高的路线、且原因被显式陈述时，才允许小型改进。
+- 在系统优化工作中，一个有效的想法可以是一种机制变更、一个目标/评估器修正、一次测量修复，或一次基础设施变更——如果那才是最好地改进真实目标的方式。
+
+## 验证
+
+在想法轮次结束之前，持久的被选想法包应当明确：
+
+- 它所针对的重要矛盾、缺口、异常或瓶颈
+- 用于论证该路线的文献覆盖，包括直接领域论文与相邻可迁移论文
+- 主导的新意类型
+- 所针对的局限性
+- 真实目标与最强的虚假进展信号
+- 提升之前所经历的"想法前"草稿或等价挑战备忘
+- 选定的方向与它为何现在胜出
+- 为何选定的路线相对于最接近的既有工作或当前 baseline 而言，不仅仅是一个装饰性微调
+- 价值/可行性筛选或等价判断
+- 核心假设
+- 机制草图
+- 最强的证伪实验
+- 反胜利条件
+- 最小验证
+- 放弃条件
+- 下一阶段
+
+如果这些字段仍然模糊，继续构思，或经由 `decision` 路由回去，而不要假装路线已经就绪。
+
+## 交互规范
+
+- 遵循系统提示注入的共享交互契约。
+- 对于普通的活跃工作，当工作跨越了大约 6 次工具调用并产生了具备人类可感知差异的成果时，优先做一次简洁的进度更新；并且不要在没有用户可见更新情况下，漂移超过大约 12 次工具调用或约 8 分钟。
+- 保持普通子任务完成的简洁。当 idea 阶段真正完成了一份有意义的成果物，例如一个被选想法包、一份被拒想法摘要，或一个塑形路线的构思检查点时，升级为更丰富的 `artifact.interact(kind='milestone', reply_mode='threaded', ...)` 报告。
+- 那份更丰富的想法阶段里程碑报告通常应覆盖：最终选定或被拒的方向、它为何胜出或落败、主要的残余风险，以及确切推荐的下一阶段或实验。
+- 那份更丰富的里程碑报告通常仍是非阻塞的。如果下一个实验或路线已经从持久化证据中变得清晰，应在报告之后自动继续，而不是等待。
+- 如果运行时在没有新用户消息的情况下启动了一个自动继续回合，应从活跃需求与当前持久化状态继续推进，而不是重新回答上一条用户回合。
+- 消息模板仅供参考。应适应实际语境并变换措辞，使更新显得自然而非机械。
+- 如果收到一条线程式用户回复，应先相对于最新的想法进度更新来解读它，再假定任务已彻底改变。
+
+## 三层待办契约
+
+- 保持 quest 根目录的 `plan.md` 作为整个 quest 循环的研究地图
+- 当构思是多步、重文献或路线敏感时，保持工作区的 `PLAN.md` 作为活跃的 idea 节点契约
+- 保持工作区的 `CHECKLIST.md` 作为活跃的构思前沿，其中有一个真实的进行中条目与一份简短的 `Next` 列表
+- 如果执行前沿在反复轮次中停止变化，应修订节点契约或研究地图，而不是嵌套更多子步骤
+
+## 研究地图角色
+
+- `idea` 在当前循环内选定或刷新下一条路线；它不替代整个 quest 路线图
+- 当一个想法被选定、拒绝或降格时，更新 quest 根目录的 `plan.md`，使下一个实验节点或回退决策节点变得明确
+- 当一个强结果后来成为新的在位方案时，下一轮想法应通过在该 quest 根目录 `plan.md` 中开启一个新的循环条目，而不是漂移到临时性的头脑风暴
+
+## 当前节点计划与检查表
+
+当构思变得多步时，创建或刷新：
+
+- 工作区的 `PLAN.md` 作为当前 idea 节点契约
+- 工作区的 `CHECKLIST.md` 作为构思前沿
+
+idea 节点应当明确：
+
+- 当前正在攻克的是哪个瓶颈
+- 哪些候选家族仍然存活
+- 在实验之前必须清除哪个选择闸门
+
+在拓宽前沿之前，该节点还应明确：
+
+- 当前目标契约
+- 当前盘面数据包
+- 本轮实际正在探索的是哪种候选家族组合
+
+## 阶段目的
+
+idea 阶段不应生成模糊的灵感。
+它应产出与以下方面绑定的可执行假设：
+
+- 活跃 baseline
+- 当前代码库
+- 已接受的评估契约
+- 最强的相关既有工作
+
+本阶段不仅仅是"头脑风暴"。
+它是一个受控的头脑风暴加路线选择阶段。
+它在收敛之前仍需要一个有界的创意发散阶段。
+不要仅仅因为第一条看似可实现的路线听起来可实现，就坍缩到它上面。
+当一条更广泛、仍可行的路线仍然存活时，不要满足于一个低幅度的微调。
+我们应当正常地创建一个新的候选方向分支与节点；它本身并不决定下一轮优化。
+输出必须同时通过三项检查：
+
+- 新意，或至少是清晰的研究价值
+- 在当前代码库与资源预算内的可行性
+- 如果该路线后来成为一条论文主张，其手稿的可辩护性
+
+当多条路线存活时，优先选择最具差异化、且在当前代码库中仍可被证伪与执行的那条，而不是最容易的小补丁。
+
+当该路线看起来很可能成为一条面向论文的路线时，在 idea 工作期间播下一个轻量级的结构化大纲候选。
+使用 `artifact.submit_paper_outline(mode='candidate', ...)` 来播下这个种子，而不要把未来的论文结构只留在散文中。
+使用 `references/outline-seeding-example.md` 作为最低可接受的形态。
+idea 阶段的大纲候选还不是完整的论文路线，但它应当已经点出很可能的一句话论文点子、有范围的的主张、`research_questions`、`experimental_designs`，以及后续补充切片必须满足的首个章节级证据需求。
+让这个种子保持最小且可执行：一份简短的 `paper_view` 加上预期证据项，要好于一长段没有具体证据钩子的叙述性大纲。
+如果在恢复之后，当前研究头部、最强测量分支或活跃运行时引用不清楚，在选择基础之前调用 `artifact.get_quest_state(detail='summary')` 与 `artifact.list_research_branches(...)`。
+如果当前的 brief / plan / status 措辞对方向选择有影响，调用 `artifact.read_quest_documents(...)`。
+如果更早的用户对话实质性地改变了方向选择目标，在锁定下一个想法之前调用 `artifact.get_conversation_context(...)`。
+
+完成一个想法成果物并非 quest 完成。
+在汇报完一个已完成的想法包之后，应继续进入下一个有理由支撑的阶段，除非一个真正的阻塞决策仍未解决。
+
+当该 quest 禁用了论文交付时，保持手稿可辩护性次于：
+
+- 算法价值
+- 可行性
+- 干净的实验后续
+- 为何这个方向应当是下一次被测尝试的持久化记录
+
+在开始一个真正全新的轮次之前，默认以当前研究头部作为基础。
+然而，当持久化证据表明有更好的基础时，你可以刻意选择不同的基础。
+当最佳起点不明确时，先检视 `artifact.list_research_branches(...)` 并比较：
+
+- 当前头部
+- baseline 基础
+- 最强近期测量分支
+- 更旧但更干净的分支
+
+如果你没有使用默认的当前头部，应在新的想法提交中显式记录原因。
+把一个新接受的支线当作一个持久的研究轮次。
+如果活跃分支已经有一个持久化的主实验结果，而你要开始一个真正全新的优化轮次，优先从所选基础创建一个子分支，而不是就地修订旧分支。
+
+在方向层面，尽可能优先优雅的算法或理论改进，而不是暴力式的以成本换性能权衡。
+
+本阶段应保留最强的旧 DeepScientist 方向选择逻辑：
+
+- 理解 baseline 及其失败模式
+- 在宣称一个想法很好之前，广泛检索相关工作，包括带有可迁移机制的相邻领域
+- 推导局限性
+- 从一个显式的方向集合中产出一组紧凑的候选想法
+- 用显式的权衡对它们排序
+- 选择一个拥有清晰、基于证据的决策路径的方向
+- 确保所选方向在稿件层面可辩护，而不只是实现上看起来可行
+
+在构思期间使用紧凑的检索规范：
+
+- 首先从既有结果、文献与分支历史中识别当前最强路线
+- 把该路线当作当前 `incumbent`
+- 只保留一份小型的严肃 `frontier`，通常 `2-3` 个严肃替代方案，在一次有界拓宽之后很少超过 `5` 个
+- 确保该前沿是有实质差异的，而不是同一个被改名的想法
+- 优先从既有证据中做选择，而不是无休止地扩充候选列表
+
+候选集合通常应覆盖某种以下组合：
+
+- 对在位方案的一次强局部改进
+- 一个以不同方式解决同一瓶颈的正交替代方案
+- 一条概念复杂度更低、更干净或更可辩护的路线
+- 当当前路线可能在优化错误的东西时，一次目标/评估器修复
+- 当测量成本本身在阻碍有用迭代时，一次基础设施或吞吐量修复
+
+不要默认用"跑个小实验看看"来打破平局。
+主要通过在以下方面的审慎推理来打破平局：
+
+- 既有实验结果
+- 失败模式
+- 相关工作重叠
+- 代码路径可行性
+- 主张可辩护性
+
+## 不可妥协的规则
+
+- 在没有书面相关工作比较的情况下，不要宣称新意。
+- 在核查最接近的既有工作是否已经做过之前，不要选定一个想法。
+- 把碰撞审计当作对抗性证据，而不是自我评分：最强的邻近论文应当是那篇最可能使提案失效的论文，而它剩余的"机制+主张"差异必须是具体的。
+- 对于 `algorithmic_sota`，不要把 `incremental_but_valuable` 或 `collision` 提升为实验路线。回到检索，或仅将其保留为候选。
+- 不要把"我能实现这个"与"这是一个可发表或有用的研究方向"混为一谈。
+- 不要因为一个想法听起来优雅，就把薄弱的文献检索当作充分。
+- 不要仅从记忆或品味出发就开始严肃构思；应刷新外部文献，除非既有综述已经覆盖了所需的领域且该复用被显式记录。
+- 不要把当前领域当作唯一的检索空间；每当瓶颈可能允许时，都核查跨领域机制迁移。
+- 不要默认提升一个小微调；如果一个增量路线胜出，应记录为何更广泛的路线在新意、可行性或主张价值上失败。
+- 对于已就绪可发表的 idea 包，目标是通常覆盖至少 `5` 篇、且常常 `5-10` 篇与任务建模相关、机制相关或另有直接用处的论文。
+- 如果直接任务建模邻域确实少于 `5` 篇可用论文，应显式记录该证据，并用机制仍可迁移到当前任务与代码库的最接近相邻论文来填补剩余的覆盖。
+- 算法优先例外：
+  - 当 `startup_contract.need_research_paper = false` 且一个具体的优化抓手已经存在时，你可以停在记忆扫描加一次小型定向论文核查，而不必满足完整的 `5-10` 论文下限
+  - 仅当即时目标是为 `optimize` 做方法简报选择、而非论文层面的新意主张时，才使用这一例外
+  - 如果你使用了该例外，应明确说明输出是一份优化简报式前沿，而非一份已就绪可发表的 idea 包
+  - 仍要有意地塑形该前沿：先厘清瓶颈与可比性边界，保留一份差异化的 `2-3` 候选清单，并解释为何现在推荐某一简报
+- 每一次全新的想法构建或想法精修轮次都应始于：
+  - 一次记忆扫描，以及
+  - 一次外部文献扫描，或一份说明既有综述为何已经充分的明确理由。
+- 对于已就绪可发表的"提升"，在该方向被提升之前，刷新 `artifacts/idea/literature_survey.md` 或一份等价的持久化综述报告。
+- 每一次综述更新都必须显式地分离：
+  - 复用的既有综述覆盖
+  - 本轮新增的论文或比较
+  - 仍然缺失或未解决的重叠
+- 当网络/检索工具可用时，积极使用它。
+  优先用网络检索做论文发现，通常先 targeting arXiv，然后通过引文与开放网络检索扩展邻域覆盖。
+- 如果系统提示声明 DeepXiv 可用，在进行广泛的开放网络检索之前，优先采用 DeepXiv 路线做以论文为中心的发现与短名单论文分诊。
+- 如果系统提示声明 DeepXiv 不可用，不要强行使用它；停留在遗留路线上。
+- 当一篇具体的 arXiv 论文需要被阅读、比较或总结时，使用 `artifact.arxiv(paper_id=..., full_text=False)`。
+  默认把检索留在网络发现中；使用 `artifact.arxiv(...)` 来阅读短名单论文，且仅在需要时才设置 `full_text=True`。
+- 在开启一次广泛的新检索之前，用 `memory.search(...)` 核查 quest 与全局记忆，并复用既有的论文笔记、想法笔记与知识卡片。
+- 尽可能检索真正缺失、新近相关或更近期的论文。
+  不要在没有说明新检索旨在关闭哪个缺口的情况下，重跑同一广泛检索。
+- 不要引入一个新的数据集或新的评估制度，除非 quest 范围被显式改变。
+- 不要依赖人工评估或主观判断来做想法验证；最终的实验必须仍能用代码与已接受指标自动化。
+- 把构思当作读多写少：检视代码与论文，但在此阶段避免实质性实现。
+- 不要提出需要新数据集的方向。
+- 当一个更干净的、第一性原理的方向可用时，不要默认采用暴力式的工程升级。
+- 一旦已经存在一份小型、清晰排好序的前沿，就不要继续生成更多想法。
+- 如果预期机制与证据负担实质上未变，不要把表面变化当作一个新想法。
+- 在构思期间把生成与评估分开：先生成，后判断。
+- 以将当前框架分类为 `problem-first` 或 `solution-first` 来开启每一轮全新构思。
+- 除非强持久证据已经把路线收窄到一个明显的严肃选项，否则运行一次有界发散轮次，产出一份小型但有实质差异的清单，通常在坍缩为通常是 `2-3`、至多 `5` 的严肃前沿之前，先有 `6-12` 个原始想法。
+- 如果所有存活候选都属于同一个机制家族，在收敛之前用至少两个新构思透镜拓宽一次。
+- 把结构上连贯的被拒想法保留在停车区或被拒候选小节中，以便后续如需可重新组合。
+- 在算法优先的工作中，`idea` 通常应产出方向家族，而不是一大堆同家族变体。
+- 把同家族微变体当作 `optimize` 简报工作，除非机制家族本身仍未解决。
+- 每一个严肃候选都必须回答 `why now?` 或 `what changed?`，而不仅仅是 `what is the mechanism?`
+- 每一个被选想法在提升之前都必须通过一句两句话的推介与最强异议检查。
+- 除非你能解释清楚，否则不要提升一个方向：
+  - 它针对什么局限性
+  - 为何既有方法尚未解决它
+  - 后续需要什么证据来为该主张辩护
+- 当很可能下一步路线是一个面向论文的主实验加分析包时，不要停留在纯散文式的想法笔记；在该大纲候选中播下可能的 `research_questions`、`experimental_designs` 与逐节证据需求。
+- 如果该路线很可能已经有清晰的面向论文结构，尽早播下未来的论文路线：
+  - 识别可能的主文小节
+  - 识别哪些小节将需要补充证据，而不仅仅是一条主流程
+  - 识别后续必须在该论文路线的 outline 文件夹或已编译大纲契约中维护的具体证据项
+- 如果想法并非新颖但仍有价值，诚实陈述为：
+  - 复现价值
+  - 迁移到新设定的价值
+  - 针对一个未决问题的更强证据
+  - 负结果价值
+  - 基础设施/平台价值
+
+## 使用场景
+
+- baseline 已就绪
+- 任务与指标契约已经清晰
+- 该 quest 需要一个具体的研究方向
+- 当前想法路线失败，且需要一条新方向
+
+## 不要使用场景
+
+- baseline 闸门未解决
+- 该 quest 仍缺乏基本的问题框架
+- 下一步明显是撰写或定稿，而非构思
+
+## 前置条件与闸门
+
+在构思之前，确认：
+
+- 存在一个活跃或已接受的 baseline
+- 数据集与指标契约是显式的
+- 相关代码路径与论文是可用的
+- 最强的明显相关工作簇可从可用引用与工具中检索到
+
+如果这些都仍不清楚，路由回 `baseline` 或 `scout`。
+
+## 伴随技能规则
+
+`idea` 是方向选择的锚定技能。
+然而，当该 quest 仍需要文献支撑或新意核查时，在最终想法选择之前，应主动打开 `scout` 作为伴随技能。
+
+在实践中：
+
+- 使用 `scout` 来扩充论文集合、检索相邻方法，并厘清 baseline 格局
+- 使用 `idea` 将该格局转化为局限性、候选方向与一个被选想法
+
+不要仅仅因为该 quest 已经身处 `idea` 阶段，就跳过 `scout` 这一轮。
+
+## 方向塑形协议
+
+当主要需求是更好的推理卫生时，使用 `references/idea-thinking-flow.md`。
+当主要需求是创建一个新想法清单并从中选出一个清晰的下一研究对象时，使用 `references/idea-generation-playbook.md`。
+当主要需求是在拓宽之前识别一个真正重要的矛盾或瓶颈时，使用 `references/high-value-idea-sourcing.md`。
+
+一个全新想法轮次的默认创建流程：
+
+1. 框定一个具体局限性
+2. 分离症状 / 机制假设 / 后果
+3. 保留一个主假设加 `2-3` 个竞争假设
+4. 命名主要的杠杆桶
+5. 从该框架生成一个有界的候选清单
+6. 显式记录选定 / 推迟 / 拒绝的结果
+
+在拓宽之前，用一份验证成本估计来设定前沿宽度：
+
+- `fast-check`：首个客观验证循环可能低于约 `20` 分钟
+- `slow-check`：首个客观验证循环可能高于约 `20` 分钟，或在算力、排队时间或人工延迟上另有开销
+
+对于 `fast-check` 想法工作：
+
+- 当候选者确有实质差异时，允许稍宽一些的严肃清单
+- 优先选择带有廉价、正交证伪路径的候选者
+- 把更多替代方案保留到 `optimize` 中，因为验证比过度思考更便宜
+
+对于 `slow-check` 想法工作：
+
+- 把严肃清单收紧，通常为 `1-3`
+- 在新增一个家族之前，要求一个更清晰的瓶颈叙事与更强的证据
+- 优先选择每次运行预期证据性价比最高的路线，而不是上行空间最投机的路线
+- 不要仅仅因为一个宽泛的投机清单听起来有趣，就把它交接出去
+
+不要一开始就物色要添加的模块。
+在局限性被钉死之前，不要让一个诱人的机制成为事实上的框架。
+不要让方向家族构思过早坍缩为同家族变体生成。
+
+在普通的 idea 工作中，停在方向家族层面：
+
+- 选择哪些机制家族值得严肃考虑
+- 识别最强的一个向前推进
+- 当该 quest 是算法优先时，把同家族的简报塑形交接给 `optimize`
+
+如果任务仍需在机制家族之间做选择，停留在 `idea`。
+如果家族已经选定，且下一步需求是无分支的方法简报塑形，则交接给 `optimize`。
+
+## 真相来源
+
+使用：
+
+- baseline 产物与验证笔记
+- baseline 论文与源仓库
+- 当前代码库与近期 diff
+- scout 笔记与论文记忆卡片
+- 先前的失败运行与决策
+- 当前任务约束
+- 由 `memory.list_recent(...)` 与 `memory.search(...)` 返回的 quest 与全局记忆卡片
+- 先前的文献综述报告与相关工件
+- 针对 arXiv 与相关来源的网页检索发现结果
+- 使用 `artifact.arxiv(...)` 之后产生的论文阅读笔记
+- 邻近工作的引文轨迹与开放网络检索结果
+- 来自 baseline 论文与最强邻近论文的引文轨迹
+- 共享同一任务、指标、数据集、机制或瓶颈的近期论文
+
+不要仅凭风格对想法排序。
+应按证据、可行性与可检验性对它们排序。
+
+## 相关工作与新意强制要求
+
+在你选择一个方向之前，进行一次广泛但有界的文献扫描。
+
+该扫描必须立足于实际的检索，而非仅凭回忆。
+如果持久化的 quest 记忆已经包含一份近期且显式的综述，先复用它，并仅针对缺失的桶、更新的论文或未解决的重叠进行外部检索。
+对于一个正常的被选想法决策，持久化扫描必须以至少 `5` 篇、通常 `5-10` 篇论文收尾，这些论文要足够贴近任务建模问题、失败模式、机制或代码库迁移问题，以真正指导设计。
+这一下限的存在是为了防止空洞的新意主张与动机不足的 idea，而不是为了奖励凑配额。
+
+不要将"近期论文"当作"领域历史"的替代品。
+至少应勾勒出：
+
+- 开创性或奠基性论文
+- 转折点或范式转移论文
+- 当前主流或 SOTA 论文
+
+然后用引文追溯重建该问题如何演变，以及真正的断点仍在何处。
+
+在工具允许时，结合使用：
+
+- `memory.search(...)` 与近期记忆读取
+- 在可用时，使用 DeepXiv 进行广泛的、以论文为中心的发现与引文扩展
+- 否则用网络检索针对 arXiv 与相邻来源
+- `artifact.arxiv(paper_id=..., full_text=False)` 用于真正阅读短名单论文
+- 引文扩展或开放网络检索用于跟进论文、代码与比较
+
+该扫描应至少覆盖以下检索角度：
+
+- 同任务 / 同数据集 / 同指标的直接竞争者
+- 使用你正在考虑的同一机制或主要杠杆的方法
+- 针对同一失败模式或瓶颈的论文
+- 可能已经填补该缺口的强近期论文
+
+当直接邻域看起来已经饱和或过于增量时，将扫描扩展到相邻的的概念邻域：
+
+- 针对同一不稳定或目标错配的优化方法
+- 针对同一信息瓶颈的表征学习方法
+- 信号处理、几何、概率或受控制启发、针对类似失败模式的方法
+- 来自相邻任务、以不同表面形式解决同一结构性问题的方法
+
+关键在于有原则的迁移，而非表面的移植。
+只有在你能解释它为何应当存活着迁移到当前代码库与指标契约中时，才借用核心机制或数学思想。
+
+对于每一个有前景的想法，你必须能够回答：
+
+- 哪些论文是最接近的既有技术？
+- 与你提出的机制究竟存在什么重叠？
+- 那些论文中仍缺失、薄弱或未检验的是什么？
+- 如果它们已经做了大部分工作，为何这仍值得追求？
+
+目标不是引用地球上的所有东西。
+目标是避免虚假新意，并识别出一条具有可信研究价值的方向。
+然而，一旦第一个看似合理的论点出现，就不要提前结束扫描。
+应持续进行，直到最强的明显重叠被勾勒清楚、且 `5-10` 篇可用论文的下限被持久化地满足。
+
+推荐的检索输出：
+
+- 一份紧凑的相关工作地图
+- 一张最接近既有工作表
+- 对每个严肃候选者的新意 / 价值判断
+- 一个论文分桶：
   - `core papers`
   - `closest competitors`
   - `adjacent inspirations`
   - `watchlist / uncertain relevance`
 
-For a more detailed search and triage method, read `references/related-work-playbook.md`.
+如需更详细的检索与分诊方法，请阅读 `references/related-work-playbook.md`。
 
-If the search is still too thin to support a novelty or value judgment, the idea stage is not ready to end.
+如果检索仍然过于单薄，不足以支撑一个新意或价值判断，idea 阶段就尚未准备好结束。
 
-## Required durable outputs
+## 必需的持久化输出
 
-The idea stage should usually leave behind:
+idea 阶段通常应留下：
 
-- an objective contract
-- a current board packet
-- a limitations analysis
-- a literature survey report
-- a survey-delta section that marks:
-  - reused findings
-  - newly retrieved papers this pass
-  - unresolved gaps or watchlist items
-- a related-work map
-- a novelty and research-value audit
-- `2-5` candidate ideas, with the final serious frontier usually narrowed to `2-3`
-- a selected idea or explicit rejection of the current line
-- a durable Markdown idea draft that is finalized before the accepted idea is submitted
-- one pre-idea draft per serious surviving candidate, usually `1-3`
-- one or more memory cards for reusable rationale
-- one or more quest `papers` cards for the strongest papers or search clusters
-- an idea artifact and a decision artifact
+- 一份目标契约
+- 一份当前盘面数据包
+- 一份局限性分析
+- 一份文献综述报告
+- 一个标记了以下内容的综述增量小节：
+  - 复用的发现
+  - 本轮新检索到的论文
+  - 未解决的缺口或观察清单项
+- 一份相关工作地图
+- 一份新意与研究价值审计
+- `2-5` 个候选想法，最终严肃前沿通常收窄到 `2-3`
+- 一个被选想法，或对当前路线的显式拒绝
+- 一份在已接受想法提交之前定稿的持久化 Markdown 想法草稿
+- 每个严肃存活候选者一份"想法前"草稿，通常为 `1-3`
+- 一张或多张用于可复用理由的记忆卡片
+- 一张或多张针对最强论文或检索簇的 quest `papers` 卡片
+- 一个 idea 工件与一个 decision 工件
 
-Recommended durable intermediate outputs:
+推荐的持久化中间输出：
 
-- an outline-style direction note with:
-  - executive summary
-  - current baseline results and metric direction
-  - codebase analysis
-  - dataset analysis
-  - mathematical problem formulation
-  - baseline methods as special cases
-  - five actionable research directions
-  - evaluation metrics and success criteria
-  - infrastructure and constraint notes
-  - claim boundary
+- 一份大纲式方向笔记，包含：
+  - 执行摘要
+  - 当前 baseline 结果与指标方向
+  - 代码库分析
+  - 数据集分析
+  - 数学问题形式化
+  - 作为特例的 baseline 方法
+  - 五条可操作的研究方向
+  - 评估指标与成功标准
+  - 基础设施与约束笔记
+  - 主张边界
 
-When producing a fuller research-outline style note, prefer a direct-agent-like structure:
+当产出一份更完整的研究大纲式笔记时，优先采用类 direct-agent 的结构：
 
 - `Executive Summary`
 - `Codebase Analysis`
@@ -584,9 +584,9 @@ When producing a fuller research-outline style note, prefer a direct-agent-like 
 - `Research Directions`
 - `Risks & Mitigations`
 
-Do not force this structure for every tiny ideation turn, but use it when the quest needs a serious research-plan artifact.
+不要对每一个微小的构思回合都强求这一结构，但在该 quest 需要一份严肃的研究计划工件时使用它。
 
-Recommended durable files:
+推荐的持久化文件：
 
 - `artifacts/idea/objective_contract.md`
 - `artifacts/idea/current_board_packet.md`
@@ -598,766 +598,765 @@ Recommended durable files:
 - `artifacts/idea/selected_idea.md`
 - `artifacts/idea/research_outline.md`
 
-When producing the literature survey report, prefer the structure in `references/literature-survey-template.md`.
-When writing the objective contract, prefer `references/objective-contract-template.md`.
-When writing the current board packet, prefer `references/current-board-packet-template.md`.
-When the route needs a bounded but real creative-divergence pass, prefer `references/controlled-brainstorming-playbook.md`.
+在产出文献综述报告时，优先采用 `references/literature-survey-template.md` 的结构。
+在编写目标契约时，优先采用 `references/objective-contract-template.md`。
+在编写当前盘面数据包时，优先采用 `references/current-board-packet-template.md`。
+当该路线需要有界但真实的创意发散轮次时，优先采用 `references/controlled-brainstorming-playbook.md`。
 
-When producing a full research-outline style note, prefer the detailed structure in `references/research-outline-template.md`.
+当产出一份完整的研究大纲式笔记时，优先采用 `references/research-outline-template.md` 中的详细结构。
 
-When the runtime supports durable knowledge cards, also preserve:
+当运行时支持持久化知识卡片时，也保留：
 
-- incident or failure-pattern lookups relevant to the mechanism
-- a reusable knowledge card for the selected idea hypothesis
+- 与机制相关的事件或失败模式查找
+- 针对被选想法假设的一张可复用知识卡片
 
-## Thinking protocol
+## 思维协议
 
-Use the old PI discipline here too.
-Your analysis should be:
+在这里也使用旧的 PI 规范。
+你的分析应当：
 
-- hypothesis-driven: viewpoint first, evidence second
-- pyramid-shaped: conclusion first, then reasons, then action
-- MECE where possible:
-  - data
-  - model
-  - objective
-  - optimization or training dynamics
-  - inference
-  - evaluation protocol
-  - infrastructure
-- SCQA-compatible:
-  - situation
-  - complication
-  - research question
-  - answer hypothesis plus `2-3` competing hypotheses
+- 假设驱动：观点优先，证据其次
+- 金字塔形：结论优先，然后理由，然后行动
+- 尽可能 MECE：
+  - 数据
+  - 模型
+  - 目标
+  - 优化或训练动态
+  - 推理
+  - 评估协议
+  - 基础设施
+- 兼容 SCQA：
+  - 情境
+  - 冲突
+  - 研究问题
+  - 答案假设加 `2-3` 个竞争假设
 
-Do not dump disconnected observations.
-Turn them into a direction argument.
+不要倾倒互不相连的观察。
+把它们转化为一个方向论证。
 
-For a more explicit end-to-end reasoning sequence, read `references/idea-thinking-flow.md`.
+如需更显式的端到端推理序列，请阅读 `references/idea-thinking-flow.md`。
 
-## Creative-divergence protocol
+## 创意发散协议
 
-Use deliberate ideation lenses before convergence when the route is not already obvious from durable evidence.
-The point is not uncontrolled brainstorming.
-The point is to widen the search just enough to avoid premature convergence onto the first implementable idea.
+当路线尚未从持久化证据中变得显而易见时，在收敛之前使用刻意的构思透镜。
+关键不是不受控制的头脑风暴。
+关键在于把搜索拓宽得恰到好处，以避免过早坍缩到第一个可实现的想法上。
 
-This divergence protocol does not replace the main workflow below.
-It sits inside the main workflow after minimum grounding already exists from memory reuse, initial literature sweep, baseline reconstruction, and limitation analysis.
-If strong durable evidence already narrows the route to one obvious serious option, you may abbreviate the full widening pass, but you must record why a broader divergence pass was unnecessary.
+这个发散协议不替代下方的主工作流。
+它在主工作流内部、在最小根基已经由记忆复用、初始文献扫描、baseline 重建与局限性分析建立之后才就位。
+如果强持久证据已将路线收窄到一个明显的严肃选项，你可以精简完整的拓宽轮次，但你必须记录为何一次更广泛的发散是不必要的。
 
-First classify the current entry frame:
+首先分类当前的进入框架：
 
-- `problem-first`:
-  - start from a concrete failure, bottleneck, or unmet need
-  - confirm who suffers, how much it matters, and why the problem is still open
-- `solution-first`:
-  - start from a new capability, mechanism, or transfer idea
-  - confirm at least two genuine problems it could solve and why this is not just a hammer looking for a nail
+- `problem-first`：
+  - 从一个具体的失败、瓶颈或未满足的需求出发
+  - 确认谁在承受、重要程度如何、以及为何该问题仍然开放
+- `solution-first`：
+  - 从一个新能力、机制或迁移想法出发
+  - 确认它至少能解决两个真实问题，以及为何这不只是"拿着锤子找钉子"
 
-Then choose at least `2-4` ideation lenses that are actually relevant to the current bottleneck.
-Good default lenses include:
+然后选择至少 `2-4` 个真正与当前瓶颈相关的构思透镜。
+好的默认透镜包括：
 
-- abstraction ladder:
-  - move up to a broader principle
-  - move down to an extreme constrained case
-  - move sideways to an adjacent task with the same structure
-- tension or contradiction hunting:
-  - identify tradeoffs such as performance vs efficiency, safety vs capability, or generality vs specialization
-- `why now` / `what changed`:
-  - ask whether new compute, tooling, open models, benchmarks, failures, or regulations make an old direction newly viable
-- analogy transfer:
-  - borrow a structural mechanism from a nearby or distant field only when the mapping is causal, not metaphorical
-- constraint manipulation:
-  - list hard, soft, and hidden constraints, then relax, tighten, or replace the soft or hidden ones
-- negation or inversion:
-  - negate a widely assumed design rule and check whether the resulting system is coherent
-- composition / decomposition:
-  - combine two complementary components or separate a monolithic method into the real bottleneck pieces
-- adjacent possible:
-  - focus on directions that became feasible only because recent enablers now exist
-- stakeholder rotation:
-  - inspect the route from the end-user, developer, theorist, operator, regulator, or adversary perspective
-- simplicity test:
-  - ask whether the key contribution survives a simpler and cleaner mechanism
+- 抽象阶梯：
+  - 向上移动到更宽泛的原则
+  - 向下移动到极端受限的情形
+  - 横向移动到具有相同结构的相邻任务
+- 张力或矛盾搜寻：
+  - 识别诸如性能 vs 效率、安全 vs 能力，或通用性 vs 专业性之类的权衡
+- `why now` / `what changed`：
+  - 询问新的算力、工具、开放模型、基准、失败或法规是否让一个旧方向重新变得可行
+- 类比迁移：
+  - 仅当映射是因果性的、而非隐喻性的时，才从邻近或遥远领域借用一种结构性机制
+- 约束操纵：
+  - 列出硬性、软性与隐藏约束，然后放宽、收紧或替换软性或隐藏约束
+- 否定或反转：
+  - 否定一条被广泛假设的设计规则，并核查所得系统是否连贯
+- 组合 / 分解：
+  - 组合两个互补组件，或将一个整体式方法拆分为真正的瓶颈片段
+- 相邻可能：
+  - 聚焦于仅因近期赋能因素现已存在才变得可行的方向
+- 利益相关者轮换：
+  - 从终端用户、开发者、理论家、运维者、监管者或对手的视角审视该路线
+- 简洁性测试：
+  - 询问关键贡献是否能在一个更简单、更干净的机制下存活
 
-During this divergent phase:
+在此发散阶段：
 
-- generate a compact but varied raw slate, usually `6-12` ideas
-- do not score them too early
-- force the slate to contain some diversity, usually:
-  - one conservative route
-  - one higher-upside route
-  - one elegance-first or low-complexity route
-- keep a parking-lot list for coherent rejects and odd-but-possible ideas
+- 生成一份紧凑但有差异的原始清单，通常为 `6-12` 个想法
+- 不要太早对它们打分
+- 迫使清单包含一些多样性，通常为：
+  - 一条保守路线
+  - 一条更高上行空间的路线
+  - 一条优雅优先或低复杂度的路线
+- 为连贯的拒绝项与古怪但可能的想法保留一份停车区列表
 
-For each raw idea, capture at least:
+对于每个原始想法，至少捕获：
 
-- one-sentence hypothesis
-- target limitation
+- 一句话假设
+- 目标局限性
 - `why now` / `what changed`
-- likely closest prior overlap or novelty risk
-- whether it is conservative, higher-upside, or elegance-first
+- 可能最接近的既有重叠或新意风险
+- 它是保守的、更高上行空间的，还是优雅优先的
 
-Only after this bounded widening step should you collapse into the shortlist that will be scored seriously.
+只有在这一有界拓宽步骤之后，才应坍缩为将被严肃打分的短名单。
 
-## Framework selection guide
+## 框架选择指南
 
-Do not use every ideation lens on every quest.
-Pick the smallest set that breaks the current local optimum.
+不要在每一个 quest 上都使用每一个构思透镜。
+挑选能打破当前局部最小的最少集合。
 
-Recommended defaults:
+推荐的默认情形：
 
-- if the area is important but the concrete route is still vague:
-  - start with tension hunting plus `why now` / `what changed`
-- if you have a vague bottleneck but only incremental ideas:
-  - start with abstraction ladder plus failure or boundary probing
-- if you have a cool mechanism but no strong reason to care:
-  - start with the `problem-first` check plus stakeholder rotation
-- if every candidate feels like a small benchmark tweak:
-  - start with constraint manipulation plus negation or inversion
-- if every candidate is a near-clone of the incumbent:
-  - start with analogy transfer plus adjacent possible
-- if you are stuck between two paradigms that seem opposed:
-  - start with contradiction hunting and look for synthesis instead of compromise
-- if the route looks elegant but suspiciously complex:
-  - start with the simplicity test and force the minimum viable mechanism
-- if timing is the main uncertainty:
-  - start with the `why now` audit and adjacent-possible check
+- 如果该领域重要，但具体路线仍模糊：
+  - 从张力搜寻加 `why now` / `what changed` 开始
+- 如果你有一个模糊瓶颈但只有增量想法：
+  - 从抽象阶梯加失败或边界探查开始
+- 如果你有一个很酷的机制但没有足够在意的理由：
+  - 从 `problem-first` 检查加利益相关者轮换开始
+- 如果每个候选都像一个小基准微调：
+  - 从约束操纵加否定或反转开始
+- 如果每个候选都近乎是当前在位方案的克隆：
+  - 从类比迁移加相邻可能开始
+- 如果你在两条看似对立的范式之间卡住：
+  - 从矛盾搜寻开始，并寻找综合而非折中
+- 如果该路线看起来优雅但可疑地复杂：
+  - 从简洁性测试开始，并迫使最小可行机制
+- 如果时机是主要的不确定性：
+  - 从 `why now` 审计加相邻可能检查开始
 
-The goal is not to sound creative.
-The goal is to produce candidate mechanisms that are genuinely different in logic, evidence burden, or timing rationale.
+目标不是听起来有创意。
+目标是产出在逻辑、证据负担或时机理由上真正不同的候选机制。
 
-## Integrated ideation workflow
+## 集成构思工作流
 
-Use this end-to-end pattern when the route is not already forced by durable evidence.
-Treat it as a subroutine inside the main workflow, not as a replacement for the main workflow order.
+当路线尚未被持久化证据强行决定时，使用这一端到端模式。
+把它当作主工作流内部的一个子程序，而非对主工作流顺序的替代。
 
-### Phase A. Diverge
+### 阶段 A. 发散
 
-Goal:
+目标：
 
-- create a compact but meaningfully varied slate before judging winners
+- 在判断胜者之前，创建一份紧凑但有实质差异的清单
 
-Precondition:
+前置条件：
 
-- minimum grounding already exists from quest memory, an initial literature sweep, baseline reconstruction, and a current limitations map
+- 最小根基已经由 quest 记忆、一次初始文献扫描、baseline 重建与一份当前局限性地图建立
 
-Recommended sequence:
+推荐序列：
 
-1. classify the current entry as `problem-first` or `solution-first`
-2. list the top bottlenecks, tensions, and what changed recently
-3. probe one or two failure boundaries of the incumbent
-4. apply `2-4` ideation lenses
-5. generate `6-12` raw ideas and keep a parking-lot list for coherent rejects
+1. 将当前进入分类为 `problem-first` 或 `solution-first`
+2. 列出顶级瓶颈、张力，以及近期发生的变化
+3. 探查在位方案的一个或两个失败边界
+4. 应用 `2-4` 个构思透镜
+5. 生成 `6-12` 个原始想法，并为连贯的拒绝项保留一份停车区列表
 
-During divergence:
+在发散期间：
 
-- do not rank too early
-- do not kill an idea only because it is unusual
-- do kill ideas that are incoherent, outside scope, or impossible in the current repo
+- 不要过早排序
+- 不要仅仅因为一个想法不寻常就杀死它
+- 要杀死那些不连贯、超出范围，或在当前代码库中不可能实现的想法
 
-### Phase B. Converge
+### 阶段 B. 收敛
 
-Goal:
+目标：
 
-- reduce the raw slate to a serious frontier that is usually `2-3` candidates and at most `5`
+- 将原始清单缩减为通常是 `2-3` 个候选、至多 `5` 个的严肃前沿
 
-Apply these filters:
+应用以下过滤器：
 
-- explain-it test:
-  - can the idea be stated clearly in two sentences?
-- problem-value test:
-  - does the problem matter to a real reader, user, or evaluator?
-- `why now` test:
-  - is there a concrete reason this route is timely now rather than three years ago?
-- simplicity test:
-  - is the mechanism doing real work, or is it ornamental complexity?
-- feasibility test:
-  - can the current repo and resource budget test this honestly?
-- novelty or value test:
-  - even if not novel, is the line still worth doing for transfer, negative-result, or infrastructure value?
+- 可解释性测试：
+  - 该想法能否在两句话内被清晰陈述？
+- 问题价值测试：
+  - 该问题对一个真实读者、用户或评估者是否重要？
+- `why now` 测试：
+  - 是否存在一个具体的理由，说明该路线为何是现在而非三年前正当其时？
+- 简洁性测试：
+  - 该机制是在做真正的工作，还是装饰性的复杂度？
+- 可行性测试：
+  - 当前代码库与资源预算能否诚实地检验它？
+- 新意或价值测试：
+  - 即便不新颖，该路线是否仍因迁移、负结果或基础设施价值而值得做？
 
-If the shortlist is still homogeneous after convergence, return to Phase A with different lenses once.
+如果短名单在收敛之后仍然同质，用不同的透镜回到阶段 A 一次。
 
-### Phase C. Refine
+### 阶段 C. 精修
 
-Goal:
+目标：
 
-- turn the winning candidate into a stable handoff contract for `experiment`
+- 把胜出候选转化为一份稳定的、用于交接给 `experiment` 的契约
 
-Before promotion, force the winner to answer:
+在提升之前，强迫胜者回答：
 
-- what exact limitation it targets
-- why current methods still fail here
-- what changed or why this is timely now
-- what the smallest credible implementation is
-- what the cheapest falsification path is
-- what the strongest likely objection is
-- what the two-sentence pitch is
+- 它针对什么确切局限性
+- 为何当前方法在此仍失败
+- 发生了什么变化，或为何它正当其时
+- 最小可信实现是什么
+- 最廉价的证伪路径是什么
+- 最强烈的可能异议是什么
+- 那句两句话的推介是什么
 
-Only then move into the normal selection gate and `artifact.submit_idea(...)` flow.
+只有在这之后，才进入正常的选择闸门与 `artifact.submit_idea(...)` 流程。
 
-## Common ideation failure modes and recovery moves
+## 常见构思失败模式与恢复动作
 
-Watch for these predictable failures:
+留意这些可预测的失败：
 
-- premature convergence:
-  - symptom: the first plausible route becomes the winner before a real alternative set exists
-  - recovery: reopen divergence with at least two different lenses
-- novelty without value:
-  - symptom: "nobody has tried this" is doing all the work
-  - recovery: run the problem-value test and stakeholder rotation
-- value without differentiation:
-  - symptom: the route matters, but close prior work already did most of it
-  - recovery: tighten the related-work map or route back to `scout`
-- complexity worship:
-  - symptom: the candidate has many moving parts but weak causal justification
-  - recovery: run the simplicity test and reduce to the smallest mechanism that could still work
-- analogy by metaphor:
-  - symptom: a cross-domain import sounds clever but the mechanism does not really map
-  - recovery: rewrite the analogy in causal language and reject it if the structure does not survive
-- stale assumptions:
-  - symptom: the team dismisses a route only because it failed under old constraints
-  - recovery: run the `what changed` audit explicitly
-- false binary:
-  - symptom: discussion gets stuck on choosing A or B
-  - recovery: ask whether the conflict is fundamental or an artifact of current formulations
-- adjacent-but-impossible:
-  - symptom: the route is interesting but needs assets or capabilities the current system does not have
-  - recovery: redesign around current constraints or reject honestly instead of hand-waving feasibility
+- 过早收敛：
+  - 症状：在存在真实替代集合之前，第一个看似合理的路线就成了胜者
+  - 恢复：用至少两个不同透镜重新开启发散
+- 有新意无价值：
+  - 症状："没人试过这个"在承担全部论证重量
+  - 恢复：运行问题价值测试与利益相关者轮换
+- 有价值无差异化：
+  - 症状：该路线重要，但最接近的既有工作已经做了大部分
+  - 恢复：收紧相关工作地图或路由回 `scout`
+- 复杂度崇拜：
+  - 症状：候选者有许多活动部件但因果论证薄弱
+  - 恢复：运行简洁性测试，并缩减到仍能工作的最小机制
+- 隐喻式类比：
+  - 症状：一个跨领域移植听起来聪明，但机制并未真正映射
+  - 恢复：用因果语言重写该类比，若结构无法存活则拒绝它
+- 陈旧假设：
+  - 症状：团队仅因某路线在旧约束下失败就驳回它
+  - 恢复：显式运行 `what changed` 审计
+- 虚假二分：
+  - 症状：讨论卡在选择 A 或 B 上
+  - 恢复：询问该冲突是根本性的，还是当前形式化的产物
+- 相邻但不可能：
+  - 症状：该路线有趣但需要当前系统并不具备的资产或能力
+  - 恢复：围绕当前约束重新设计，或诚实拒绝，而非对手可行性含糊带过
 
-Use these recovery moves early.
-Do not wait until the selection gate to discover the whole ideation pass was trapped in the wrong mode.
+尽早使用这些恢复动作。
+不要等到选择闸门才发现整个构思轮次都困在了错误的模式里。
 
-## Workflow
+## 工作流
 
-### 1. Lock the success target and contribution frame
+### 1. 锁定成功目标与贡献框架
 
-Before generating ideas, state:
+在生成想法之前，陈述：
 
-- the primary metric and whether higher or lower is better
-- the strongest baseline number with source path
-- the expected contribution type:
+- 主要指标，以及更高还是更低更好
+- 最强的 baseline 数值及其来源路径
+- 预期的贡献类型：
   - `Insight`
   - `Performance`
   - `Capability`
-- the problem importance in one sentence
-- the main challenge or bottleneck in one sentence
-- whether the direction is emerging, stable, or late relative to the current literature wave
-- the risk that the direction is valuable but may still be under-recognized
-- one sentence for the intended increment over the strongest baseline
-- what new knowledge the reader would gain if this line works
+- 一句话说明问题的重要性
+- 一句话说明主要挑战或瓶颈
+- 该方向相对于当前文献浪潮是新兴、稳定还是晚期
+- 该方向有价值但可能仍被低估的风险
+- 针对最强 baseline 的预期增量的一个句子
+- 如果该路线奏效，读者将获得什么新知识
 
-If the metric, baseline value, or contribution frame is unclear, stop and clarify before ideation.
+如果指标、baseline 值或贡献框架不清楚，在构思之前停下来澄清。
 
-### 1.1 Plan the ideation investigation
+### 1.1 规划构思调查
 
-Before deep searching, write a compact plan for:
+在深度检索之前，为以下内容撰写一份紧凑计划：
 
-- which limitation or bottleneck you are investigating first
-- which literature buckets you will search
-- which evidence would validate or refute your current hypothesis
-- which prior ideas, findings, or failed attempts must not be duplicated blindly
-- whether the current framing is `problem-first` or `solution-first`, and why that framing is justified
-- a short first-principles memo explaining what you currently believe before you let the literature reshape that belief
+- 你首先调查的局限性或瓶颈
+- 你将检索哪些文献桶
+- 哪些证据将验证或驳斥你当前的假设
+- 哪些既有想法、发现或失败尝试不可被盲目重复
+- 当前框架是 `problem-first` 还是 `solution-first`，以及为何该框架是合理的
+- 一份简短的第一性原理备忘，说明你在让文献重塑该信念之前当前相信什么
 
-The plan does not need to be long.
-It does need to make the search strategy explicit.
+该计划不必很长。
+它确实需要使检索策略显式化。
 
-### 1.2 Reuse durable memory before searching again
+### 1.2 在再次检索之前复用持久化记忆
 
-Before the open-web sweep, actively check what the quest already knows.
+在开放网络扫描之前，积极核查该 quest 已经知道什么。
 
-At minimum:
+至少：
 
-- inspect recent quest `papers`, `ideas`, `decisions`, and `knowledge`
-- inspect recent global `papers`, `knowledge`, and `templates` if the topic looks reusable
-- inspect the latest `artifacts/idea/literature_survey.md` or equivalent survey report when it exists
-- run `memory.search(...)` on:
-  - the baseline method name
-  - the task and dataset
-  - the likely mechanism keywords
-  - the strongest current candidate labels
-- record which buckets are:
-  - already covered
-  - stale or incomplete
-  - still missing
+- 检视近期的 quest `papers`、`ideas`、`decisions` 与 `knowledge`
+- 如果主题看起来可复用，检视近期的全局 `papers`、`knowledge` 与 `templates`
+- 当存在时，检视最新的 `artifacts/idea/literature_survey.md` 或等价综述报告
+- 对以下内容运行 `memory.search(...)`：
+  - baseline 方法名
+  - 任务与数据集
+  - 可能的机制关键词
+  - 最强的当前候选标签
+- 记录哪些桶是：
+  - 已覆盖
+  - 陈旧或不完整
+  - 仍缺失
 
-If the quest already has a strong survey and paper memory set, do not blindly repeat the whole search.
-Only search the open web for uncovered gaps, newer papers, or unclear overlaps.
-Every new external query should close one of these explicit gaps:
+如果该 quest 已经拥有一份强综述与论文记忆集，不要盲目重复整个检索。
+仅针对未覆盖的缺口、更新的论文或不清晰的重叠进行开放网络检索。
+每一个新的外部查询都应关闭以下显式缺口之一：
 
-- missing paper bucket
-- newer-than-last-survey refresh
-- unresolved overlap with a candidate idea
-- verification of a paper that might block novelty or value claims
+- 缺失的论文桶
+- 比上次综述更新的刷新
+- 与某个候选想法未解决的重叠
+- 对某篇可能阻碍新意或价值主张的论文的验证
 
-### 2. Run the related-work sweep
+### 2. 运行相关工作扫描
 
-Search broadly enough to cover the strongest obvious competitors and neighboring methods.
+检索得足够广泛，以覆盖最强的明显竞争者与方法邻域。
 
-Use the runner's search tooling actively.
-When available, use web search for discovery, often targeting arXiv first, then use citation or broader web search to expand the closest-neighbor cluster.
+积极使用该 runner 的检索工具。
+当可用时，用网络检索做发现，通常先 targeting arXiv，然后用引文或更广的网络检索来扩展最接近的邻居簇。
 
-At minimum, inspect:
+至少检视：
 
-- the baseline paper references
-- papers cited by the closest prior methods
-- papers that cite the baseline or core method, when available
-- recent papers on the same task, dataset, metric, or failure mode
-- implementation repositories for the strongest nearby methods, when relevant
+- baseline 论文的参考文献
+- 被最接近的既有方法引用的论文
+- 在可用时，引用 baseline 或核心方法的论文
+- 关于同一任务、数据集、指标或失败模式的近期论文
+- 在相关时，针对最强邻近方法的实现仓库
 
-Keep a compact search ledger while you work.
-For each meaningful search query or paper cluster, record:
+在工作时保留一份紧凑的检索台账。
+对于每个有意义的检索查询或论文簇，记录：
 
-- query text
-- source, such as `memory`, `arXiv`, or open web
-- why you issued the query
-- which papers were newly added
-- which previously known papers were re-confirmed
-- which gaps remain after this pass
+- 查询文本
+- 来源，如 `memory`、`arXiv` 或开放网络
+- 你发出该查询的原因
+- 哪些论文被新加入
+- 哪些先前已知的论文被再次确认
+- 本轮之后仍遗留哪些缺口
 
-Do not treat the search ledger as optional prose.
-It is the durable reason why the next idea pass should search only the remaining gaps instead of restarting broad discovery from zero.
+不要把检索台账当作可选的散文。
+它是一份持久化的理由，说明为何下一轮想法应从仅剩的缺口检索，而不是从零重启广泛发现。
 
-For the shortlist of closest papers, record:
+对于最接近的论文短名单，记录：
 
-- paper identifier and year
-- core mechanism
-- task / dataset / metric overlap
-- what claim it already supports
-- what gap, weakness, or open edge remains
-- whether it reduces the novelty of your candidate
+- 论文标识与年份
+- 核心机制
+- 任务 / 数据集 / 指标重叠
+- 它已支撑什么主张
+- 仍遗留什么缺口、弱点或开放边缘
+- 它是否削弱了你的候选的新意
 
-Search guidance:
+检索指引：
 
-- prefer recent work when the area is moving quickly, especially `2023-2027`
-- do not ignore older seminal papers if they are the real origin of the idea
-- use purpose-driven search rather than quota-chasing
-- repeat the search multiple times with refined queries when novelty or motivation remains uncertain
-- when resuming idea work, start from the latest survey report and search only for the still-missing neighborhood or newer papers
+- 当该领域进展迅速时，优先近期工作，尤其是 `2023-2027`
+- 如果旧的开创性论文才是该想法的真正起源，不要忽略它们
+- 使用目的驱动的检索，而非凑配额
+- 当新意或动机仍不确定时，用精炼查询多次重复检索
+- 当恢复想法工作时，从最新的综述报告出发，仅检索仍缺失的邻域或更新的论文
 
-At the start of the sweep, classify the challenge type in one sentence, for example:
+在扫描开始时，用一句话分类挑战类型，例如：
 
-- information bottleneck
-- optimization instability
-- weak inductive bias
-- noisy supervision
-- poor calibration
-- brittle inference procedure
+- 信息瓶颈
+- 优化不稳定
+- 弱归纳偏置
+- 噪声监督
+- 校准不佳
+- 脆弱的推理流程
 
-Then use that abstraction to widen the search.
-This prevents the stage from staying trapped in only same-keyword literature when the deeper mechanism may have better inspirations elsewhere.
+然后用该抽象来拓宽检索。
+这能防止本阶段困在仅同关键词的文献中，而更深层机制可能在别处有更好的启发。
 
-Cross-domain exploration is allowed and encouraged when it sharpens the idea.
-Map the failure type to `2-3` adjacent domains when useful, such as:
+当它能锐化想法时，允许并鼓励跨领域探索。在有用时，把失败类型映射到 `2-3` 个相邻领域，例如：
 
-- optimization
-- information theory
-- signal processing
-- statistical learning
-- systems or inference engineering
+- 优化
+- 信息论
+- 信号处理
+- 统计学习
+- 系统或推理工程
 
-Look for principles that can be translated into the current codebase, not copied blindly.
+寻找可迁移到当前代码库的原理，而非盲目复制。
 
-Do not stop at one or two papers if the area is active.
-Keep going until the strongest obvious overlaps are mapped.
+如果该领域活跃，不要停在一两篇论文上。
+持续进行，直到最强的明显重叠被勾勒清楚。
 
-Also compare against prior quest ideas and findings when they exist:
+当存在时，也同先前的 quest 想法与发现做比较：
 
-- avoid rediscovering an already rejected line without new evidence
-- explain how the current candidate differs from prior attempts
-- explicitly note if the new direction is a refinement, branch, or replacement
+- 避免在没有新证据的情况下重新发现一条已被拒绝的路线
+- 解释当前候选如何不同于先前的尝试
+- 显式注明新方向是精炼、分支还是替换
 
-### 3. Reconstruct the baseline line
+### 3. 重建 baseline 路线
 
-State clearly:
+清晰陈述：
 
-- what the baseline does
-- what assumptions it depends on
-- where it appears to fail
-- which metrics matter most
-- what resource or repository constraints matter
+- baseline 做了什么
+- 它依赖什么假设
+- 它似乎在何处失败
+- 哪些指标最重要
+- 哪些资源或仓库约束重要
 
-Also identify concrete code touchpoints:
+也识别具体的代码接触点：
 
-- train or eval entrypoints
-- dataset loaders and preprocessing
-- model, loss, and metric code
-- where a future method difference would actually land
+- 训练或评估入口
+- 数据集加载器与预处理
+- 模型、损失与指标代码
+- 未来方法差异实际会落地的位置
 
-For each serious baseline method, also rate improvement potential as:
+对于每个严肃 baseline 方法，还把改进潜力评定为：
 
 - `HIGH`
 - `MEDIUM`
 - `LOW`
 
-and justify the rating from:
+并从以下方面论证该评级：
 
-- algorithmic flexibility
-- implementation complexity
-- coupling or maintainability constraints
-- room for principled extension
+- 算法灵活性
+- 实现复杂度
+- 耦合或可维护性约束
+- 原则性扩展的空间
 
-### 4. Produce a limitations map
+### 4. 产出局限性地图
 
-List the most decision-relevant limitations, such as:
+列出最具决策相关性的局限性，例如：
 
-- obvious architectural bottleneck
-- error concentration on a known case type
-- mismatch between objective and evaluation metric
-- weak robustness
-- compute or efficiency bottleneck
-- missing information flow or representation quality
+- 明显的架构瓶颈
+- 在已知案例类型上的误差集中
+- 目标与评估指标之间的错配
+- 弱鲁棒性
+- 算力或效率瓶颈
+- 缺失的信息流或表征质量
 
-Do not confuse random inconveniences with true research limitations.
+不要把随机的不便与真正的研究局限性混为一谈。
 
-The limitations map should be concrete enough that each top limitation can support one falsifiable research question.
+局限性地图应足够具体，使得每一个顶级局限性都能支撑一个可证伪的研究问题。
 
-For each top limitation, also record:
+对于每个顶级局限性，还记录：
 
-- why it matters for the main metric
-- what evidence currently supports it
-- whether it is likely a data, model, objective, optimization, inference, evaluation, or infrastructure issue
-- `2-4` concrete root-cause hypotheses
+- 它为何对主指标重要
+- 当前什么证据支撑它
+- 它可能是数据、模型、目标、优化、推理、评估还是基础设施问题
+- `2-4` 个具体的根因假设
 
-### 5. Add mathematical and mechanism framing
+### 5. 添加数学与机制框架
 
-Where possible, express the baseline as a concrete optimization or algorithmic object rather than only prose.
+在可能时，把 baseline 表达为一个具体的优化或算法对象，而不只是散文。
 
-For each serious line, state:
+对于每个严肃路线，陈述：
 
-- the baseline as a special case or constrained version
-- what assumption or constraint may be hurting performance
-- what relaxation, extension, or alternative information flow might help
-- what competing hypothesis could explain the same problem
+- 作为特例或受限版本的 baseline
+- 哪个假设或约束可能正在损害性能
+- 什么松弛、扩展或替代信息流可能有帮助
+- 什么竞争假设可以解释同一问题
 
-Also decompose the broader research problem into `3-5` sub-problems when useful, so later experiments can target them separately.
+在有用时，还把更广的研究问题分解为 `3-5` 个子问题，以便后续实验可分别针对它们。
 
-This step is important because it prevents superficial "just add module X" ideation.
+这一步很重要，因为它能防止表面化的"加个模块 X 就好"式构思。
 
-### 5.1 Run a bounded creative-divergence pass
+### 5.1 运行一次有界创意发散轮次
 
-Before ranking or narrowing, deliberately widen once unless strong durable evidence already makes one serious route obviously dominant.
-If you skip the full widening pass, record why.
+在排序或收窄之前，刻意拓宽一次，除非强持久证据已经使一个严肃路线明显占优。
+如果你跳过了完整的拓宽轮次，记录原因。
 
-- produce `6-12` raw ideas unless the search space is genuinely tiny
-- use at least `3` distinct ideation lenses unless the route is already forced by evidence
-- include at least one failure-centric lens and one mechanism-centric lens
-- if the first slate is all from one mechanism family, widen again with at least `2` different lenses
+- 除非检索空间确实很小，否则产出 `6-12` 个原始想法
+- 除非路线已被证据强行决定，否则使用至少 `3` 个不同的构思透镜
+- 至少包含一个以失败为中心的透镜与一个以机制为中心的透镜
+- 如果第一份清单全来自一个机制家族，用至少 `2` 个不同透镜再拓宽一次
 
-At this stage, clarity matters more than polish.
-Each raw idea should at least answer:
+在此阶段，清晰度比润色更重要。
+每个原始想法至少应回答：
 
-- what limitation it targets
-- what the mechanism is
+- 它针对什么局限性
+- 机制是什么
 - `why now` / `what changed`
-- what the likely closest overlap is
-- what kind of route it is:
-  - conservative
-  - higher-upside
-  - elegance-first
+- 可能最接近的重叠是什么
+- 它是何种路线：
+  - 保守
+  - 更高上行空间
+  - 优雅优先
 
-Do not confuse this widening pass with final selection.
-Its purpose is to ensure the later shortlist contains genuinely different options rather than renamed variants.
+不要把这一个拓宽轮次与最终选择混为一谈。
+它的目的是确保后续的短名单包含真正不同的选项，而非改名的变体。
 
-### 6. Generate direction options first, then candidate ideas
+### 6. 先生成方向选项，再生成候选想法
 
-After the bounded divergent pass, or after explicitly recording why it was unnecessary, derive exactly five actionable research directions whenever the space is not already tiny.
-Rank them from higher to lower expected return on investment.
+在有界发散轮次之后，或在显式记录了它为何不必要之后，只要空间不是已经很小，就推导恰好五条可操作的研究方向。
+按从高到低的预期投资回报率对它们排序。
 
-For each direction, specify:
+对于每个方向，明确：
 
-- targeted limitation
-- problem plus solution approach
-- key discipline and technique
-- code-level implementation sketch
-- metrics to watch and success threshold
-- abandonment criteria
-- risks and confounders
-- reader-facing takeaway
-- defensibility evidence package
+- 目标局限性
+- 问题加解决思路
+- 关键学科与技术
+- 代码级实现草图
+- 需要关注的指标与成功阈值
+- 放弃标准
+- 风险与混杂因素
+- 面向读者的要点
+- 可辩护性证据包
 
-At the direction stage, these should remain exploration directions rather than full implementation plans.
-Favor directions that:
+在方向层面，这些应仍是探索方向，而非完整的实现计划。
+优先选择那些：
 
-- solve the core insufficiency more elegantly
-- avoid unnecessary complexity or compute cost
-- fit the existing architecture
-- create genuinely differentiated research value
+- 更优雅地解决核心不足
+- 避免不必要的复杂度或算力成本
+- 适配现有架构
+- 创造真正差异化的研究价值
 
-When possible, make the direction-generation step explicitly two-layered:
+在可能时，把方向生成步骤显式地做成两层：
 
-1. abstract direction:
-   - the core conceptual thrust
-   - the first-principles rationale
-   - why it is more elegant than brute-force scaling
-2. repo-grounded translation:
-   - where it could land in the current codebase
-   - what the smallest meaningful implementation would be
-   - what evidence would falsify it quickly
+1. 抽象方向：
+   - 核心概念推力
+   - 第一性原理理由
+   - 为何它比暴力式扩展更优雅
+2. 代码库落地的迁移：
+   - 它可能在当前代码库中落在何处
+   - 最小有意义的实现会是什么
+   - 什么证据能快速证伪它
 
-Then reduce to a compact `2-5` candidate set for actual selection.
-When operating in a tightly scoped idea assignment, prefer converging to one final idea rather than dumping many half-baked options.
+然后缩减为一份紧凑的 `2-5` 候选集用于实际选择。
+当处在一个范围紧凑的 idea 任务中时，优先收敛到最终一个想法，而不是倾倒许多半成品选项。
 
-When the search space is not tiny, try to preserve diversity in the final candidate set:
+当检索空间不小的时候，尽量在最终候选集中保留多样性：
 
-- one conservative or low-risk line
-- one higher-upside line
-- one elegance-first line with low engineering burden
+- 一条保守或低风险的路线
+- 一条更高上行空间的路线
+- 一条低工程负担、优雅优先的路线
 
-If all surviving candidates are minor variants of the same mechanism family, widen the search once before converging.
+如果所有存活候选都是同一机制家族的微小变体，在收敛之前拓宽一次搜索。
 
-When the quest needs a stronger strategist-style ideation pass, prefer a two-layer direct-agent framing for each direction:
+当该 quest 需要一次更强的、战略家式的构思轮次时，对每个方向优先采用两层 direct-agent 框架：
 
-1. conceptual thrust
-   - one memorable abstract phrase
-2. first-principles rationale
-   - why the direction should work from mathematical, algorithmic, or logical reasoning
-3. path to an elegant solution
-   - why it is better than brute-force scaling or expensive engineering
-4. innovation factor
-   - what appears genuinely unexplored or underexplored
-5. research value justification
-   - why the direction should score well on usefulness, quality, or exploration value
-6. optional cross-domain inspiration
-   - where the idea borrows its structural intuition, if relevant
+1. 概念推力
+   - 一个令人难忘的抽象短语
+2. 第一性原理理由
+   - 为何该方向应从数学、算法或逻辑推理性上奏效
+3. 通向优雅解的路径
+   - 为何它优于暴力式扩展或昂贵的工程
+4. 创新因子
+   - 什么看起来真正未被探索或探索不足
+5. 研究价值理由
+   - 为何该方向应在有用性、质量或探索价值上得分良好
+6. 可选的跨领域启发
+   - 该想法在何处借用了其结构性直觉（若相关）
 
-For each candidate idea, specify:
+对于每个候选想法，明确：
 
-- mechanism
-- expected gain
-- main risk
-- required files or components
-- likely metric effect
-- cheapest falsification path
-- strongest competing hypothesis
-- closest prior work and novelty / value verdict
-- whether it overlaps too much with prior quest ideas or prior failed findings
+- 机制
+- 预期收益
+- 主要风险
+- 所需文件或组件
+- 可能的指标影响
+- 最廉价的证伪路径
+- 最强的竞争假设
+- 最接近的既有工作与新意 / 价值判断
+- 它是否与先前的 quest 想法或先前失败发现重叠过多
 
-Treat each serious candidate as a compact decision package, not a slogan.
-For every candidate that survives initial triage, make sure you can state:
+把每个严肃候选当作一个紧凑的决策包，而非一句口号。
+对于每个通过初始分诊的候选，确保你能陈述：
 
-- target limitation
-- why current methods still fail here
-- the smallest credible implementation surface in the current repo
-- the primary metric that would matter first
-- the cheapest falsification path
-- the abandonment condition
-- the reader-facing payoff if it works
-- the exact reason it is still worth trying despite the closest prior work
+- 目标局限性
+- 为何当前方法在此仍失败
+- 在当前代码库中最小可信的实现面
+- 会首先重要的主指标
+- 最廉价的证伪路径
+- 放弃条件
+- 若奏效、面向读者的回报
+- 尽管有最接近的既有工作、它仍值得尝试的确切理由
 
-When possible, also specify:
+在可能时，还明确：
 
-- why current methods fail on this point
-- reader-facing takeaway if the direction works
-- minimum defensibility evidence package needed later for writing
+- 为何当前方法在这点上失败
+- 若该方向奏效、面向读者的要点
+- 后续撰写所需的最小可辩护性证据包
 
-Prefer ideas that can be tested in the current repo with minimal ambiguity.
-If a candidate requires a large refactor, call that out explicitly and propose a smaller variant.
+优先选择能在当前代码库中以最小歧义被检验的想法。
+如果一个候选需要一次大型重构，显式指出并提议一个更小的变体。
 
-### 7. Score the candidates
+### 7. 对候选者打分
 
-Score each candidate along explicit axes:
+沿显式维度对每个候选者打分：
 
-- relevance to the limitation
-- feasibility in the current codebase
-- expected upside
-- clarity of the two-sentence pitch
-- falsifiability
-- implementation cost
-- evaluation clarity
-- risk of confounding
-- novelty headroom
-- research value even if not fully novel
-- expected information gain
-- reusability as a platform capability
-- `why now` credibility
+- 与局限性的相关性
+- 在当前代码库中的可行性
+- 预期上行空间
+- 两句话推介的清晰度
+- 可证伪性
+- 实现成本
+- 评估清晰度
+- 混杂风险
+- 新意余量
+- 即便不完全新颖的研究价值
+- 预期信息增益
+- 作为平台能力的可复用性
+- `why now` 可信度
 
-Also keep a compact strategist-style score lens when useful:
+在有用时，还保留一个紧凑的战略家式打分透镜：
 
 - `utility_score`
 - `quality_score`
 - `exploration_score`
 
-If these are used, explain the scores in prose rather than treating them as magic numbers.
-Use them as a secondary decision lens, not as a substitute for evidence-backed reasoning.
+如果使用它们，用散文解释分数，而不是把它们当作魔法数字。
+把它们当作次要的决策透镜，而非证据支撑推理的替代品。
 
-Avoid "best sounding" choices.
-Prefer the best-explained choice.
+避免"听起来最好"的选择。
+优先选择解释最清楚的选择。
 
-If a candidate scores weakly on novelty but strongly on research value, label that explicitly instead of pretending it is novel.
+如果一个候选在新鲜感上得分弱、但在研究价值上得分强，显式地给它打上标签，而不是假装它新颖。
 
-### 7.1 Lightweight quality gate before selection
+### 7.1 选择之前的轻量质量闸门
 
-Run the final candidate through the quality gate in `references/selection-gate.md`.
+把最终候选者送入 `references/selection-gate.md` 中的质量闸门。
 
-At minimum, explicitly score:
+至少显式地打分：
 
-- novelty
-- falsifiability
-- feasibility
-- evidence quality
-- constraint fit
+- 新意
+- 可证伪性
+- 可行性
+- 证据质量
+- 约束契合度
 
-Before promotion, also require:
+在提升之前，还要求：
 
-- a two-sentence pitch that a smart non-expert can follow
-- the strongest likely objection stated explicitly
-- a one-sentence `why now` statement explaining what changed or why this is timely now
+- 一句聪明的外行也能跟上的两句话推介
+- 显式陈述的最强可能异议
+- 一句解释发生了什么变化、或为何正当其时的 `why now` 陈述
 
-If the total is below `7/10`, do not promote the idea yet.
-Either refine once more or record a blocked / reject decision with the exact weakness.
+如果总分低于 `7/10`，先不要提升该想法。
+要么再精修一次，要么带着确切的弱点记录一个"已阻塞 / 拒绝"决策。
 
-### 8. Select, branch, reject, or route back
+### 8. 选择、分支、拒绝或路由回去
 
-The idea stage should end with one of:
+idea 阶段应以以下之一收尾：
 
-- a selected idea ready for `experiment`
-- a decision to branch and keep more than one line alive
-- a rejection of all current ideas and a return to `scout`
-- a blocked state if the real issue is missing evidence rather than missing creativity
+- 一个为 `experiment` 就绪的被选想法
+- 一个分支并保留多条路线存活的决策
+- 拒绝所有当前想法并回到 `scout`
+- 如果真实问题是证据缺失而非创意缺失，则一个已阻塞状态
 
-Before selecting, perform a narrative defensibility precheck:
+在选择之前，进行一次叙述性可辩护性预检：
 
-- who is the target reader or evaluator of the claim?
-- why should they care?
-- what is the one falsifiable research question for this direction?
-- what evidence package would be needed later to defend it?
-- what is the claim boundary?
-- what is the strongest nearby prior work, and what remains differentiating here?
-- why is this the highest-leverage direction to invest in now, rather than merely one direction that could work?
+- 该主张的目标读者或评估者是谁？
+- 他们为何应当在意？
+- 这个方向的一个可证伪研究问题是什么？
+- 后续需要什么证据包来为它辩护？
+- 主张边界是什么？
+- 最强邻近既有工作是什么，此处仍有什么构成差异化？
+- 为何这是现在最值得投入的高杠杆方向，而不仅仅是一条可能奏效的方向？
 
-If the direction is not defensible even in outline form, do not promote it just because it is implementable.
+如果一个方向连大纲形式都不可辩护，不要仅仅因为它可实现就提升它。
 
-If multiple directions remain plausible and the choice is materially preference-sensitive, ask the user for a structured decision instead of pretending the tradeoff is objective.
+如果多个方向仍然 plausible，且选择对偏好高度敏感，应向用户请求一个结构化决策，而不是假装该权衡是客观的。
 
-If the real issue is that literature coverage is weak or novelty is uncertain, route back to `scout` rather than forcing an idea selection.
+如果真实问题是文献覆盖薄弱或新意不确定，应路由回 `scout`，而不是强行做想法选择。
 
-When the stage reaches a route-shaping outcome, notify the user through `artifact.interact(...)` deliberately:
+当该阶段达成一个塑形路线的结果时，通过 `artifact.interact(...)` 刻意通知用户：
 
-- use a richer threaded `milestone` update when a selected idea package, a rejected-ideas summary, or a route back to `scout` is durably recorded
-- the update should name the winner or rejection result, the strongest supporting evidence, the main residual risk, and the exact recommended next stage
-- if more than one candidate remains genuinely plausible and preference-sensitive, use `reply_mode='blocking'` for the user decision instead of pretending the choice is objective
+- 当一个被选想法包、一份被拒想法摘要或一条回到 `scout` 的路线被持久化记录时，使用一份更丰富的线程式 `milestone` 更新
+- 该更新应点出胜者或被拒结果、最强的支撑证据、主要的残余风险，以及确切推荐的下一阶段
+- 如果多于一个候选仍然真正 plausible 且对偏好敏感，对用户决策使用 `reply_mode='blocking'`，而不是假装该选择是客观的
 
-## Idea output contract
+## 想法输出契约
 
-The selected idea should be recorded in a form that the `experiment` stage can follow without drift.
-Use the handoff template in `references/selection-gate.md`.
+被选想法应以 `experiment` 阶段能够遵循而不漂移的形式被记录。
+使用 `references/selection-gate.md` 中的交接模板。
 
-At minimum, preserve:
+至少保留：
 
-- a stable idea id
-- a two-sentence pitch
-- a falsifiable claim tied to metric and direction
-- a `why now` statement
-- the code-level plan and minimal experiment
-- the literature relation and evidence pointers
-- inline citations or citation markers tied to the papers actually used in the idea rationale
-- a `References` or `Bibliography` section in a standard citation format
-- the strongest alternative hypothesis
-- the strongest likely objection
+- 一个稳定的想法 id
+- 一句两句话推介
+- 一个与指标和方向绑定的可证伪主张
+- 一句 `why now` 陈述
+- 代码级计划与最小实验
+- 文献关系与证据指针
+- 与想法论证中实际用到的论文绑定的行内引用或引用标记
+- 一个采用标准引用格式的 `References` 或 `Bibliography` 小节
+- 最强的替代假设
+- 最强的可能异议
 
-The selected idea draft must cite the survey papers that actually shaped the mechanism, motivation, novelty check, or claim boundary.
-Use one consistent standard citation format throughout the draft, such as numbered references or author-year style.
-Do not mention paper titles casually in prose without giving them a proper citation entry.
+被选想法草稿必须引用那些真正塑造了机制、动机、新意核查或主张边界的综述论文。
+在整份草稿中使用一种一致的标准引用格式，例如编号引用或作者-年份风格。
+不要在没有给出恰当引用条目的前提下，在散文中随意提及论文标题。
 
-## Idea quality rules
+## 想法质量规则
 
-Good ideas should be:
+好想法应当：
 
-- literature-grounded
-- specific
-- executable
-- testable
-- comparable against baseline
-- cheap enough to falsify
-- either genuinely novel or clearly research-valuable
-- narratively defensible to a real reader
-- constraint-compatible with the current dataset and evaluation setup
+- 有文献支撑
+- 具体
+- 可执行
+- 可检验
+- 可针对 baseline 比较
+- 足够廉价以被证伪
+- 要么真正新颖，要么清晰具备研究价值
+- 对真实读者在叙事上可辩护
+- 与当前数据集和评估设定约束兼容
 
-Weak ideas often look like:
+弱想法通常形如：
 
-- pure ambition without a mechanism
-- a large rewrite without a clean test
-- a metric claim without a plausible path to improvement
-- a direction that requires a new dataset or evaluation regime without scope approval
-- an apparent novelty that collapses after reading nearby papers
-- a direction with no clear reader payoff even if it works
-- a mechanism borrowed from another domain without translation to this codebase
-- an idea that cannot be validated automatically with current metrics
-- a brute-force scale-up disguised as a research idea
+- 没有机制、纯粹野心
+- 一次没有干净测试的庞大重写
+- 一个没有合理改进路径的指标主张
+- 一个需要新数据集或评估制度、却无范围批准的方向
+- 在读完邻近论文后便崩塌的表象新意
+- 一个即便奏效也没有清晰读者回报的方向
+- 一个从其他领域借来、却未迁移到本代码库的机制
+- 一个无法用当前指标自动验证的想法
+- 一个伪装成研究想法的暴力式规模扩张
 
-## Novelty and research-value rules
+## 新意与研究价值规则
 
-Use the novelty and value labels from `references/selection-gate.md`.
+使用 `references/selection-gate.md` 中的新意与价值标签。
 
-Do not force every good direction into the `novel` bucket.
-But do require every selected direction to land in either:
+不要把每一个好方向都强行塞进 `novel` 桶。
+但确实要求每一个被选方向落入以下之一：
 
-- `novel`, or
+- `novel`，或
 - `incremental but valuable`
 
-If it lands in `not sufficiently differentiated`, reject it or send it back for refinement.
+如果它落入 `not sufficiently differentiated`，拒绝它或送回精炼。
 
-## Code-change rule
+## 代码变更规则
 
-The idea stage is primarily a planning and reasoning stage.
+idea 阶段主要是一个规划与推理阶段。
 
-- avoid large code changes during ideation
-- only perform a tiny code or config inspection change if it is necessary to verify feasibility
-- if major implementation seems necessary just to understand the idea, that is a sign to stop and sharpen the idea first
+- 在构思期间避免大型代码变更
+- 仅当为验证可行性所必需时，才做一个微小的代码或配置检视性改动
+- 如果为了理解想法本身就似乎需要重大实现，那是一个信号：先停下来把想法打磨清楚
 
-## Memory rules
+## 记忆规则
 
-Stage-start requirement:
+阶段开始要求：
 
-- begin every idea pass with `memory.list_recent(scope='quest', limit=5)`
-- then run at least one idea-relevant `memory.search(...)` before broad new ideation or literature expansion
-- before proposing a new idea, explicitly review prior quest idea records and experiment outcomes so the new proposal builds on actual history instead of rediscovering old work
-- treat prior idea lines and experiment lines as reference material, not as the active idea contract unless you intentionally select and continue that line
+- 以 `memory.list_recent(scope='quest', limit=5)` 开启每一轮想法
+- 然后在广泛的新构思或文献扩展之前，至少运行一次与想法相关的 `memory.search(...)`
+- 在提出一个新想法之前，显式回顾先前的 quest 想法记录与实验结果，使新提案建立在真实历史之上，而非重新发现旧工作
+- 把先前的想法线与实验线当作参考材料，除非你有意选择并延续该路线，否则它们不是活跃的想法契约
 
-Store reusable reasoning in memory, such as:
+把可复用的推理存入记忆，例如：
 
-- literature survey summaries
-- search-ledger conclusions
-- related-work judgments
-- limitation summaries
-- idea tradeoff notes
-- failure patterns that should shape future ideation
-- novelty caveats and research-value boundaries
+- 文献综述摘要
+- 检索台账结论
+- 相关工作判断
+- 局限性摘要
+- 想法权衡笔记
+- 应塑造未来构思的失败模式
+- 新意注意事项与研究价值边界
 
-Do not let the only copy of the idea rationale live in chat.
+不要让想法论证的唯一副本只存在于聊天中。
 
-Preferred memory usage:
+偏好的记忆用法：
 
-- quest `papers`:
-  - literature survey summaries
-  - arXiv or paper-cluster notes
-  - related-work notes
-  - closest-prior-work comparisons
-  - citation-grounded method observations
-- quest `ideas`:
-  - candidate direction records
-  - selected idea handoff notes
-  - rejected idea rationale when it may matter later
-- quest `decisions`:
-  - selection tradeoffs
-  - branch or reject choices
-  - user-sensitive route resolutions
-- quest `knowledge`:
-  - distilled limitation patterns
-  - stable novelty caveats
-  - research-value boundaries worth reusing later in this quest
-- global `knowledge`:
-  - reusable ideation heuristics
-  - cross-domain translation lessons
-- global `templates`:
-  - reusable related-work maps
-  - selection-gate checklists
+- quest `papers`：
+  - 文献综述摘要
+  - arXiv 或论文簇笔记
+  - 相关工作笔记
+  - 最接近的既有工作比较
+  - 引用支撑的方法观察
+- quest `ideas`：
+  - 候选方向记录
+  - 被选想法交接笔记
+  - 当后续可能重要时的被拒想法理由
+- quest `decisions`：
+  - 选择权衡
+  - 分支或被拒选择
+  - 对偏好敏感的路线路径解析
+- quest `knowledge`：
+  - 蒸馏出的局限性模式
+  - 稳定的新意注意事项
+  - 在本 quest 中值得复用的研究价值边界
+- 全局 `knowledge`：
+  - 可复用的构思启发式
+  - 跨领域迁移教训
+- 全局 `templates`：
+  - 可复用的相关工作地图
+  - 选择闸门检查表
 
-Use tags to sharpen retrieval when helpful, for example:
+在有用时用标签来锐化检索，例如：
 
 - `stage:idea`
 - `type:related-work`
@@ -1366,137 +1365,137 @@ Use tags to sharpen retrieval when helpful, for example:
 - `type:selection-rationale`
 - `topic:<mechanism>`
 
-When calling `memory.write(...)`, pass `tags` as an array like `["stage:idea", "type:selection-rationale", "topic:<mechanism>"]`, not as one comma-joined string.
+当调用 `memory.write(...)` 时，把 `tags` 作为一个数组传入，如 `["stage:idea", "type:selection-rationale", "topic:<mechanism>"]`，而不是一个逗号连接的字符串。
 
-Recommended read timing:
+推荐的读取时机：
 
-- before any new paper search:
-  - run `memory.search(...)` over the baseline, task, dataset, mechanism, and current idea labels
-- before broad new ideation:
-  - review prior quest `ideas`, experiment results, failure patterns, and decision notes in detail
-- before wide literature search:
-  - consult quest `papers`, `ideas`, experiment lessons, and `decisions`
-- before final selection:
-  - re-check quest `ideas`, `decisions`, and `knowledge`
-- after a failed or rejected idea line:
-  - check quest and global ideation lessons before proposing the next line
+- 在任何新论文检索之前：
+  - 对 baseline、任务、数据集、机制与当前想法标签运行 `memory.search(...)`
+- 在广泛的新构思之前：
+  - 详细回顾先前的 quest `ideas`、实验结果、失败模式与决策笔记
+- 在广泛文献检索之前：
+  - 查阅 quest `papers`、`ideas`、实验教训与 `decisions`
+- 在最终选择之前：
+  - 重新核查 quest `ideas`、`decisions` 与 `knowledge`
+- 在一条失败或被拒想法线之后：
+  - 在提出下一条线之前，核查 quest 与全局构思教训
 
-Stage-end requirement:
+阶段结束要求：
 
-- if ideation produced a durable survey conclusion, selected-idea rationale, rejected-idea lesson, or novelty caveat, write at least one `memory.write(...)` before leaving the stage
-- at least one quest memory card should preserve the survey delta with retrieval hints, such as:
-  - covered paper buckets
-  - unresolved buckets
-  - paper identifiers or arXiv ids
-  - search-window notes like `searched_through: 2026-03`
+- 如果构思产出了持久化综述结论、被选想法理由、被拒想法教训或新意注意事项，在离开本阶段之前至少写一条 `memory.write(...)`。
+- 至少一张 quest 记忆卡片应保留带检索提示的综述增量，例如：
+  - 已覆盖的论文桶
+  - 未解决的桶
+  - 论文标识或 arXiv id
+  - 检索窗口笔记，如 `searched_through: 2026-03`
 
-When writing paper memory cards, include enough metadata to avoid redundant search later, such as:
+在写论文记忆卡片时，包含足够的元数据以避免后续冗余检索，例如：
 
-- title
-- paper identifier or arXiv id when available
-- year
+- 标题
+- 论文标识或 arXiv id（当可用时）
+- 年份
 - URL
-- task / dataset / metric overlap
-- mechanism summary
-- novelty or value implication for this quest
-- whether it is `new_this_pass`, `known_before`, or `watchlist`
+- 任务 / 数据集 / 指标重叠
+- 机制摘要
+- 对本 quest 的新意或价值含义
+- 它是 `new_this_pass`、`known_before` 还是 `watchlist`
 
-At the end of ideation, at least one part of the literature survey must be preserved in memory so a later idea pass can retrieve it directly instead of rebuilding the search from scratch.
+在构思结束时，文献综述的至少一部分必须被保留在记忆中，以便后续想法轮次可以直接检索它，而不是从零重建检索。
 
-Every serious idea pass should also leave a durable outcome split:
+每一轮严肃想法还应留下一份持久化结果拆分：
 
-- one selected idea or selected direction family
-- any deferred but still plausible alternatives
-- any rejected alternatives with a one-line rejection reason
+- 一个被选想法或被选方向家族
+- 任何被推迟但仍 plausible 的替代方案
+- 任何带有一行拒绝理由的被拒替代方案
 
-Do not leave the rejected and deferred reasoning only in chat.
+不要把被拒与推迟的推理只留在聊天中。
 
-Promote to global memory only when the lesson is reusable outside this quest.
+仅当该教训在本 quest 之外可复用时，才提升到全局记忆。
 
-## Artifact rules
+## 工件规则
 
-Typical durable records:
+典型的持久化记录：
 
-- report artifact for the literature survey
-- report artifact for related-work mapping
-- report artifact for limitation analysis
-- idea artifact for one or more candidate directions
-- decision artifact for the selected line
+- 文献综述的报告工件
+- 相关工作映射的报告工件
+- 局限性分析的报告工件
+- 一个或多个候选方向的 idea 工件
+- 被选路线的 decision 工件
 
-Preferred artifact choices:
+偏好的工件选择：
 
-- use `report` for:
-  - literature survey synthesis
-  - survey-delta refresh
-  - related-work mapping
-  - limitation analysis
-  - novelty or value audit
-- use `idea` for:
-  - shortlisted candidates
-  - the selected direction package
-- use `decision` for:
-  - select / reject / branch / return-to-scout outcomes
-- use `approval` when the user explicitly confirms a preference-sensitive choice
-- use `milestone` when ideation hits a meaningful user-visible checkpoint
+- 用 `report` 表示：
+  - 文献综述综合
+  - 综述增量刷新
+  - 相关工作映射
+  - 局限性分析
+  - 新意或价值审计
+- 用 `idea` 表示：
+  - 短名单候选
+  - 被选方向包
+- 用 `decision` 表示：
+  - 选择 / 拒绝 / 分支 / 返回 scout 的结果
+- 当用户显式确认一个对偏好敏感的选择时，用 `approval`
+- 当构思命中一个有意义的、用户可见的检查点时，用 `milestone`
 
-If the idea is selected and becomes the active durable route, normally call `artifact.submit_idea(mode='create', lineage_intent='continue_line'|'branch_alternative', ...)`.
-Before that call, first finalize a concise but durable Markdown draft for the chosen route.
-For a paper-ready idea package, do not finalize that draft until the literature survey is broad enough to support the route credibly; for an execution-brief handoff, a smaller targeted survey can be enough.
-That draft should usually cover:
+如果想法被选定并成为活跃的持久化路线，通常调用 `artifact.submit_idea(mode='create', lineage_intent='continue_line'|'branch_alternative', ...)`。
+在该调用之前，先为一个所选路线定稿一份简洁但持久的 Markdown 草稿。
+对于一份已就绪可发表的 idea 包，在文献综述足够广泛、足以可信地支撑该路线之前，不要定稿该草稿；对于一份执行简报式交接，一份更小的定向综述即可足够。
+该草稿通常应覆盖：
 
-- executive summary
-- bottleneck or limitation framing
-- whether the route is `problem-first` or `solution-first`
-- why now / what changed
-- closest prior work and overlap
-- any cross-domain inspirations worth borrowing
-- selected claim
-- theory and method
-- code-level change plan
-- evaluation or falsification plan
-- risks, caveats, and implementation notes
-- a citation-ready `References` or `Bibliography` section that lists the survey-stage papers actually used by the idea in a standard citation format
+- 执行摘要
+- 瓶颈或局限性框架
+- 该路线是 `problem-first` 还是 `solution-first`
+- 为何现在 / 发生了什么变化
+- 最接近的既有工作与重叠
+- 任何值得借用的跨领域启发
+- 被选主张
+- 理论与方法
+- 代码级变更计划
+- 评估或证伪计划
+- 风险、注意事项与实现笔记
+- 一个引用就绪的 `References` 或 `Bibliography` 小节，以标准引用格式列出想法在综述阶段实际用到的论文
 
-Use the draft to think clearly first, then compress the accepted contract into the structured `artifact.submit_idea(...)` fields.
-When the MCP surface supports it, pass the final Markdown draft through `draft_markdown` so the branch records both `idea.md` and `draft.md`.
-Ensure the final draft carries appropriate citations for the closest prior work, direct inspirations, and any cross-domain papers that materially shaped the selected idea.
-Normal durable idea flow should create a new branch and a new canvas node every time an accepted idea package changes meaningfully, including documentation-only idea-package changes.
-Use `lineage_intent='continue_line'` when the new idea is a child of the current active branch.
-Use `lineage_intent='branch_alternative'` when the new idea should branch from the current branch's parent foundation as a sibling-like alternative.
-`artifact.submit_idea(mode='revise', ...)` is maintenance-only compatibility for the same branch and should not be the normal research-route mechanism.
-Do not prefer `artifact.prepare_branch(...)` for the normal idea-selection path.
+先用草稿把思路想清楚，再把已接受的契约压缩进结构化的 `artifact.submit_idea(...)` 字段。
+当 MCP 接口支持时，把最终的 Markdown 草稿通过 `draft_markdown` 传入，使分支同时记录 `idea.md` 与 `draft.md`。
+确保最终草稿为最接近的既有工作、直接启发，以及任何实质性塑造了被选想法的跨领域论文带上恰当的引用。
+正常的持久化想法流程在每一个被接受的 idea 包发生有意义变化时，都应创建一个新的分支与一个新画布节点，包括仅文档性的 idea 包变更。
+当新想法是当前活跃分支的子节点时，使用 `lineage_intent='continue_line'`。
+当新想法应当从当前分支的父级基础作为兄弟式替代分支时，使用 `lineage_intent='branch_alternative'`。
+`artifact.submit_idea(mode='revise', ...)` 仅用于同分支的维护性兼容，不应是正常的研究路线机制。
+不要为正常的想法选择路径偏好 `artifact.prepare_branch(...)`。
 
-Do not record a final selected-idea artifact without first recording a literature survey `report`.
+在没有先记录一份文献综述 `report` 的情况下，不要记录一个最终的被选想法工件。
 
-## Failure and blocked handling
+## 失败与阻塞处理
 
-If ideation stalls, record why:
+如果构思停滞，记录原因：
 
-- baseline is still too uncertain
-- evaluation contract is under-specified
-- code path is unclear
-- candidate ideas are too confounded to rank safely
-- user preference is required for the tradeoff
-- related-work coverage is still too weak to judge novelty or value
-- closest prior work already invalidated the strongest candidate
+- baseline 仍过于不确定
+- 评估契约欠规范
+- 代码路径不清
+- 候选想法过于混杂，无法安全排序
+- 需要用户偏好来定夺权衡
+- 相关工作覆盖仍太薄弱，无法判断新意或价值
+- 最接近的既有工作已经使最强候选失效
 
-Do not hide blocked ideation behind generic brainstorming text.
+不要用泛泛的头脑风暴文字掩盖已被阻塞的构思。
 
-## Exit criteria
+## 退出标准
 
-Exit the idea stage once one of the following is durably true:
+一旦以下任一情况持久化地为真，就退出 idea 阶段：
 
-- one idea is selected and ready for `experiment`
-- several ideas are retained with an explicit branching decision
-- the current line is rejected and the quest returns to `scout`
-- the stage is blocked and a clear next decision is recorded
+- 一个想法被选定并为 `experiment` 就绪
+- 多个想法被保留，并带有显式的分支决策
+- 当前路线被拒绝，且该 quest 回到 `scout`
+- 该阶段被阻塞，且记录了一个清晰的下一步决策
 
-Do not exit this stage with a "selected idea" if:
+在以下情况下，不要带着一个"被选想法"退出本阶段：
 
-- the literature survey report is missing
-- the related-work map is missing
-- the novelty / value verdict is still hand-wavy
-- the falsification path is unclear
-- the experiment handoff contract is incomplete
+- 文献综述报告缺失
+- 相关工作地图缺失
+- 新意 / 价值判断仍然含糊
+- 证伪路径不清
+- 实验交接契约不完整
 
-A good idea pass ends with one route the next stage can actually run, or one explicit reason why no route is ready yet.
+一个良好的想法轮次，应以一条下一阶段真正能运行的路线收尾，或带有一个为何尚无路线就绪的明确理由。

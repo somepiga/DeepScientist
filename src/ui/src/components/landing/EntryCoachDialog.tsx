@@ -36,12 +36,14 @@ export function EntryCoachDialog({
   open,
   connectorMode,
   showConnectorStep,
+  showTutorialStep = false,
   onClose,
   onOpenConnectorSettings,
 }: {
   open: boolean
   connectorMode: ConnectorCoachMode
   showConnectorStep: boolean
+  showTutorialStep?: boolean
   onClose: () => void
   onOpenConnectorSettings: () => void
 }) {
@@ -91,12 +93,14 @@ export function EntryCoachDialog({
                   <Settings2 className="h-3.5 w-3.5" />
                   {t.connector.eyebrow}
                 </div>
-              </section>
+              </div>
+            </section>
             ) : null}
 
             {showTutorialStep ? (
-              <section className="px-6 py-6 lg:px-7 lg:py-7">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(126,108,82,0.14)] bg-[rgba(244,239,233,0.72)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[rgba(126,108,82,0.78)]">
+            <section className="px-6 py-6 lg:px-7 lg:py-7">
+              <div className="relative">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(126,108,82,0.14)] bg-[rgba(244,239,233,0.72)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[rgba(126,108,82,0.78)]">
                   <GraduationCap className="h-3.5 w-3.5" />
                   {stepLabel(t.tutorial.eyebrow, locale === 'zh' ? '步骤 1' : 'STEP 1', showBoth)}
                 </div>

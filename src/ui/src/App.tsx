@@ -10,6 +10,7 @@ import { WebDebugProvider } from '@/lib/debug/useWebDebug'
 import { I18nProvider, useI18n } from '@/lib/i18n'
 import { LandingPage } from '@/pages/LandingPage'
 import { ProjectWorkspacePage } from '@/pages/ProjectWorkspacePage'
+import { AgentsPage } from '@/pages/AgentsPage'
 
 function normalizeSettingsSectionName(value?: string): SettingsSectionName | null {
   if (value === 'summary') {
@@ -193,6 +194,7 @@ function AppRoutes() {
         <Route path="/projects/new/auto" element={<LandingDialogRedirect dialog="autonomous" />} />
         <Route path="/projects/new/copilot" element={<LandingDialogRedirect dialog="copilot" />} />
         <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
+        <Route path="/agents" element={<AgentsPage />} />
         <Route path="/admin" element={<Navigate to="/settings/summary" replace />} />
         <Route path="/admin/quests" element={<Navigate to="/settings/quests" replace />} />
         <Route path="/admin/quests/:questId" element={<AdminQuestRedirect />} />
@@ -237,7 +239,8 @@ function resolveRouterBasename(): string {
   if (typeof window === 'undefined') {
     return '/'
   }
-  return window.location.pathname.startsWith('/ui/') ? '/ui' : '/'
+  const path = window.location.pathname
+  return path === '/ui' || path.startsWith('/ui/') ? '/ui' : '/'
 }
 
 export default function App() {

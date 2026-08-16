@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Settings2 } from 'lucide-react'
+import { Boxes, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SystemUpdateButton } from '@/components/system-update/SystemUpdateButton'
 import { BRAND_LOGO_SMALL_SRC } from '@/lib/constants/assets'
@@ -44,6 +44,16 @@ export default function HeroNav() {
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <SystemUpdateButton />
           <LocalAuthTokenButton />
+          <Button
+            size="sm"
+            className="h-9 w-9 rounded-full bg-transparent px-0 text-[#2D2A26] shadow-none hover:bg-black/[0.03] sm:w-auto sm:px-3"
+            asChild
+          >
+            <Link href="/agents" aria-label={t('navAgents')}>
+              <Boxes className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">{t('navAgents')}</span>
+            </Link>
+          </Button>
           <Button
             size="sm"
             className="h-9 w-9 rounded-full bg-[#C7AD96] px-0 text-[#2D2A26] hover:bg-[#D7C6AE] sm:w-auto sm:px-3"

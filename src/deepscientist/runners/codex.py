@@ -21,6 +21,7 @@ from ..evidence_packets import compact_runner_tool_event
 from ..gitops import export_git_graph
 from ..process_control import process_session_popen_kwargs
 from ..prompts import PromptBuilder
+from ..prompts.agent_prompts import get_agent_prompt
 from ..runtime_logs import JsonlLogger
 from ..shared import append_jsonl, ensure_dir, ensure_utf8_subprocess_env, generate_id, read_yaml, resolve_runner_binary, utc_now, write_json, write_text
 from ..web_search import extract_web_search_payload
@@ -923,6 +924,7 @@ class CodexRunner:
             turn_intent=request.turn_intent,
             turn_mode=request.turn_mode,
             retry_context=request.retry_context,
+            agent_prompt=get_agent_prompt(self.repo_root, request.skill_id)[0],
         )
         prompt = self._apply_chat_wire_tool_call_guard(prompt, runner_config=runner_config)
         prompt_to_send = prompt

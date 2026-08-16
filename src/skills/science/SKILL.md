@@ -1,72 +1,65 @@
 ---
 name: science
-description: Use for natural-science or engineering tasks, scientific software routing, simulation, dataset analysis, model fitting, package checks, HPC-through-shell work, validation, and evidence-backed scientific claims using DeepScientist's `artifact.science(...)` Science Evidence Graph. Includes a progressive-disclosure catalog of FermiLink skilled-scipkg package cards.
+description: 用于自然科学或工程任务、科学软件路由、模拟、数据集分析、模型拟合、包检查、通过 shell 的 HPC 工作、验证，以及使用 DeepScientist 的 `artifact.science(...)` 科学证据图谱（Science Evidence Graph）得出以证据为支撑的科学主张。包含 FermiLink skilled-scipkg 包卡片的渐进式披露目录。
 skill_role: companion
 skill_order: 160
 ---
 
-# Science
+# Science（科学）
 
-## One-Sentence Summary
+## 一句话摘要
 
-Use `bash_exec(...)` to do the real scientific work, use this skill to choose
-the right package/reference path, and use `artifact.science(...)` to record the
-durable Science Evidence Graph.
+使用 `bash_exec(...)` 来做真正的科学工作，使用本技能来选择正确的包 / 参考路径，并使用 `artifact.science(...)` 来记录持久化的科学证据图谱（Science Evidence Graph）。
 
-## Match Signals
+## 匹配信号
 
-Use this skill when the task includes any of these signals:
+当任务包含以下任一信号时使用本技能：
 
-- natural science, engineering, simulation, scientific software, numerical solver, HPC, SLURM, SSH, model fitting, or dataset analysis
-- package names such as PySCF, LAMMPS, OpenMM, GROMACS, MEEP, Scanpy, Astropy, Geant4, OpenFOAM, CP2K, ABINIT, or similar scientific packages
-- requests to verify an environment, run a solver, reproduce a computational result, analyze scientific data, validate units/convergence/schema, or make a scientific claim
-- SetupAgent needs to organize a science task into a Copilot handoff or autonomous startup brief
+- 自然科学、工程、模拟、科学软件、数值求解器、HPC、SLURM、SSH、模型拟合或数据集分析。
+- 包名，例如 PySCF、LAMMPS、OpenMM、GROMACS、MEEP、Scanpy、Astropy、Geant4、OpenFOAM、CP2K、ABINIT，或类似的科学包。
+- 验证环境、运行求解器、复现计算结果、分析科学数据、验证单位 / 收敛 / schema，或提出科学主张的请求。
+- SetupAgent 需要将一项科学任务组织成 Copilot 移交或自主启动简报。
 
-## Control Surface
+## 控制面
 
-- Real execution: always `bash_exec(...)`.
-- Evidence records: `artifact.science(...)` under the existing `artifact` MCP namespace.
-- User-visible milestones or blockers: `artifact.interact(...)`.
-- Package knowledge: this skill's references and package cards.
-- Do not create a top-level `science` MCP namespace.
-- Do not migrate FermiLink runner, HPC profile manager, CLI workflow, FastAPI backend, Chainlit UI, or source implementation into DeepScientist runtime.
+- 真实执行：始终使用 `bash_exec(...)`。
+- 证据记录：在现有 `artifact` MCP 命名空间下的 `artifact.science(...)`。
+- 用户可见的里程碑或阻塞项：`artifact.interact(...)`。
+- 包知识：本技能的参考与包卡片。
+- 不要创建顶层的 `science` MCP 命名空间。
+- 不要将 FermiLink runner、HPC 配置文件管理器、CLI 工作流、FastAPI 后端、Chainlit UI 或源实现迁移进 DeepScientist 运行时。
 
-## Progressive Disclosure
+## 渐进式披露
 
-Read only the references needed for the active task:
+只阅读当前任务所需的参考：
 
-- `references/package-index.min.json`: compact index of the 169 package cards; search this first when a package/domain is unclear.
-- `references/domain-index.md`: human-readable grouping by inferred scientific domain.
-- `references/packages/<package_id>.md`: package-specific routing card with knowledge URL, source URL, package-check pattern, expected science nodes, evidence paths, and pitfalls.
-- `references/package-check-playbook.md`: package availability checks before treating a solver as usable.
-- `references/artifact-science-tool.md`: exact `artifact.science(...)` contract and examples.
-- `references/hpc-via-bash-exec.md`: SSH, scheduler, queue, and remote-log discipline through `bash_exec(...)`.
-- `references/claim-type-discipline.md`: computed / parsed / digitized / hypothesis claim discipline.
-- `references/science-task-brief-template.md`: SetupAgent and startup brief shape; use as context, not as a required `goal.md` file.
+- `references/package-index.min.json`：169 张包卡片的紧凑索引；当某个包 / 领域不清晰时先检索此文件。
+- `references/domain-index.md`：按推断的科学领域进行人工可读的分组。
+- `references/packages/<package_id>.md`：包特定的路由卡片，含知识 URL、源码 URL、包检查模式、预期科学节点、证据路径与陷阱。
+- `references/package-check-playbook.md`：在将某个求解器视为可用之前的包可用性检查。
+- `references/artifact-science-tool.md`：确切的 `artifact.science(...)` 契约与示例。
+- `references/hpc-via-bash-exec.md`：通过 `bash_exec(...)` 的 SSH、调度器、队列与远程日志纪律。
+- `references/claim-type-discipline.md`：computed / parsed / digitized / hypothesis 主张纪律。
+- `references/science-task-brief-template.md`：SetupAgent 与启动简报形态；用作上下文，而非必需的 `goal.md` 文件。
 
-## Workflow
+## 工作流
 
-1. Classify the task: package check, computational run, dataset analysis, parameter sweep, validation, claim, or startup brief.
-2. If a package/domain is involved, search `references/package-index.min.json` and open only the relevant `references/packages/<package_id>.md` cards.
-3. Treat package cards as knowledge pointers only. They do not prove the solver, Python module, executable, license server, dataset, GPU backend, or HPC module exists.
-4. Before computed work, use `bash_exec(...)` for import, executable, version, environment-module, and small smoke-test checks when relevant.
-5. Record package checks with `artifact.science(..., node_type="science.package_check", ...)`.
-6. Run solver commands, scripts, SSH, sbatch/squeue, log reads, and data analysis through `bash_exec(...)`.
-7. Record scientific execution as `science.computational_run`, `science.dataset_analysis`, or `science.parameter_sweep` with concrete input, log, output, and evidence paths.
-8. Validate convergence, units, schema, controls, tolerances, seeds, or physical/statistical invariants, then record `science.validation_result`.
-9. Record `science.claim` only after evidence paths or related science nodes support it.
-10. Use `artifact.interact(...)` for decisions or milestones that the user should see, but never as the only scientific evidence.
+1. 对任务分类：包检查、计算运行、数据集分析、参数扫描、验证、主张，或启动简报。
+2. 若涉及某个包 / 领域，检索 `references/package-index.min.json`，并仅打开相关的 `references/packages/<package_id>.md` 卡片。
+3. 将包卡片仅视为知识指针。它们并不能证明该求解器、Python 模块、可执行文件、许可证服务器、数据集、GPU 后端或 HPC 模块存在。
+4. 在计算工作之前，在相关时使用 `bash_exec(...)` 进行导入、可执行文件、版本、环境模块与小型冒烟测试检查。
+5. 使用 `artifact.science(..., node_type="science.package_check", ...)` 记录包检查。
+6. 通过 `bash_exec(...)` 运行求解器命令、脚本、SSH、sbatch/squeue、日志读取与数据分析。
+7. 将科学执行记录为 `science.computational_run`、`science.dataset_analysis` 或 `science.parameter_sweep`，并带具体的输入、日志、输出与证据路径。
+8. 验证收敛、单位、schema、控制、容差、随机种子，或物理 / 统计不变量，然后记录 `science.validation_result`。
+9. 仅在证据路径或相关科学节点支撑它之后，才记录 `science.claim`。
+10. 将需要用户看到的决策或里程碑用于 `artifact.interact(...)`，但绝不要将其作为唯一的科学证据。
 
-Science node ids are stable logical ids, not mutable file slots. Call
-`record_node` once for a new node id. If status, evidence, or interpretation
-changes later, call `update_node` so the graph remains append-only. If a package
-check fails or is blocked and that fact affects the route, record it as
-`science.package_check` with `status="failed"` or `status="blocked"` and point to
-the log or diagnostic file.
+科学节点 id 是稳定的逻辑 id，而不是可变的文件槽位。为新节点 id 调用一次 `record_node`。如果状态、证据或解读后续发生变化，调用 `update_node`，以使图谱保持只追加（append-only）。如果某个包检查失败或被阻塞，且该事实影响路由，将其记录为带 `status="failed"` 或 `status="blocked"` 的 `science.package_check`，并指向日志或诊断文件。
 
-## Science Node Types
+## 科学节点类型
 
-Use only these v1 node types unless the runtime contract changes:
+除非运行时契约发生变化，否则只使用以下 v1 节点类型：
 
 - `science.package_check`
 - `science.computational_run`
@@ -75,63 +68,51 @@ Use only these v1 node types unless the runtime contract changes:
 - `science.validation_result`
 - `science.claim`
 
-Prefer `science.computational_run` over a narrower simulation-only term when
-the work is solver execution, numerical computation, model fitting, or
-engineering computation.
+当工作属于求解器执行、数值计算、模型拟合或工程计算时，优先使用 `science.computational_run`，而非更窄的、仅模拟（simulation-only）术语。
 
-## Claim Discipline
+## 主张纪律
 
-Every `science.claim` needs `claim_type`:
+每一条 `science.claim` 都需要 `claim_type`：
 
-- `computed`: produced by real execution in the current quest
-- `parsed`: read from supplied or existing data
-- `digitized`: extracted from a paper figure, image, or PDF figure
-- `hypothesis`: plausible but not yet verified by computation or data
+- `computed`：由当前任务中的真实执行产生。
+- `parsed`：从提供的或既有的数据中读取。
+- `digitized`：从论文图、图像或 PDF 图中提取。
+- `hypothesis`：合理但尚未被计算或数据验证。
 
-Computed claims must link to evidence paths or related computed/validation
-nodes. If that evidence does not exist yet, record a `hypothesis`, blocker, or
-validation need instead.
+computed 主张必须链接到证据路径或相关的 computed / validation 节点。如果该证据尚不存在，应改为记录一条 `hypothesis`、阻塞项或验证需求。
 
-## SetupAgent Usage
+## SetupAgent 用法
 
-For natural-science or engineering startup sessions, SetupAgent should decide
-whether the task is actually suited to autonomous work:
+对于自然科学或工程的启动会话，SetupAgent 应判断该任务是否真的适合自主工作：
 
-- Ordinary bounded tasks such as one package check, one local calculation, one dataset inspection, or one result explanation should usually route to Copilot mode.
-- Long simulation campaigns, HPC campaigns, paper reproduction, or idea-driven scientific research can route to autonomous mode only when compute, data, privacy, network, and success criteria are clear enough.
-- When routing to Copilot, fill `session_patch.copilot_handoff.startup_message` with the organized science brief and set `create_and_send=true` so the collaboration workspace starts directly.
-- When routing to autonomous, fill `session_patch.science_task` and `session_patch.science_task_brief`; use the brief shape from `references/science-task-brief-template.md` without requiring a `goal.md` file.
-- Include expected packages, package-check requirement, expected science node types, HPC expectation, and whether solver installation is unknown.
+- 普通的、有界定的任务，例如一次包检查、一次本地计算、一次数据集检查，或一次结果解释，通常应路由到 Copilot 模式。
+- 长时间的模拟活动、HPC 活动、论文复现，或想法驱动的科学研究的，只有在计算、数据、隐私、网络与成功标准都足够清晰时，才能路由到自主模式。
+- 当路由到 Copilot 时，用组织好的科学简报填充 `session_patch.copilot_handoff.startup_message`，并设置 `create_and_send=true`，以便协作工作区直接启动。
+- 当路由到自主模式时，填充 `session_patch.science_task` 与 `session_patch.science_task_brief`；使用来自 `references/science-task-brief-template.md` 的简报形态，而不要求一个 `goal.md` 文件。
+- 包含预期的包、包检查需求、预期的科学节点类型、HPC 预期，以及求解器安装是否未知。
 
-## Package Catalog Provenance
+## 包目录出处
 
-The package catalog is generated from FermiLink's skilled-scipkg channel and is
-stored as DeepScientist-native routing material. The cards preserve package ids,
-descriptions, tags, knowledge URLs, source archive URLs, and upstream project
-URLs. They do not vendor package source trees and do not install runtimes.
+该包目录由 FermiLink 的 skilled-scipkg 频道生成，并存储为 DeepScientist 原生的路由材料。这些卡片保留了包 id、描述、标签、知识 URL、源码归档 URL 与上游项目 URL。它们不内嵌（vendor）包源码树，也不安装运行时。
 
-If deeper package knowledge must be downloaded during a quest, preserve the
-source URL and license context in the quest evidence. Do not paste large
-knowledge-base text into reports without attribution.
+如果在任务期间必须下载更深入的包知识，应在任务证据中保留源 URL 与许可证上下文。不要在没有归因的情况下，将大段知识库文本粘贴进报告。
 
-## AVOID / Pitfalls
+## 避免 / 陷阱
 
-- Do not treat this skill as a solver installation or package manager.
-- Do not call a result `computed` from a plot redraw, paper figure reading, or guess.
-- Do not weaken tolerances, filters, physical models, convergence criteria, or validation checks merely to make a run pass.
-- Do not submit remote/HPC jobs without a log path and status-reading plan.
-- Do not create science evidence only in chat.
-- Do not let package-card metadata override task-specific evidence.
-- Do not use FermiLink as a runtime dependency; use the DeepScientist-native
-  package cards as routing references and keep real execution in
-  `bash_exec(...)`.
+- 不要将本技能当作求解器安装器或包管理器。
+- 不要将来自绘图重绘、论文图读取或猜测的结果称为 `computed`。
+- 不要仅仅为了让某次运行通过，就削弱容差、过滤器、物理模型、收敛准则或验证检查。
+- 不要在没有日志路径与状态读取计划的情况下提交远程 / HPC 作业。
+- 不要仅在聊天中创建科学证据。
+- 不要让包卡片的元数据覆盖任务特定的证据。
+- 不要将 FermiLink 用作运行时依赖；应将 DeepScientist 原生的包卡片用作路由参考，并将真实执行保留在 `bash_exec(...)` 中。
 
-## Validation
+## 验证
 
-A science task is ready to report when these are true:
+一项科学任务在以下情况成立时即可报告：
 
-- package availability is checked or explicitly blocked
-- each run or analysis has concrete input/log/output/evidence paths when applicable
-- validation status is recorded separately from raw execution status when correctness matters
-- claims are typed as computed, parsed, digitized, or hypothesis
-- evidence nodes are linked so Canvas can reconstruct the Science Evidence Graph
+- 包可用性已检查，或被显式阻塞。
+- 每次运行或分析在适用时都具有具体的输入 / 日志 / 输出 / 证据路径。
+- 当正确性重要时，验证状态与原始执行状态分开记录。
+- 主张被归类为 computed、parsed、digitized 或 hypothesis。
+- 证据节点已链接，以便 Canvas 能够重建科学证据图谱（Science Evidence Graph）。

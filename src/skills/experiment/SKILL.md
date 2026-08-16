@@ -1,243 +1,243 @@
 ---
 name: experiment
-description: Use when a quest is ready for a concrete implementation pass or a main experiment run tied to a selected idea and an accepted baseline.
+description: 当某个探索任务已准备好进行一次具体的实现轮次，或一次与选定思路及被接受基线绑定的主实验运行时使用。
 skill_role: stage
 ---
 
-# Experiment
+# 实验
 
-Use this skill for the main evidence-producing runs of the quest.
-The goal is to turn one selected route into one trustworthy measured result with the smallest valid amount of execution.
+为任务中产出主要证据的那些运行使用本技能。
+目标是用最小的合理执行量，将一条选定路线转化为一个可信的测量结果。
 
-## Match signals
+## 匹配信号
 
-Use `experiment` when:
+在以下情况使用 `experiment`：
 
-- a baseline is accepted
-- an idea has been selected
-- the evaluation contract is explicit
-- the quest is ready for implementation and measurement rather than framing, route selection, or writing
+- 基线已被接受
+- 思路已被选定
+- 评估契约是明确的
+- 该任务已准备好实现与测量，而非框架搭建、路线选择或写作
 
-Do not use `experiment` when:
+在以下情况**不要**使用 `experiment`：
 
-- the baseline gate is unresolved
-- the idea stage still has unresolved tradeoffs
-- the main need is writing or follow-up analysis rather than a main run
-- the real problem is still route choice, baseline recovery, or open-ended optimization rather than one bounded measured run
+- 基线门槛尚未解决
+- 思路阶段仍有未决的权衡
+- 主要需求是写作或后续分析，而非一次主运行
+- 真正的问题仍是路线选择、基线恢复或开放式优化，而非一次范围受限的测量运行
 
-## One-sentence summary
+## 一句话总结
 
-Turn one selected route into one trustworthy measured result with the smallest valid amount of execution, then record and route from the evidence.
+用最小的合理执行量，将一条选定路线转化为一个可信的测量结果，然后基于证据进行记录并路由。
 
-## Quick workflow
+## 快速工作流
 
-- Recover the selected idea, accepted baseline, metric contract, and current workspace before implementation.
-- Keep the selected idea summarized in `1-2` sentences, then write a minimal code-change map before touching broad code.
-- Define the null hypothesis, alternative hypothesis, research question, research type, research objective, experimental setup, experimental results, experimental analysis, and experimental conclusions as the run matures.
-- Run only the checks needed to maximize valid evidence per unit time and compute.
-- Use equivalence-preserving efficiency upgrades when they preserve baseline comparability; For `comparison_ready`, `verify-local-existing`, attach, or import should usually beat full reproduction.
-- If an efficiency change affects baseline comparability, treat it as a real experiment change.
-- Prefer one clean implementation pass and one real run over repeated half-runs when the route is already concrete.
-- Implement according to the current `PLAN.md`; revise the plan before changing the route.
+- 在实现之前，先恢复选定的思路、被接受的基线、指标契约与当前工作区。
+- 将选定思路用 `1-2` 句话总结，然后在触碰大范围代码之前写出一份最小化的代码改动映射。
+- 随着运行推进，定义原假设、备择假设、研究问题、研究类型、研究目标、实验设置、实验结果、实验分析与实验结论。
+- 只运行那些能最大化「单位时间与计算量所产出的有效证据」所需的检查。
+- 当它们保持基线可比较性时，使用等价保留式的效率升级；对于 `comparison_ready`、`verify-local-existing`，attach 或 import 通常优于完整复现。
+- 如果一个效率改动影响了基线可比较性，则将其视为一次真实的实验变更。
+- 当路线已经具体时，优先一次干净的实现轮次与一次真实运行，而非反复半途而废的运行。
+- 根据当前 `PLAN.md` 实现；在改变路线之前先修订计划。
 - implement according to the current `PLAN.md`
-- Extra metrics are allowed, but missing required metrics are not.
+- 允许额外的指标，但不允许缺失必需的指标。
 - extra metrics are allowed, but missing required metrics are not
-- If a useful non-canonical metric appears, record it as supplementary output rather than replacing the canonical comparator.
-- In algorithm-first work, `experiment` is the execution surface of `optimize`, then results return to `optimize` or `decision` for frontier review.
-- End with a concise `1-2` sentence outcome summary, `evaluation_summary`, `claim_update`, `baseline_relation`, `failure_mode`, and `next_action`.
+- 如果出现一个有价值的非规范指标，应将其记录为补充输出，而不是替换规范对比项。
+- 在以算法为先的工作中，`experiment` 是 `optimize` 的执行界面，随后结果返回 `optimize` 或 `decision` 以进行前沿评审。
+- 以一段简洁的 `1-2` 句话结果摘要、`evaluation_summary`、`claim_update`、`baseline_relation`、`failure_mode` 与 `next_action` 收尾。
 
-## Required plan and checklist
+## 必需的计划与清单
 
-Use `PLAN.md` and `CHECKLIST.md` when the run is non-trivial, expensive, or branch/worktree-sensitive.
-If the plan or checklist is stale, revise `PLAN.md` before spending more code or compute.
-Keep a rolling run log or rolling durable experiment log that captures command ids, output paths, metric changes, and blocker changes.
+当运行非平凡、昂贵或对分支/worktree 敏感时，使用 `PLAN.md` 与 `CHECKLIST.md`。
+如果计划或清单已过时，在投入更多代码或计算之前先修订 `PLAN.md`。
+保留一份滚动运行日志或滚动的持久实验日志，记录命令 id、输出路径、指标变化与受阻变化。
 
-The planning surface should cover:
+计划界面应覆盖：
 
-- selected idea summarized in `1-2` sentences
-- minimal code-change map
-- experiment tier: `auxiliary/dev` or `main/test`
-- minimum -> solid -> maximum evidence target
-- significance-testing plan when statistical claims are likely
+- 用 `1-2` 句话总结的选定思路
+- 最小化的代码改动映射
+- 实验层级：`auxiliary/dev` 或 `main/test`
+- 最小 -> 稳固 -> 最大证据目标
+- 当统计性断言很可能时，给出显著性检验计划
 - references/main-experiment-plan-template.md
 - references/main-experiment-checklist-template.md
 
-Incremental-recording rule: record the run contract early, update it as evidence arrives, and do not wait until the end to reconstruct what happened.
+增量记录规则：尽早记录运行契约，随着证据到达不断更新，不要等到最后才去重建发生了什么。
 
-## Control workflow
+## 控制工作流
 
-1. Lock the run contract.
-   Make explicit the research question, baseline reference, dataset/split, metric keys, stop condition, abandonment condition, and expected outputs.
-2. Implement only the minimum hypothesis-bound change.
-   Keep the baseline read-only and avoid unrelated cleanup or hidden scope expansion.
-3. Run a bounded smoke or pilot only when the command path, output schema, or evaluator wiring are still unverified.
-4. Execute and monitor the real run honestly.
-   Preserve commands, configs, logs, outputs, comparability, and the last-known-good state.
-5. Validate and record the result.
-   Check metric completeness and comparability, then call `artifact.record_main_experiment(...)` and choose the next route.
+1. 锁定运行契约。
+   明确说明研究问题、基线参照、数据集/划分、指标键、停止条件、放弃条件与预期输出。
+2. 仅实现最小化的、受假设约束的改动。
+   保持基线只读，避免无关的清理或隐藏的范围扩张。
+3. 仅当命令路径、输出 schema 或评估器接线仍未经验证时，才运行一次范围受限的冒烟或试点。
+4. 诚实执行并监控真实运行。
+   保留命令、配置、日志、输出、可比较性与最后已知良好状态。
+5. 验证并记录结果。
+   检查指标的完整性与可比较性，然后调用 `artifact.record_main_experiment(...)` 并选择下一条路线。
 
-## AVOID / pitfalls
+## 应避免 / 陷阱
 
-- Do not confuse smoke or pilot success with main evidence.
-- Do not silently change dataset, split, metric definition, evaluator logic, or baseline comparison recipe.
-- Do not retry without a real route, code, command, environment, or evidence change.
-- Do not claim success before durable outputs exist and `artifact.record_main_experiment(...)` succeeds.
-- Do not record a durable main experiment from an idea branch, quest root branch, or paper branch as if that were the final result node.
-- Do not disguise idea search or route revision as a routine rerun.
-- Do not keep rerunning after the next route is already clear.
+- 不要把冒烟或试点的成功与主要证据混为一谈。
+- 不要静默改变数据集、划分、指标定义、评估器逻辑或基线对比配方。
+- 不要在没有真实的路线、代码、命令、环境或证据变更的情况下重试。
+- 不要在持久输出尚不存在且 `artifact.record_main_experiment(...)` 成功之前就声称成功。
+- 不要把来自思路分支、quest 根分支或论文分支的持久主实验，当作最终的结果节点来记录。
+- 不要把思路搜索或路线修订伪装成例行重跑。
+- 在下一条路线已经清晰之后，不要持续重跑。
 
-## Constraints
+## 约束
 
-- All smoke tests, real runs, shell, CLI, Python, bash, node, git, npm, uv, and environment work must go through `bash_exec(...)`.
-- For git work inside the current quest repository or worktree, prefer `artifact.git(...)` before raw shell git commands.
-- Keep the accepted baseline reference read-only.
-- If `active_baseline_metric_contract_json` exists, required baseline metric keys must still be covered unless a concrete deviation is durably recorded.
-- Durable main experiments should land on their own `run/*` branch or an equivalent isolated run surface.
-- If an active paper line or selected outline already exists, a recorded main experiment should be synchronized into the current paper contract instead of living only as a run artifact.
-- In algorithm-first work, after each main run, return to `optimize` or `decision` for frontier review before launching another large run.
-- Main-run evidence is not complete until `artifact.record_main_experiment(...)` succeeds.
+- 所有冒烟测试、真实运行、shell、CLI、Python、bash、node、git、npm、uv 与环境工作都必须经由 `bash_exec(...)`。
+- 在当前 quest 仓库或 worktree 内部进行 git 工作时，优先使用 `artifact.git(...)`，再考虑原始 shell git 命令。
+- 保持被接受的基线参照只读。
+- 如果 `active_baseline_metric_contract_json` 存在，必需的基线指标键仍须被覆盖，除非一个具体的偏差已被持久记录。
+- 持久的主实验应落在它们自己的 `run/*` 分支或等价的隔离运行界面上。
+- 如果已存在活跃的论文线或选定大纲，一个被记录的主实验应同步进入当前论文契约，而不是只作为一个运行制品存在。
+- 在以算法为先的工作中，每次主运行之后，在启动另一个大型运行之前，应先返回 `optimize` 或 `decision` 进行前沿评审。
+- 在主运行证据方面，直到 `artifact.record_main_experiment(...)` 成功才算完整。
 
-## Validation
+## 校验
 
-Before `experiment` can end, all applicable checks should be true:
+在 `experiment` 可以结束之前，所有适用的检查都应为真：
 
-- outputs correspond to the intended code and config
-- required metric keys are present and finite
-- baseline comparison is still comparable, or the deviation is explicit
-- the claim is classified as `supported`, `refuted`, or `inconclusive`
-- the run manifest includes exact command, config, seed, and environment snapshot
-- `evaluation_summary` exists with the six stable fields the next stage needs
-- if a paper line is active, the run is visible through the current paper contract rows rather than only through the run artifact
-- `artifact.record_main_experiment(...)` succeeded
-- the next route is explicit
+- 输出对应于预期的代码与配置
+- 必需的指标键存在且为有限值
+- 基线对比仍然可比较，或偏差是明确的
+- 该断言被分类为 `supported`、`refuted` 或 `inconclusive`
+- 运行清单包含精确的命令、配置、种子与环境快照
+- `evaluation_summary` 存在，且包含下一阶段所需的六个稳定字段
+- 如果活跃的是论文线，该运行应通过当前论文契约的行可见，而不仅是通过运行制品可见
+- `artifact.record_main_experiment(...)` 已成功
+- 下一条路线是明确的
 
-## Interaction discipline
+## 交互纪律
 
-Follow the shared interaction contract injected by the system prompt.
-Keep run updates brief unless the measured result, blocker state, or next route changed materially.
-For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
+遵循系统提示注入的共享交互契约。
+除非测量结果、受阻状态或下一条路线发生了实质变化，否则保持运行更新简洁。
+对于普通的活跃工作，当工作跨越约 6 次工具调用并出现具有用户可感知意义的进展时，优先给出一次简洁的进度更新；且不要在没有用户可见更新的情况下，偏移超过约 12 次工具调用或约 8 分钟。
 
-## Tool discipline
+## 工具纪律
 
-- **Do not use native `shell_command` / `command_execution` in this skill.**
-- **All smoke tests, real runs, shell, CLI, Python, bash, node, git, npm, uv, and environment work must go through `bash_exec(...)`.**
-- **For git work inside the current quest repository or worktree, prefer `artifact.git(...)` before raw shell git commands.**
-- **If a scratch repository or isolated test environment is needed, create and drive it through `bash_exec(...)`, not native shell tools.**
+- **不要在本技能中使用原生的 `shell_command` / `command_execution`。**
+- **所有冒烟测试、真实运行、shell、CLI、Python、bash、node、git、npm、uv 与环境工作都必须经由 `bash_exec(...)`。**
+- **在当前 quest 仓库或 worktree 内部进行 git 工作时，优先使用 `artifact.git(...)`，再考虑原始 shell git 命令。**
+- **如果需要一个临时仓库或隔离测试环境，应通过 `bash_exec(...)` 创建并驱动它，而不是使用原生 shell 工具。**
 
-## Non-negotiable rules
+## 不可妥协的规则
 
-- Do not fabricate metrics, logs, claims, or improvement narratives.
-- Do not introduce a new dataset or silently change splits or evaluation protocol.
-- Do not change metric definitions or evaluation logic unless the change is explicitly justified and durably recorded.
-- Do not stop after a quick sanity run if the agreed goal is a real experiment.
-- Do not claim success before durable artifacts exist and the acceptance gate passes.
-- Implement the claimed mechanism, not a convenient shortcut that changes the theory.
-- Keep the baseline reference read-only.
-- Avoid asking the user to fix the environment unless there is no credible agent-side path left.
-- After each `artifact.record_main_experiment(...)`, route from the measured result instead of stopping at “run finished”.
+- 不要伪造指标、日志、断言或改进叙事。
+- 不要引入新数据集，或静默改变划分或评估协议。
+- 不要改变指标定义或评估逻辑，除非该改动有明确的依据且被持久记录。
+- 如果约定的目标是一次真实实验，则不要在快速健全性运行之后就停下。
+- 不要在持久制品尚不存在、且验收门槛通过之前就声称成功。
+- 实现所声称的机制，而不是改变理论、图方便的捷径。
+- 保持基线参照只读。
+- 除非实在没有可信的「智能体侧」路径，否则避免要求用户修复环境。
+- 每次 `artifact.record_main_experiment(...)` 之后，应基于测量结果进行路由，而不是停在「运行完成」。
 
-## Truth sources
+## 真相来源
 
-Use:
+使用：
 
-- idea-stage outputs
-- baseline artifacts
-- current codebase and configs
-- recent decisions
-- task and metric contract
-- shell logs and generated outputs from the actual run
-- `bash_exec` session ids, progress markers, and exported logs from the actual run
-- the selected idea handoff contract
-- incident or failure-pattern memory from earlier runs
+- 思路阶段的输出
+- 基线制品
+- 当前代码库与配置
+- 近期决策
+- 任务与指标契约
+- 来自真实运行的 shell 日志与生成输出
+- 来自真实运行的 `bash_exec` 会话 id、进度标记与导出的日志
+- 选定的思路交接契约
+- 来自早期运行的事故或失败模式记忆
 
-Do not claim run success without durable outputs.
+不要在没有持久输出的情况下声称运行成功。
 
-## Required durable outputs
+## 必需的持久输出
 
-A meaningful experiment pass should leave behind:
+一次有意义的实验轮次应留下：
 
-- a run directory under `artifacts/experiment/<run_id>/` or the quest-equivalent canonical location
-- durable command, config, and log pointers
-- exported shell log, typically `bash.log`
-- a run artifact with explicit deltas versus baseline
-- a decision about what should happen next
+- 位于 `artifacts/experiment/<run_id>/` 或 quest 等价规范位置下的一个运行目录
+- 持久的命令、配置与日志指针
+- 导出的 shell 日志，通常为 `bash.log`
+- 一份带有相对于基线的明确增量的运行制品
+- 关于后续应发生什么的决策
 
-For the exact run-manifest fields, checklist template, and detailed recording contract, use the references listed below.
+关于确切的运行清单字段、清单模板与详细的记录契约，请使用下面列出的参考。
 
-## Evidence ladder note
+## 证据阶梯说明
 
-Use `references/evidence-ladder.md` when deciding whether the current package is merely executable, solid enough to carry the main claim, or already in the stage where broader polish is justified.
+在判断当前包仅仅是「可运行」、已足够稳固到能承载主断言，还是已进入「有理由进行更广泛打磨」的阶段时，使用 `references/evidence-ladder.md`。
 
-The default ladder is:
+默认阶梯为：
 
-- `minimum`: executable and comparable
-- `solid`: strong enough to carry the main claim
-- `maximum`: broader supporting polish after the main claim is already credible
+- `minimum`：可运行且可比较
+- `solid`：足够强以承载主断言
+- `maximum`：在主断言已经可信之后的、更宽泛的支撑性打磨
 
-Do not spend for `maximum` before the line is at least `solid`.
+在该线至少达到 `solid` 之前，不要为 `maximum` 投入。
 
-## Planning note
+## 计划说明
 
-Use quest or workspace planning files only when they help control a non-trivial run.
-Otherwise keep the run contract small and move to the first decisive execution step.
+仅当有助于控制一次非平凡运行时，才使用 quest 或工作区计划文件。
+否则请保持运行契约精简，并进入第一个决定性的执行步骤。
 
-## Operational guidance
+## 操作指引
 
-The main skill keeps the control surface in front.
-For the longer operational notes, read the references:
+主技能将控制面保持在最前。
+关于更长的操作说明，请阅读以下参考：
 
 - `references/main-experiment-plan-template.md`
 - `references/main-experiment-checklist-template.md`
 - `references/execution-playbook.md`
 - `references/operational-guidance.md`
 
-Use them when:
+在以下情况使用它们：
 
-- the run contract is non-trivial
-- the long-running protocol or monitoring cadence matters
-- the exact manifest, artifact, memory, or charting rules matter
+- 运行契约非平凡
+- 长时协议或监控节律重要
+- 确切的清单、制品、记忆或绘图规则重要
 
-## Run-quality rules
+## 运行质量规则
 
-A credible main run should satisfy:
+一次可信的主运行应满足：
 
-- comparable against baseline
-- method change is knowable from code and config
-- metric source is durable
-- outcome can be explained by the intended intervention or its failure
-- commands, configs, and seeds are reconstructable
-- environment context is reconstructable
-- later readers can trace code and diff context to command, logs, and metrics
+- 相对于基线可比较
+- 方法改动可从代码与配置中得知
+- 指标来源是持久的
+- 结果可由预期的干预或其失败来解释
+- 命令、配置与种子可重建
+- 环境上下文可重建
+- 后续读者能将代码与 diff 上下文追踪到命令、日志与指标
 
-If the result is confounded, say so directly.
+如果结果存在混淆因素，应直接说明。
 
-## Acceptance gate
+## 验收门槛
 
-Before marking the run complete, verify all of the following:
+在标记运行完成之前，验证以下全部内容：
 
-- all required baseline metric keys are present
-- the reported comparison contract still matches `active_baseline_metric_contract_json` when that file exists
-- metric values are finite numbers
-- claim-to-metric traceability is recorded
-- run manifest includes exact command, config, seed, and environment snapshot
-- the summary states go or no-go and why
-- artifacts are sufficient for another stage to reconstruct the run
+- 所有必需的基线指标键都存在
+- 当该文件存在时，所报告的对比契约仍与 `active_baseline_metric_contract_json` 匹配
+- 指标值为有限数值
+- 断言到指标的可追踪性已记录
+- 运行清单包含精确的命令、配置、种子与环境快照
+- 摘要说明了「通过/不通过」及其原因
+- 制品足以让另一个阶段重建该运行
 
-If these checks fail, record the run as partial or blocked rather than pretending it is complete.
+如果这些检查失败，应将运行记录为部分完成或受阻，而不是假装它已完成。
 
-## Failure and blocked handling
+## 失败与受阻处理
 
-A failed main run is still useful if it is explained well.
+一次失败的主运行，只要解释得当，仍然有用。
 
-Record:
+记录：
 
-- what was attempted
-- where the failure occurred
-- whether the failure was methodological or infrastructural
-- what retry, branch, or reset is justified
-- the single best next action
+- 尝试了什么
+- 失败发生在何处
+- 失败是方法论性的还是基础设施性的
+- 哪种重试、分支或重置是有依据的
+- 唯一最佳的下一步动作
 
-Prefer a primary failure type such as:
+优先采用一种主要的失败类型，例如：
 
 - `data_contract_mismatch`
 - `resource_exhausted`
@@ -247,22 +247,22 @@ Prefer a primary failure type such as:
 - `external_dependency_blocked`
 - `direction_underperforming`
 
-Also classify the broader failure layer when possible:
+在可能时，也对更宽泛的失败层进行分类：
 
 - implementation
 - evaluation
 - environment
 - direction
 
-Blocked experiment states commonly include missing baseline reference, unknown metric contract, environment failure, run failure before metrics, or metrics that are not comparable.
-When results are suspicious, fix the subset and seeds, isolate preprocessing/model/training/evaluation one by one, compare intermediate outputs on the same inputs, and run the cheapest discriminative check before another full retry.
+受阻的实验状态通常包括：缺失基线参照、未知的指标契约、环境失败、指标之前的运行失败，或不可比较的指标。
+当结果可疑时，修复子集与种子，逐一隔离预处理/模型/训练/评估，在相同输入上比较中间输出，并在另一次完整重试之前运行最廉价的判别性检查。
 
-## Exit criteria
+## 退出标准
 
-Exit the experiment stage once one of the following is durably true:
+一旦以下任一情况持久为真，即可退出实验舞台：
 
-- a main run is completed and recorded
-- the run failed and the blocker is durably recorded
-- the next step is clearly `analysis-campaign`, `write`, another `experiment`, `optimize`, or `reset`
+- 一次主运行已完成并记录
+- 运行失败且受阻状态已持久记录
+- 下一步明确为 `analysis-campaign`、`write`、另一次 `experiment`、`optimize` 或 `reset`
 
-A good experiment pass leaves one interpretable result or one explicit blocker, not another vague promise to rerun later.
+一次好的实验轮次，留下一个可解释的结果或一个明确的受阻点，而不是又一个「稍后重跑」的含糊承诺。

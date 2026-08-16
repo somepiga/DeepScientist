@@ -3363,6 +3363,32 @@ export function CreateProjectDialog({
     setPromptDraft(compiledPromptPreview)
   }
 
+  const handleStartSetupFromIntake = useCallback(async () => {
+    await onRequestSetupAgent?.({
+      message: intakeMessage,
+      form,
+      setupPacket,
+      attachments: localLaunchAttachments,
+    })
+  }, [intakeMessage, form, setupPacket, localLaunchAttachments, onRequestSetupAgent])
+
+  const handleSwitchToCopilot = useCallback(() => {
+    onSwitchToCopilot?.({
+      title: form.title || undefined,
+      message: intakeMessage,
+      setupQuestId: setupQuestId || null,
+      setupAttachments: (setupLaunchAttachments || []).map((item) => ({ ...item })),
+      localAttachments: [...(localLaunchAttachments || [])],
+    })
+  }, [
+    form.title,
+    intakeMessage,
+    setupQuestId,
+    setupLaunchAttachments,
+    localLaunchAttachments,
+    onSwitchToCopilot,
+  ])
+
 
   const applyResearchIntensity = (presetId: ResearchIntensity) => {
     setForm((current) => {

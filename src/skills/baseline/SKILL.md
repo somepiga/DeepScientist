@@ -1,207 +1,207 @@
 ---
 name: baseline
-description: Use when a quest needs to attach, import, reproduce, repair, verify, compare, or publish a baseline and its metrics.
+description: 当一个任务(quest)需要挂载、导入、复现、修复、验证、比较或发布一个基线及其指标时使用。
 skill_role: stage
 ---
 
-# Baseline
+# 基线(Baseline)
 
-Use this skill to secure one trustworthy comparator and then get out of the way.
-The target is one accepted baseline line, not an endless reproduction diary.
+使用本技能来稳固一个可信的比较对象，然后让路。
+目标是确立一条被接受的基线线，而非无休止的复现日记。
 
-## Match signals
+## 匹配信号
 
-Use `baseline` when:
+在以下情况使用 `baseline`：
 
-- no credible baseline exists yet
-- the current baseline is unverified or stale
-- the user already has a baseline package that should be attached or imported
-- a local code path or local service should be verified as the comparator
-- a reproduction failed earlier and now needs repair
-- the quest resumed and the baseline trust state is unclear
+- 尚不存在可信的基线
+- 当前基线未经核实或已过期
+- 用户已有一个应被挂载或导入的基线包
+- 应将某个本地代码路径或本地服务验证为比较对象
+- 先前的复现失败、现在需要修复
+- 任务已恢复且基线信任状态不清晰
 
-Do not use `baseline` when:
+在以下情况不要使用 `baseline`：
 
-- a verified active baseline already exists and the next move is obviously `idea`, `experiment`, `write`, or `finalize`
-- the baseline gate was already explicitly waived for the current route
+- 已存在一个经验证的活跃基线，且下一步明显是 `idea`、`experiment`、`write` 或 `finalize`
+- 当前路由的基线关卡已被显式豁免
 
-## One-sentence summary
+## 一句话总结
 
-Secure the lightest trustworthy comparator, make the comparison contract explicit, then confirm, waive, or block the baseline and stop.
+稳固最轻量的可信比较对象，使比较契约显式，然后确认、豁免或阻塞该基线并停止。
 
-## Control workflow
+## 控制工作流
 
-1. Choose the current acceptance target and the lightest route that can satisfy it.
-   Prefer `attach`, `import`, or `verify-local-existing` before full reproduction.
-2. Make the comparator identity and core metric contract explicit.
-   Record task, dataset, split, evaluation path, required metric ids, metric directions, source identity, and known deviations.
-3. Collect only the evidence needed to establish comparability.
-   Do not widen into broad codebase audit or heavy reruns unless the lighter route cannot be trusted.
-4. Verify before acceptance.
-   Check that outputs are real, metrics trace to real evidence, and the intended dataset/split and metric definitions match the contract.
-   Explicitly verify the comparator and metric contract before treating the baseline gate as open.
-5. Close the gate explicitly.
-   Call `artifact.confirm_baseline(...)`, call `artifact.waive_baseline(...)`, or record an explicit blocker and next route.
-   When an already accepted baseline needs a deliberate second-pass refresh after verified code, variant, or canonical metric changes, prefer `artifact.overwrite_baseline(...)` over pretending the update is just a first confirmation.
+1. 选择当前的验收目标，以及能满足它的最轻量路由。
+   在完整复现之前，优先 `attach`、`import` 或 `verify-local-existing`。
+2. 使比较对象身份与核心指标契约显式。
+   记录任务、数据集、切分、评估路径、所需指标 id、指标方向、来源身份与已知偏差。
+3. 只收集建立可比性所需的证据。
+   除非轻量路由无法被信任，否则不要扩展为广泛的代码库审计或大规模重跑。
+4. 在验收前验证。
+   检查输出是真实的、指标可追溯到真实证据，且预期的数据集/切分与指标定义与契约匹配。
+   在将基线关卡视为开启之前，显式验证比较对象与指标契约。
+5. 显式关闭关卡。
+   调用 `artifact.confirm_baseline(...)`、调用 `artifact.waive_baseline(...)`，或记录一个显式阻塞点及下一步路由。
+   当一条已被接受的基线在经验证的代码、变体或规范指标发生变化后需要一次刻意的二次刷新时，优先 `artifact.overwrite_baseline(...)`，而非假装更新只是首次确认。
 
-## AVOID / pitfalls
+## 避免 / 陷阱
 
-- Do not default to full source reproduction when reuse or verify-local-existing is already sufficient.
-- Do not treat attach, import, or publish alone as baseline acceptance.
-- Do not accept metrics that are fabricated, copied from the paper, or not traceable to real outputs, logs, or service responses.
-- Do not silently normalize away deviations in dataset, split, metric definition, evaluation path, or source identity.
-- Do not keep doing baseline work after the current acceptance target is already satisfied.
-- Do not repeat the same failure class without new evidence, code changes, environment changes, or a route change.
+- 当复用或 verify-local-existing 已足够时，不要默认进行完整源码复现。
+- 不要将 attach、import 或 publish 单独视为基线验收。
+- 不要接受伪造、从论文抄来，或无法追溯到真实输出、日志或服务响应的指标。
+- 不要静默地归一化掉数据集、切分、指标定义、评估路径或来源身份上的偏差。
+- 在当前验收目标已满足后，不要继续做基线工作。
+- 在没有新证据、代码变更、环境变更或路由变更的情况下，不要重复同一类失败。
 
-## Constraints
+## 约束
 
-- Routes, templates, filenames, smoke tests, and environment choices are tactics; the hard requirement is objective evidence sufficient to accept, waive, block, or switch the route.
-- Do not treat templates, filenames, `uv`, smoke tests, detached runs, or the phase order as required paths.
-- Durable records are required in substance, not in fixed filenames.
-- `PLAN.md`, `CHECKLIST.md`, `setup.md`, `execution.md`, `verification.md`, `analysis_plan.md`, and `REPRO_CHECKLIST.md` are allowed compatibility surfaces, not mandatory success paths.
-- `<baseline_root>/json/metric_contract.json` is the canonical accepted comparison contract.
-- Accepted baselines still require `artifact.confirm_baseline(...)`.
-- Waived baselines still require `artifact.waive_baseline(...)`.
-- Attach/import/publish alone do not open the downstream gate.
-- Later stages must not need to guess the active comparator, trusted metrics, or main caveats.
+- 路由、模板、文件名、冒烟测试与环境选择都是策略；硬性要求是足以接受、豁免、阻塞或切换路由的客观证据。
+- 不要将模板、文件名、`uv`、冒烟测试、分离运行或阶段顺序视为必需路径。
+- 持久记录要求在实质内容，而非固定文件名。
+- `PLAN.md`、`CHECKLIST.md`、`setup.md`、`execution.md`、`verification.md`、`analysis_plan.md` 与 `REPRO_CHECKLIST.md` 是允许的兼容界面，而非强制的成功路径。
+- `<baseline_root>/json/metric_contract.json` 是规范的已接受比较契约。
+- 已接受的基线仍需要 `artifact.confirm_baseline(...)`。
+- 已豁免的基线仍需要 `artifact.waive_baseline(...)`。
+- attach/import/publish 单独无法开启下游关卡。
+- 后续阶段不得需要去猜测活跃比较对象、可信指标或主要注意事项。
 
-## Validation
+## 校验
 
-Before `baseline` can end, all applicable checks should be true:
+在 `baseline` 可以结束之前，所有适用的检查都应为真：
 
-- comparator identity is explicit and stable enough to cite later
-- task, dataset, split, evaluation path, required metric ids, metric directions, source identity, and known deviations are durably recorded
-- trusted metric values or trusted output pointers trace to real files, logs, service responses, or source artifacts
-- verification checked the intended dataset/split and metric definitions
-- the accepted comparison contract exists at `<baseline_root>/json/metric_contract.json`
-- the route ended in `artifact.confirm_baseline(...)`, `artifact.waive_baseline(...)`, or an explicit blocked state with next-step routing
+- 比较对象身份显式且足够稳定，可供后续引用
+- 任务、数据集、切分、评估路径、所需指标 id、指标方向、来源身份与已知偏差已被持久记录
+- 可信指标值或可信输出指针可追溯到真实文件、日志、服务响应或来源产物
+- 验证检查了预期的数据集/切分与指标定义
+- 已接受的比较契约存在于 `<baseline_root>/json/metric_contract.json`
+- 路由以 `artifact.confirm_baseline(...)`、`artifact.waive_baseline(...)` 或带下一步路由的显式阻塞状态结束
 
-## Interaction discipline
+## 交互纪律
 
-Follow the shared interaction contract injected by the system prompt.
-Keep baseline updates brief unless trust state, blocker state, route, cost, or user-facing risk changed materially.
+遵循系统提示注入的共享交互契约。
+除非信任状态、阻塞状态、路由、成本或面向用户的风险发生了实质性变化，否则保持基线更新简明。
 
-## Tool discipline
+## 工具纪律
 
-- **Do not use native `shell_command` / `command_execution` in this skill.**
-- **All shell, CLI, Python, bash, node, git, npm, uv, and environment work must go through `bash_exec(...)`.**
-- **For git work inside the current quest repository or worktree, prefer `artifact.git(...)` before raw shell git commands.**
-- **If a generic git smoke test is needed outside the quest repo, use `bash_exec(...)` in an isolated scratch repository.**
-- Use web search for discovering papers or repos, but use `artifact.arxiv(paper_id=..., full_text=False)` for actually reading a source arXiv paper when it exists.
-- Set `full_text=True` only when the short form is insufficient.
+- **不要在本技能中使用原生的 `shell_command` / `command_execution`。**
+- **所有 shell、CLI、Python、bash、node、git、npm、uv 与环境工作都必须通过 `bash_exec(...)`。**
+- **对于当前任务仓库或 worktree 内的 git 工作，在原始 shell git 命令之前优先 `artifact.git(...)`。**
+- **若在任务仓库之外需要通用的 git 冒烟测试，请在隔离的临时仓库中使用 `bash_exec(...)`。**
+- 使用网络搜索来发现论文或仓库，但在实际读取某个 arXiv 源论文时，使用 `artifact.arxiv(paper_id=..., full_text=False)`。
+- 仅当短形式不够时才设置 `full_text=True`。
 
-## Authority and freedom
+## 权限与自由度
 
-The agent owns the execution path.
-It may choose the workspace layout, environment manager, command order, debugging route, smoke strategy, local paths, and whether the best route is attach, import, verify-local-existing, reproduce, or repair.
+智能体拥有执行路径的所有权。
+它可以选择工作区布局、环境管理器、命令顺序、调试路由、冒烟策略、本地路径，以及最佳路由是 attach、import、verify-local-existing、reproduce 还是 repair。
 
-Ask the user only when the next move depends on a real scope, cost, permission, data-access, or scientific-preference decision that cannot be inferred from the quest contract.
-Ordinary route, path, environment, and debugging choices are autonomous unless they change the accepted comparison meaning.
+仅当下一步取决于无法从任务契约推断的真实范围、成本、权限、数据访问或科学偏好决策时，才询问用户。
+普通的路由、路径、环境与调试选择是自主的，除非它们改变了被接受比较的含义。
 
-## Comparator-first rule
+## 比较对象优先规则
 
-The baseline stage is comparator-first, not reproduction-first.
-For `comparison_ready`, the default question is:
+基线阶段是“比较对象优先”，而非“复现优先”。
+对于 `comparison_ready`，默认的问题是：
 
-- what is the lightest trustworthy comparator?
+- 最轻量的可信比较对象是什么？
 
-not:
+而非：
 
-- how do I reproduce the whole source package most completely?
+- 我如何最完整地复现整个源码包？
 
-Default to the lightest baseline path that can still support a fair downstream comparison.
-Default to a fast path when it can establish trust with less work.
-Do not restart broad discovery or front-load a full codebase audit when the comparator, command path, and metric contract are already concrete.
-When this applies, do not front-load a full codebase audit.
-In that fast-path state, do not restart broad baseline discovery by default.
-Do not require a fresh memory pass for every fast-path validation; use memory when it prevents repeated work or clarifies stale route state.
-In short, do not require a fresh memory pass for every fast-path validation.
-A bounded smoke test is usually helpful only when command path, environment viability, evaluator wiring, or output schema is still unclear.
-Treat smoke/pilot work as a `0-2` default budget, and remember not to repeat an unchanged check without new evidence.
-When resuming a previously blocked or ambiguous route, recover the relevant memory before trusting the old path again.
+默认采用仍能支撑公平下游比较的最轻量基线路径。
+当能用更少工作量建立信任时，默认走快速路径。
+当比较对象、命令路径与指标契约已经具体时，不要重启广泛发现或预先铺开完整代码库审计。
+当此情形适用时，不要预先铺开完整代码库审计。
+在该快速路径状态下，默认不要重启广泛的基线发现。
+不要要求每次快速路径验证都做一次全新的记忆(memory)轮次；仅在能防止重复工作或厘清过期路由状态时使用 memory。
+简而言之，不要要求每次快速路径验证都做一次全新的记忆轮次。
+有边界的冒烟测试通常只在命令路径、环境可行性、评估者接线或输出模式仍不清晰时才有帮助。
+将冒烟/试点工作的默认预算视为 `0-2`，并记住在没有新证据时不要重复一项未改变的核查。
+在恢复先前被阻塞或模糊的路由时，在重新信任旧路径之前先恢复相关记忆。
 
-If runtime already exposes `requested_baseline_ref` or a matching `confirmed_baseline_ref`, default to reuse-and-verify.
-Escalate to fuller audit, reproduction, or repair only when no concrete comparator, command path, or core comparability surface can be trusted yet.
+如果运行时已暴露 `requested_baseline_ref` 或匹配的 `confirmed_baseline_ref`，默认采用“复用并验证”。
+仅当尚无可被信任的具体比较对象、命令路径或核心可比性界面时，才升级为更完整的审计、复现或修复。
 
-For route examples and boundary cases, read `references/route-selection.md`, `references/artifact-flow-examples.md`, and `references/boundary-cases.md`.
-Use `references/baseline-plan-template.md` and `references/baseline-checklist-template.md` when a baseline route is complex enough to need durable planning surfaces.
+关于路由示例与边界情况，阅读 `references/route-selection.md`、`references/artifact-flow-examples.md` 与 `references/boundary-cases.md`。
+当一条基线路由复杂到需要持久规划界面时，使用 `references/baseline-plan-template.md` 与 `references/baseline-checklist-template.md`。
 
-## Acceptance targets
+## 验收目标
 
-- `comparison_ready`: the default target; one comparator is trustworthy enough for downstream comparison, and the core metric contract is durably recorded
-- `paper_repro_ready`: the baseline is strong enough to support paper-facing reproduction or comparison claims
-- `registry_publishable`: the baseline package is reusable and clean enough to publish as a durable baseline package
-- `blocked`: the current route cannot clear the gate cleanly, and the next move is explicit
-- `waived`: the quest must continue without a baseline, and the reason is durably recorded
+- `comparison_ready`：默认目标；一个比较对象对下游比较已足够可信，且核心指标契约已被持久记录
+- `paper_repro_ready`：基线足够强，足以支撑面向论文的复现或比较论点
+- `registry_publishable`：基线包可复用且足够干净，可作为持久基线包发布
+- `blocked`：当前路由无法干净地通关，且下一步是显式的
+- `waived`：任务必须在没有基线的情况下继续，且原因已被持久记录
 
-Not every baseline needs paper-grade exact reproduction.
-A verified attached, imported, or local-existing comparator can be enough when the acceptance target is only `comparison_ready`.
+并非每条基线都需要论文级的精确复现。
+当验收目标仅为 `comparison_ready` 时，一个经验证、已挂载、已导入或本地已存在的比较对象可能就足够。
 
-## Hard acceptance gates
+## 硬性验收关卡
 
-Baseline success means later stages can compare against one accepted comparator without guessing task, data, split, metric, source, command or evaluation path, provenance, or caveats.
+基线成功意味着后续阶段可以针对一个被接受的比较对象进行比较，而无需猜测任务、数据、切分、指标、来源、命令或评估路径、出处或注意事项。
 
-A baseline is successful only when all applicable gates are true:
+基线仅在以下所有适用关卡为真时才算成功：
 
-- the comparator identity is explicit and stable enough for later stages to cite
-- the task, dataset, split, evaluation path, required metric ids, metric directions, source identity, and known deviations are durably recorded
-- trusted metric values or trusted output pointers are traceable to real files, logs, service responses, source artifacts, or an accepted registry/package record
-- verification checked that the evidence came from the intended dataset/split and metric definitions
-- the accepted comparison contract is written to `<baseline_root>/json/metric_contract.json`
-- the baseline gate is opened with `artifact.confirm_baseline(...)`, or intentionally bypassed with `artifact.waive_baseline(...)`
+- 比较对象身份显式且足够稳定，可供后续阶段引用
+- 任务、数据集、切分、评估路径、所需指标 id、指标方向、来源身份与已知偏差已被持久记录
+- 可信指标值或可信输出指针可追溯到真实文件、日志、服务响应、来源产物或一份已接受的注册表/包记录
+- 验证检查了证据来自预期的数据集/切分与指标定义
+- 已接受的比较契约已写入 `<baseline_root>/json/metric_contract.json`
+- 基线关卡以 `artifact.confirm_baseline(...)` 开启，或以 `artifact.waive_baseline(...)` 有意绕过
 
-Once a comparison-ready baseline is durably confirmed, baseline should usually stop immediately.
-Once a comparison-ready baseline is durably confirmed, baseline should usually stop immediately and hand off to the next scientific step.
-Any extra baseline work after that must name one explicit unresolved comparison risk it is meant to remove.
+一旦一条 comparison-ready 基线被持久确认，baseline 通常应立即停止。
+一旦一条 comparison-ready 基线被持久确认，baseline 通常应立即停止并交接给下一个科学步骤。
+此后任何额外的基线工作都必须点名它旨在消除的一个显式未解决比较风险。
 
-## Route success criteria
+## 路由成功标准
 
-Choose the route that maximizes trust per unit time and compute; do not follow a fixed ritual.
-Keep one dominant baseline route active at a time.
-If a lighter route already satisfies the current acceptance target, stop there.
+选择每单位时间与计算信任最大化、而非遵循固定仪式的路由。
+一次只保持一个主导基线路由活跃。
+如果一条更轻量的路由已经满足当前验收目标，就在那里停止。
 
-- `attach` succeeds when baseline identity, provenance, trusted outputs pointer, core metric contract, and accepted baseline artifact are explicit
-- `import` succeeds when the package is materialized/readable inside the quest, `attachment.yaml` or equivalent provenance exists, and trusted outputs or metrics are traceable
-- `verify-local-existing` succeeds when the concrete local path or service, exact command or evaluation endpoint, output location, required metrics, and core metric contract are verified
-- `reproduce` succeeds when source identity, command or evaluation path, expected outputs, verification evidence, deviations, and metric contract are explicit
-- `repair` succeeds when the broken point is identified, a bounded fix or route change is made, rerun or re-read evidence supports the new trust state, and the result is accepted or blocked
+- `attach` 在以下情况成功：基线身份、出处、可信输出指针、核心指标契约与已接受的基线产物都显式
+- `import` 在以下情况成功：包已在任务内实体化/可读、`attachment.yaml` 或等价的出处文件已存在，且可信输出或指标可追踪
+- `verify-local-existing` 在以下情况成功：具体的本地路径或服务、确切命令或评估端点、输出位置、所需指标与核心指标契约都已被验证
+- `reproduce` 在以下情况成功：来源身份、命令或评估路径、预期输出、验证证据、偏差与指标契约都显式
+- `repair` 在以下情况成功：断点已被识别、做出了有边界的修复或路由变更、重跑或重读证据支撑新的信任状态，且结果被接受或阻塞
 
-Prefer reuse over redundant reproduction, but prefer reproduction or repair when reuse would still leave the baseline incomparable.
-Do not replace a working comparison-ready comparator with a heavier route merely because the heavier route feels cleaner or more complete.
+优先复用而非冗余复现，但当复用仍会使基线不可比时，优先复现或修复。
+不要仅因更重的路由“感觉更干净或更完整”就用它替换一个能工作的 comparison-ready 比较对象。
 
-## Objective evidence requirements
+## 客观证据要求
 
-The final evidence should cover these facts before acceptance:
+最终证据在验收前应覆盖以下事实：
 
-- comparator candidate and baseline id
-- source paper, source repo, source commit/version/tag, local service identity, or registry/package identity as applicable
-- task identity
-- dataset identity and split contract
-- evaluation script, evaluation endpoint, or evaluation path
-- required metric keys for the current downstream comparison
-- metric directions
-- metric values or trusted output pointers
-- environment and hardware facts that materially affect comparability
-- known deviations from the paper, source package, local reference, or selected target
-- verification verdict and caveats
+- 比较对象候选与基线 id
+- 源论文、源仓库、源提交/版本/标签、本地服务身份或注册表/包身份（视情况而定）
+- 任务身份
+- 数据集身份与切分契约
+- 评估脚本、评估端点或评估路径
+- 当前下游比较所需的指标键
+- 指标方向
+- 指标值或可信输出指针
+- 实质性影响可比性的环境与硬件事实
+- 相对于论文、源包、本地参考或所选目标的已知偏差
+- 验证结论与注意事项
 
-Unless the user explicitly specifies otherwise, treat the original paper's evaluation protocol as the canonical starting point.
-If later `experiment` work would still have to guess the comparison contract, the baseline is not ready.
-For a compact verdict rubric, read `references/comparability-contract.md`.
+除非用户显式另行指定，否则将原始论文的评估协议视为规范起点。
+如果后续的 `experiment` 工作仍然需要猜测比较契约，则基线尚未就绪。
+关于紧凑的结论性准则，阅读 `references/comparability-contract.md`。
 
-## Verification
+## 验证
 
-Verification is mandatory before baseline acceptance.
+验证在基线验收之前是强制性的。
 
-Verify:
+验证：
 
-- the run, service call, package import, or trusted-output inspection actually finished
-- the reported metrics came from the intended dataset and split
-- metric definitions and directions match the quest contract
-- the result is comparable to the paper, source repo, local comparator, registry package, or selected target
-- deviations are explicitly stated rather than silently normalized away
+- 运行、服务调用、包导入或可信输出检查确实已完成
+- 报告的指标来自预期的数据集与切分
+- 指标定义与方向匹配任务契约
+- 结果可与论文、源仓库、本地比较对象、注册表包或所选目标比较
+- 偏差被显式陈述，而非静默归一化掉
 
-Classify the outcome as one of:
+将结果归类为以下之一：
 
 - `verified_match`
 - `verified_close`
@@ -209,25 +209,25 @@ Classify the outcome as one of:
 - `trusted_with_caveats`
 - `broken`
 
-Verification should explicitly separate likely implementation mismatch, environment mismatch, data or split mismatch, expected stochastic variance, and unexplained divergence when those distinctions matter.
+当这些区分重要时，验证应显式区分可能的实现不匹配、环境不匹配、数据或切分不匹配、预期的随机方差，以及无法解释的分歧。
 
-## Core metric contract
+## 核心指标契约
 
-Before declaring a baseline usable, make the core comparison contract explicit:
+在宣布基线可用之前，使核心比较契约显式：
 
-- task identity
-- dataset identity and split contract
-- evaluation script or evaluation path
-- required metric keys for the current downstream comparison
-- metric directions
-- source commit or source package identity
-- known deviations from the source reference
+- 任务身份
+- 数据集身份与切分契约
+- 评估脚本或评估路径
+- 当前下游比较所需的指标键
+- 指标方向
+- 源提交或源包身份
+- 相对于源参考的已知偏差
 
-`<baseline_root>/json/metric_contract.json` is the canonical accepted comparison contract.
-The comparison-ready minimum still requires `<baseline_root>/json/metric_contract.json`.
-A core contract is enough to confirm a `comparison_ready` baseline; expand it later when paper claims, registry publication, or variant-heavy comparison need more coverage.
+`<baseline_root>/json/metric_contract.json` 是规范的已接受比较契约。
+comparison-ready 的最低要求仍需要 `<baseline_root>/json/metric_contract.json`。
+一个核心契约足以确认一条 `comparison_ready` 基线；当论文论点、注册表发布或变体繁重的比较需要更多覆盖度时，再扩展它。
 
-The accepted baseline artifact should include at least:
+已接受的基线产物应至少包含：
 
 - `baseline_id`
 - `baseline_kind`
@@ -240,44 +240,44 @@ The accepted baseline artifact should include at least:
 - `source`
 - `summary`
 
-Metric-contract rules:
+指标契约规则：
 
-- keep `primary_metric` as the headline metric only; do not let it erase the rest of the comparison surface
-- submit canonical `metrics_summary` as a flat top-level dictionary keyed by the paper-facing metric ids
-- every canonical baseline metric entry should include `description`, either `derivation` or `origin_path`, and `source_ref`
-- mark only the currently required canonical metrics as required; additional metrics can be added later or kept supplementary
-- if the accepted baseline contract already needs multiple metrics, datasets, subtasks, or splits, record them in `<baseline_root>/json/metric_contract.json`
-- if the paper reports both aggregate and per-dataset or per-task results, preserve both whenever feasible through `metrics_summary` plus structured rows rather than one cherry-picked scalar
-- if the source package already has a richer leaderboard table, structured result file, or `json/metric_contract.json`, reuse that richer contract instead of hand-writing a thinner one that keeps only one averaged scalar
-- `Result/metric.md` is optional temporary scratch memory only; reconcile against it before calling `artifact.confirm_baseline(...)`, but do not treat it as a required durable file
-- for stable accepted payload shapes, read `references/artifact-payload-examples.md`
+- 仅将 `primary_metric` 作为头条指标；不要让它抹掉其余比较界面
+- 将规范的 `metrics_summary` 作为以论文面向量化 id 为键的扁平顶层字典提交
+- 每个规范基线指标条目应包含 `description`、要么 `derivation` 要么 `origin_path`，以及 `source_ref`
+- 仅将当前所需的规范指标标记为 required；额外指标可稍后添加或保留为补充
+- 若已接受的基线契约已需要多个指标、数据集、子任务或切分，请将它们记录在 `<baseline_root>/json/metric_contract.json`
+- 若论文同时报告聚合与逐数据集或逐任务结果，应尽可能通过 `metrics_summary` 加结构化行（而非单一挑拣出的标量）同时保留两者
+- 若源包已有一个更丰富的排行榜表、结构化结果文件或 `json/metric_contract.json`，应复用那个更丰富的契约，而非手写一个只保留一个平均标量的更薄契约
+- `Result/metric.md` 仅是可选的临时暂存记忆；在调用 `artifact.confirm_baseline(...)` 之前与其调和，但不要将其视为必需的持久文件
+- 关于稳定的已接受载荷形状，阅读 `references/artifact-payload-examples.md`
 
-## Operational guidance
+## 操作指引
 
-The main skill keeps the control surface in front.
-For the longer operational notes, read `references/operational-guidance.md`.
+主技能将控制界面置于前。
+关于更长的操作笔记，阅读 `references/operational-guidance.md`。
 
-- use it when you need the exact durable route record shape
-- use it when you need detailed execution tactics or environment tactics
-- use it when reuse or memory handling materially affects the route
+- 当你需要确切的持久路由记录形状时使用它
+- 当你需要详细的执行策略或环境策略时使用它
+- 当复用或记忆处理实质性影响路由时使用它
 
-## Negative cases and stop rules
+## 负面情况与停止规则
 
-Do not accept a baseline when:
+在以下情况不要接受基线：
 
-- metrics are fabricated, copied, or paraphrased without provenance
-- metrics are copied from a paper while the acceptance target requires local verification
-- dataset, split, metric direction, or evaluation path is materially unknown
-- outputs exist but cannot be tied to the intended command, source, comparator, package, or service
-- a local run completed but used a materially different protocol without a recorded caveat
-- source code was modified in a way that changes baseline scope without recording the deviation
-- a package imports but trusted metrics or outputs are not traceable
-- later experiment work would still need to guess the required baseline metric ids
-- the same failure class reappears without new evidence, code changes, environment changes, or a route change
+- 指标是伪造、抄袭或缺乏出处的意译
+- 指标从论文抄来，而验收目标要求本地验证
+- 数据集、切分、指标方向或评估路径实质性未知
+- 输出存在但无法绑定到预期命令、来源、比较对象、包或服务
+- 本地运行已完成，却使用了实质性不同的协议而未记录注意事项
+- 源码被以改变基线范围的方式修改而未记录偏差
+- 一个包导入了但可信指标或输出无法追踪
+- 后续的实验工作仍需要猜测所需的基线指标 id
+- 同一类失败在没有新证据、代码变更、环境变更或路由变更的情况下重现
 
-If the same failure class appears again without new evidence, code changes, environment changes, or a route change, stop looping and route through `repair`, `decision`, `blocked`, `waive`, or one bounded clarification.
-Do not hide failures.
-If blocked, record the class explicitly when possible:
+如果同一类失败在没有新证据、代码变更、环境变更或路由变更的情况下再次出现，应停止循环，并通过 `repair`、`decision`、`blocked`、`waive` 或一次有边界的澄清来路由。
+不要隐藏失败。
+若被阻塞，尽可能显式记录该类：
 
 - `missing_source`
 - `missing_metric_contract`
@@ -286,41 +286,41 @@ If blocked, record the class explicitly when possible:
 - `run_failed`
 - `verification_failed`
 
-A blocked result must state:
+被阻塞的结果必须说明：
 
-- what failed
-- what was tried
-- which paths or logs show the issue
-- whether the next best move is attach, import, retry, repair, reset, waive, or ask the user
+- 什么失败了
+- 尝试了什么
+- 哪些路径或日志显示了问题
+- 下一步最佳动作是 attach、import、retry、repair、reset、waive 还是询问用户
 
-Bounded autonomous fixes are acceptable only when they do not change confirmed scope, metrics, permissions, resource assumptions, or scientific meaning.
-Reasonable bounded fixes include missing dependency installs, wrong dataset paths, permission fixes on scripts, obvious environment activation mistakes, and conservative batch-size reductions for OOM.
+仅有边界的自主修复在以下情况下可接受：不改变已确认的的范围、指标、权限、资源假设或科学含义。
+合理的有边界修复包括缺失依赖安装、错误的数据集路径、脚本权限修复、明显的环境激活错误，以及为应对 OOM 而保守地减小批大小。
 
-## Baseline id and variant rules
+## 基线 id 与变体规则
 
-Keep baseline identifiers and variant names stable enough that later stages can cite the same comparator without guesswork.
+保持基线标识符与变体名称足够稳定，使后续阶段可以毫无歧义地引用同一比较对象。
 
-- keep `baseline_id` short, stable, and filesystem-safe
-- prefer one baseline id with stable variant names over many near-duplicate ids
-- if multiple comparators exist, mark which one is the primary downstream baseline
+- 保持 `baseline_id` 简短、稳定且对文件系统安全
+- 优先使用带稳定变体名称的单一基线 id，而非许多近乎重复的 id
+- 若存在多个比较对象，标记哪一个是下游主基线
 
-## Exit criteria
+## 退出标准
 
-Exit once one of these is durably true:
+一旦以下之一持久为真即可退出：
 
-- a baseline is attached and accepted
-- an imported baseline is accepted
-- a verified local-existing comparator is accepted
-- a reproduced baseline is verified and accepted
-- a repaired baseline is verified and accepted
-- a broken route has been declared blocked and a next decision is recorded
-- a waiver decision explicitly leaves the baseline gate
-- a route change is recorded because the previous route is no longer the best trust-per-cost path
+- 一条基线被挂载并接受
+- 一条导入的基线被接受
+- 一条经验证的本地已存在比较对象被接受
+- 一条复现的基线被验证并接受
+- 一条修复的基线被验证并接受
+- 一条断裂的路由已被声明为 blocked 且记录了一个下一步决策
+- 一个豁免决策显式离开了基线关卡
+- 因为先前路由不再是每单位信任成本最佳的路径而记录了一次路由变更
 
-Typical next anchors:
+典型的下一步锚点：
 
 - `idea`
-- `experiment` in tightly scoped follow-on cases
-- `decision` if the baseline line remains contested
+- 在紧密聚焦的后续案例中为 `experiment`
+- 若基线线仍有争议则为 `decision`
 
-A good baseline pass leaves one trusted comparator, one explicit blocker, or one explicit route change, not a vague promise to keep rechecking baseline.
+一次良好的基线处理会留下一个可信比较对象、一个显式阻塞点或一次显式路由变更，而非一个要持续重新检查基线的含糊承诺。

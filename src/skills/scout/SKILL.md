@@ -1,135 +1,135 @@
 ---
 name: scout
-description: Use when a quest needs problem framing, literature scouting, dataset or metric clarification, or baseline discovery before deeper work.
+description: 当某个 quest 在更深入的工作之前，需要问题框架、文献侦察、数据集或指标澄清，或 baseline 发现时使用。
 skill_role: stage
 ---
 
 # Scout
 
-Use this skill when the quest does not yet have a stable research frame.
-The goal is to make the task frame concrete enough that a heavier stage can start with confidence.
+当该 quest 还没有一个稳定的研究框架时，使用本技能。
+目标是把任务框架变得足够具体，使一个更重的阶段可以有信心地开始。
 
-## Match signals
+## 匹配信号
 
-Use `scout` when:
+在以下情形使用 `scout`：
 
-- the user goal is still ambiguous
-- the dataset or split contract is unclear
-- the primary metric is unclear
-- no trustworthy baseline has been identified
-- the paper or repo neighborhood is still thin
-- the quest was resumed after a long pause and framing needs reconstruction
-- the next stage is blocked by ambiguity rather than by implementation
+- 用户目标仍模糊
+- 数据集或切分契约不清
+- 主要指标不清
+- 尚未识别出可信的 baseline
+- 论文或仓库邻域仍单薄
+- 该 quest 在长期暂停后恢复，且框架需要重建
+- 下一阶段被模糊性（而非实现）阻塞
 
-Do not use `scout` when:
+在以下情形不要使用 `scout`：
 
-- the user already fixed the paper, baseline, dataset, metric contract, and scope
-- the quest already has a validated baseline and is ready for ideation or execution
-- the real blocker is execution or verification rather than framing
+- 用户已经固定了论文、baseline、数据集、指标契约与范围
+- 该 quest 已经拥有一个经过验证的 baseline，并准备好进行构思或执行
+- 真正的阻塞点是执行或验证，而非框架
 
-## One-sentence summary
+## 一句话总结
 
-Resolve only the minimum framing unknowns that change the next anchor, then stop once baseline or idea becomes durable and obvious.
+只解决那些会改变下一个锚点的、最小的框架未知项，然后在 baseline 或 idea 变得持久且显而易见时停止。
 
-## Control workflow
+## 控制工作流
 
-1. Reconstruct the current frame from durable state.
-   Make the current task, metric contract, baseline status, and blockers explicit before searching.
-2. Identify the minimum unknowns.
-   Keep only the unknowns that materially block `baseline`, `idea`, or both.
-3. Search only the unresolved neighborhood.
-   Reuse memory and local evidence first, then search the smallest paper, repo, and benchmark surface that can change the next anchor.
-4. Make the evaluation contract and baseline direction explicit.
-   End with a small decision-facing baseline shortlist rather than a broad literature dump.
-5. Record the next anchor or blocker and stop on clarity.
-   The right output is a durable frame, not search exhaustion.
+1. 从持久化状态重建当前框架。
+   在检索之前，把当前任务、指标契约、baseline 状态与阻塞点显式化。
+2. 识别最小的未知项。
+   只保留那些实质性地阻塞 `baseline`、`idea` 或两者的未知项。
+3. 只检索未解决的邻域。
+   先复用记忆与本地证据，然后检索最小规模的、能改变下一个锚点的论文、仓库与基准面。
+4. 把评估契约与 baseline 方向显式化。
+   以一份小型的、面向决策的 baseline 短名单收尾，而不是一次广泛的文献倾倒。
+5. 记录下一个锚点或阻塞点，并在清晰时停止。
+   正确的输出是一份持久的框架，而非检索耗尽。
 
-## AVOID / pitfalls
+## 避免 / 陷阱
 
-- Do not let `scout` become endless exploration.
-- Do not keep searching once the next anchor is already clear.
-- Do not guess the metric, split, or baseline identity when local evidence is still ambiguous.
-- Do not ask the user ordinary technical questions before checking local evidence first.
-- Do not repeat the same wide search from scratch when existing survey notes, memory, or durable quest files already narrow the space.
-- Do not write long paper summaries that do not change the next stage.
-- Do not inflate novelty when the apparent gap is already closed by straightforward scaling, standard engineering, or a strong recent paper.
+- 不要让 `scout` 变成无休止的探索。
+- 一旦下一个锚点已经清晰，就不要继续检索。
+- 当本地证据仍模糊时，不要猜测指标、切分或 baseline 身份。
+- 在向用户提出普通技术问题之前，先核查本地证据。
+- 当既有的综述笔记、记忆或持久化 quest 文件已经把空间收窄时，不要从零重复同一广泛检索。
+- 不要写不改变下一阶段的长篇论文摘要。
+- 当明显的缺口已经被直白的规模扩展、标准工程或一篇强近期论文所闭合时，不要夸大新意。
 
-## Constraints
+## 约束
 
-- Before broad external search, check quest or global memory first with `memory.list_recent(...)` and `memory.search(...)`.
-- When search tools are available, actively use them.
-- If DeepXiv is declared available by the system prompt, prefer the DeepXiv route for paper-centric discovery and shortlist triage before broader open-web search.
-- If DeepXiv is declared unavailable, stay on the legacy route: memory reuse, web discovery, and `artifact.arxiv(...)` for actual paper reads.
-- When a specific arXiv paper must be read or summarized, use `artifact.arxiv(paper_id=..., full_text=False)` instead of defaulting to a raw PDF.
-- Keep discovery in search tooling by default; use `artifact.arxiv(...)` only for actual paper reading, and set `full_text=True` only when needed.
-- `scout` should normally hand off to `baseline` or `idea` as soon as the next move is decision-ready.
+- 在广泛外部检索之前，先用 `memory.list_recent(...)` 与 `memory.search(...)` 核查 quest 或全局记忆。
+- 当检索工具可用时，积极使用它们。
+- 如果系统提示声明 DeepXiv 可用，在进行更广泛的开放网络检索之前，优先采用 DeepXiv 路线做以论文为中心的发现与短名单分诊。
+- 如果系统提示声明 DeepXiv 不可用，停留在遗留路线上：记忆复用、网络发现，以及用于实际论文阅读的 `artifact.arxiv(...)`。
+- 当某篇具体的 arXiv 论文必须被阅读或总结时，使用 `artifact.arxiv(paper_id=..., full_text=False)`，而不是默认使用原始 PDF。
+- 默认把发现留在检索工具中；仅在真正阅读论文时使用 `artifact.arxiv(...)`，且仅在需要时才设置 `full_text=True`。
+- `scout` 通常应在下一步动作具备决策就绪性时，尽快交接给 `baseline` 或 `idea`。
 
-## Validation
+## 验证
 
-Before `scout` can end, all applicable checks should be true:
+在 `scout` 结束之前，所有适用的检查都应为真：
 
-- the task frame is explicit enough
-- the evaluation contract is explicit enough
-- at least one baseline direction is justified enough
-- the next anchor is obvious enough to record durably, or the blocker is explicit enough to stop guessing
+- 任务框架足够显式
+- 评估契约足够显式
+- 至少有一个 baseline 方向得到了充分论证
+- 下一个锚点足够明显以被持久化记录，或者阻塞点足够显式以停止猜测
 
-## Interaction discipline
+## 交互规范
 
-Follow the shared interaction contract injected by the system prompt.
-Only send a richer scout milestone when the framing ambiguity actually shrank or the next anchor became clear.
-For ordinary active work, prefer a concise progress update once work has crossed roughly 6 tool calls with a human-meaningful delta, and do not drift beyond roughly 12 tool calls or about 8 minutes without a user-visible update.
+遵循系统提示注入的共享交互契约。
+只有当框架模糊性确实缩小、或下一个锚点变得清晰时，才发送一份更丰富的 scout 里程碑。
+对于普通的活跃工作，当工作跨越了大约 6 次工具调用并产生了具备人类可感知差异的成果时，优先做一次简洁的进度更新；并且不要在没有用户可见更新情况下，漂移超过大约 12 次工具调用或约 8 分钟。
 
-## Tool discipline
+## 工具规范
 
-- **Do not use native `shell_command` / `command_execution` in this skill.**
-- **Any shell, CLI, Python, bash, node, git, npm, uv, or repo-inspection execution must go through `bash_exec(...)`.**
-- **For git inspection inside the current quest repository or worktree, prefer `artifact.git(...)` before raw shell git commands.**
-- **If scouting only needs durable quest context, prefer `artifact.read_quest_documents(...)`, `artifact.get_quest_state(...)`, and `memory.*` instead of shelling out.**
+- **不要在本技能中使用原生的 `shell_command` / `command_execution`。**
+- **任何 shell、CLI、Python、bash、node、git、npm、uv 或仓库检视执行都必须经由 `bash_exec(...)`。**
+- **对于当前 quest 仓库或工作树内部的 git 检视，在做原始 shell git 命令之前，优先使用 `artifact.git(...)`。**
+- **如果侦察只需要持久化的 quest 上下文，优先使用 `artifact.read_quest_documents(...)`、`artifact.get_quest_state(...)` 与 `memory.*`，而不是 shell 外调。**
 
-## Truth sources
+## 真相来源
 
-Prefer the following sources in order:
+优先按以下顺序使用下列来源：
 
-1. user-provided task description and explicit constraints
-2. durable quest files and artifacts
-3. codebase and repository docs
-4. primary papers, official repos, and benchmark docs
-5. existing reusable baselines and quest/global memory
-6. web-search results, often including arXiv and adjacent sources, used to fill gaps, verify provenance, or update recency
+1. 用户提供的任务描述与显式约束
+2. 持久化的 quest 文件与工件
+3. 代码库与仓库文档
+4. 主论文、官方仓库与基准文档
+5. 既有可复用的 baseline 与 quest/全局记忆
+6. 网络检索结果，通常包括 arXiv 与相邻来源，用于填补缺口、验证出处或更新时效性
 
-Do not let the scout stage rest on vague recollection alone.
+不要让 scout 阶段仅仅依赖模糊的回忆。
 
-## Non-negotiable rules
+## 不可妥协的规则
 
-- Do not force a baseline route without comparing attach, import, and reproduce options.
-- Do not rely on memory alone when primary sources or durable quest files exist.
-- Search for disconfirming evidence, not only supportive evidence.
-- If one of the core framing layers is still missing, say so explicitly instead of pretending the frame is complete.
+- 不要在不比较 attach、import 与 reproduce 选项的情况下，强行决定一条 baseline 路线。
+- 当主源或持久化 quest 文件存在时，不要仅依赖记忆。
+- 检索证伪性证据，而不仅仅是支持性证据。
+- 如果核心框架层之一仍然缺失，应显式说明，而不是假装框架已完整。
 
-The scout stage should usually establish four layers:
+scout 阶段通常应建立四层：
 
-- task-definition layer
-- evaluation-contract layer
-- literature and repo neighborhood layer
-- baseline-direction layer
+- 任务定义层
+- 评估契约层
+- 文献与仓库邻域层
+- baseline 方向层
 
-## Preconditions and gate
+## 前置条件与闸门
 
-Before spending time scouting, first verify whether the current quest already contains enough framing in:
+在花时间侦察之前，先核实当前 quest 是否已经在以下方面包含足够的框架：
 
 - `brief.md`
 - `plan.md`
 - `status.md`
 - `SUMMARY.md`
-- baseline artifacts
-- recent paper or knowledge memory cards
+- baseline 工件
+- 近期的论文或知识记忆卡片
 
-If the answer is already clear, exit quickly and move to the correct next anchor.
+如果答案已经清晰，快速退出并移动到正确的下一个锚点。
 
-## Operational guidance
+## 操作指引
 
-The main skill keeps the control surface in front.
-For the longer search and handoff notes, read:
+主技能把控制面保持在前面。
+对于更长的检索与交接笔记，请阅读：
 
 - `references/paper-triage-playbook.md`
 - `references/literature-scout-template.md`
@@ -137,45 +137,45 @@ For the longer search and handoff notes, read:
 - `references/baseline-shortlist-template.md`
 - `references/operational-guidance.md`
 
-Use them when:
+在以下情形使用它们：
 
-- the paper and repo search needs a fuller playbook
-- the evaluation contract or baseline shortlist should be written durably
-- memory or artifact handling materially affects the route
+- 论文与仓库检索需要一份更完整的 playbook
+- 评估契约或 baseline 短名单应当被持久化地写出
+- 记忆或工件处理对路线有实质性影响
 
-## Blocked-state handling
+## 阻塞状态处理
 
-Record a blocked state if scouting cannot proceed because:
+如果侦察因以下原因无法推进，记录一个阻塞状态：
 
-- the quest objective is materially ambiguous
-- the required code or paper source is missing
-- multiple evaluation contracts conflict and the choice would change later conclusions
-- all baseline candidates are too weak, broken, or poorly specified
+- quest 目标在实质上模糊
+- 所需的代码或论文来源缺失
+- 多个评估契约相互冲突，且选择会改变后续结论
+- 所有 baseline 候选都过于薄弱、破损或规范不足
 
-A blocked scout result should state:
+一个被阻塞的 scout 结果应当陈述：
 
-- what is missing
-- why it matters
-- which next anchor is blocked
-- what concrete user choice or source is needed
+- 缺失了什么
+- 为何它重要
+- 哪个下一个锚点被阻塞
+- 需要什么具体的用户选择或来源
 
-Do not hide a blocked scout stage behind generic literature chatter.
+不要用泛泛的文献闲谈掩盖一个被阻塞的 scout 阶段。
 
-## Exit criteria
+## 退出标准
 
-Exit the scout stage once all of the following are true:
+一旦以下全部为真，就退出 scout 阶段：
 
-- the task frame is explicit
-- the evaluation contract is explicit
-- at least one baseline direction is justified
-- the next anchor is obvious enough to record durably
+- 任务框架已显式化
+- 评估契约已显式化
+- 至少有一个 baseline 方向得到了论证
+- 下一个锚点足够明显以被持久化记录
 
-If the stage relied on external search, the literature scouting report must also be durable before exit.
+如果该阶段依赖了外部检索，文献侦察报告在退出前也必须持久化。
 
-Typical next anchors:
+典型的下一个锚点：
 
 - `baseline`
 - `idea`
-- remain in `scout` only if the remaining blocker is explicit and durable
+- 仅当剩余的阻塞点显式且持久化时，才停留在 `scout`
 
-A good scout pass makes the next anchor obvious or makes the blocker explicit enough that the system stops guessing.
+一个良好的 scout 轮次会使下一个锚点显而易见，或使阻塞点足够显式，从而让系统停止猜测。

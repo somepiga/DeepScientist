@@ -20,6 +20,7 @@ const messages = {
     navProjects: '首页',
     navDocs: '文档',
     navSettings: '设置',
+    navAgents: '智能体',
     landingEyebrow: '自动化科研',
     landingTitle: '从局部线索攀登到全局洞见。',
     landingBody: 'DeepScientist 让浏览器、TUI 与 daemon 共用同一本地会话，并让每个项目都落在独立的 Git 工作区里。',
