@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Circle,
   Clock3,
-  MessageSquarePlus,
   Pause,
   Play,
   RefreshCw,
@@ -32,8 +31,6 @@ type QuestAgentTeamViewProps = {
   onPause?: () => void
   onResume?: () => void
   onSetNextStage?: (agentId: string) => void
-  onOpenChat?: () => void
-  onOpenEvidence?: () => void
   onRefresh?: () => void
 }
 
@@ -149,8 +146,6 @@ export function QuestAgentTeamView({
   onPause,
   onResume,
   onSetNextStage,
-  onOpenChat,
-  onOpenEvidence,
   onRefresh,
 }: QuestAgentTeamViewProps) {
   const [pendingStageId, setPendingStageId] = React.useState<string | null>(null)
@@ -243,7 +238,7 @@ export function QuestAgentTeamView({
                 <Workflow className="h-4 w-4" /> 研究任务控制台
               </div>
               <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                系统按阶段自动调度 Agent。你只在暂停、调整下一阶段或补充研究约束时介入。
+                系统按阶段自动调度 Agent。你只在暂停或调整下一阶段时介入。
               </div>
             </div>
             {onRefresh ? (
@@ -293,22 +288,6 @@ export function QuestAgentTeamView({
                   <Pause className="h-3.5 w-3.5" /> 暂停
                 </button>
               )}
-              <button
-                type="button"
-                onClick={onOpenChat}
-                disabled={!onOpenChat}
-                className="inline-flex h-9 items-center gap-2 border border-black/[0.10] bg-white px-3 text-xs font-medium text-foreground hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.12] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
-              >
-                <MessageSquarePlus className="h-3.5 w-3.5" /> 补充约束
-              </button>
-              <button
-                type="button"
-                onClick={onOpenEvidence}
-                disabled={!onOpenEvidence}
-                className="inline-flex h-9 items-center gap-2 border border-black/[0.10] bg-white px-3 text-xs font-medium text-foreground hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.12] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
-              >
-                <Clock3 className="h-3.5 w-3.5" /> 查看产出
-              </button>
             </div>
           </div>
         </div>
