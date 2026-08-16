@@ -25,8 +25,9 @@ from .registries import BaselineRegistry
 from .runners import ClaudeRunner, CodexRunner, KimiRunner, OpenCodeRunner, PiRunner, RunRequest, get_runner_factory, register_builtin_runners
 from .runtime_tools import RuntimeToolService
 from .runtime_logs import JsonlLogger
-from .shared import ensure_dir, read_json, read_yaml
+from .shared import ensure_dir, generate_id, read_json, read_yaml
 from .skills import SkillInstaller
+from .team import StageAgentTeamService
 from .tui import watch_tui
 
 
@@ -443,26 +444,102 @@ def run_command(
     except KeyError as exc:
         print(json.dumps({"ok": False, "message": str(exc)}, ensure_ascii=False, indent=2))
         return 1
+    run_id = f"run-{skill_id}-{quest_id[-4:]}"
+    turn_id = generate_id("turn")
+    quest_service = QuestService(home)
+    team_service = StageAgentTeamService(home, repo_root=repo_root())
+    try:
+        agent_assignment = team_service.assignment(skill_id=skill_id, turn_id=turn_id, run_id=run_id)
+    except KeyError as exc:
+        print(json.dumps({"ok": False, "message": str(exc)}, ensure_ascii=False, indent=2))
+        return 1
     request = RunRequest(
         quest_id=quest_id,
         quest_root=quest_root,
-        worktree_root=QuestService(home).active_workspace_root(quest_root),
-        run_id=f"run-{skill_id}-{quest_id[-4:]}",
+        worktree_root=quest_service.active_workspace_root(quest_root),
+        run_id=run_id,
         skill_id=skill_id,
         message=message,
         model=model or runner_cfg.get("model", codex_cfg.get("model", "gpt-5.4")),
         approval_policy=runner_cfg.get("approval_policy", codex_cfg.get("approval_policy", "on-request")),
         sandbox_mode=runner_cfg.get("sandbox_mode", codex_cfg.get("sandbox_mode", "workspace-write")),
+        turn_id=turn_id,
+        agent_id=str(agent_assignment["agent_id"]),
+        agent_role=str(agent_assignment["agent_role"]),
+        agent_instance_id=str(agent_assignment["agent_instance_id"]),
+        agent_context_scope=dict(agent_assignment["agent_context_scope"]),
+        team_mode=str(agent_assignment["team_mode"]),
     )
-    result = selected_runner.run(request)
+    team_service.record_started(
+        quest_root,
+        quest_id=quest_id,
+        run_id=run_id,
+        turn_id=turn_id,
+        skill_id=skill_id,
+        agent_id=request.effective_agent_id,
+        agent_instance_id=request.effective_agent_instance_id,
+        runner_name=runner_name,
+        model=request.model,
+        attempt_index=1,
+    )
+    try:
+        result = selected_runner.run(request)
+    except Exception as exc:
+        team_service.record_finished(
+            quest_root,
+            quest_id=quest_id,
+            run_id=run_id,
+            turn_id=turn_id,
+            skill_id=skill_id,
+            agent_id=request.effective_agent_id,
+            agent_role=request.effective_agent_role,
+            agent_instance_id=request.effective_agent_instance_id,
+            ok=False,
+            exit_code=None,
+        )
+        print(json.dumps({"ok": False, "message": str(exc)}, ensure_ascii=False, indent=2))
+        return 1
+    team_service.record_finished(
+        quest_root,
+        quest_id=quest_id,
+        run_id=result.run_id,
+        turn_id=turn_id,
+        skill_id=skill_id,
+        agent_id=request.effective_agent_id,
+        agent_instance_id=request.effective_agent_instance_id,
+        ok=result.ok,
+        exit_code=result.exit_code,
+    )
     if result.output_text:
-        QuestService(home).append_message(quest_id, role="assistant", content=result.output_text, source=runner_name)
+        quest_service.append_message(
+            quest_id,
+            role="assistant",
+            content=result.output_text,
+            source=runner_name,
+            run_id=result.run_id,
+            skill_id=skill_id,
+            agent_id=request.effective_agent_id,
+            agent_instance_id=request.effective_agent_instance_id,
+        )
+    if result.ok:
+        team_service.handoff_after_run(
+            quest_root,
+            quest_id=quest_id,
+            run_id=result.run_id,
+            turn_id=turn_id,
+            from_agent_id=request.effective_agent_id,
+            output_text=result.output_text,
+            snapshot=quest_service.snapshot(quest_id),
+        )
     print(
         json.dumps(
             {
                 "ok": result.ok,
                 "runner": runner_name,
                 "run_id": result.run_id,
+                "agent_id": request.effective_agent_id,
+                "agent_instance_id": request.effective_agent_instance_id,
+                "team_mode": request.team_mode,
                 "model": result.model,
                 "exit_code": result.exit_code,
                 "history_root": str(result.history_root),

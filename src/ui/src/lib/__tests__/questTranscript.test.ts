@@ -44,6 +44,9 @@ describe('questTranscript', () => {
         kind: 'progress',
         content: 'Interaction update sent to the user.',
         interactionId: 'interaction-1',
+        agentId: 'idea',
+        agentRole: 'idea',
+        agentInstanceId: 'run-idea-1',
         createdAt: '2026-04-21T09:00:05.000Z',
         attachments: [{ kind: 'file', name: 'summary.md' }],
       },
@@ -61,6 +64,9 @@ describe('questTranscript', () => {
         content: 'Interaction update sent to the user.',
         interactionId: 'interaction-1',
         attachments: [{ kind: 'file', name: 'summary.md' }],
+        badge: '@idea',
+        agentId: 'idea',
+        agentInstanceId: 'run-idea-1',
       }),
     ])
   })

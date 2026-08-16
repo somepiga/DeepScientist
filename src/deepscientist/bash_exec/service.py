@@ -1077,7 +1077,7 @@ class BashExecService:
     ) -> dict[str, Any]:
         quest_root = context.require_quest_root().resolve()
         session_id = _normalize_string(context.conversation_id) or f"quest:{context.quest_id or quest_root.name}"
-        agent_id = _normalize_string(context.agent_role) or "pi"
+        agent_id = _normalize_string(context.agent_id) or _normalize_string(context.agent_role) or "pi"
         agent_instance_id = _normalize_string(context.worker_id) or _normalize_string(context.run_id) or session_id
         started_by_user_id = f"agent:{agent_id}"
         timestamp = utc_now()

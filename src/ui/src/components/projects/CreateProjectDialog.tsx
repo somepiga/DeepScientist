@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpRight, Lock, RotateCcw, Sparkles } from 'lucide-react'
+import { ArrowLeft, Lock, RotateCcw, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -8,8 +8,6 @@ import { OverlayDialog } from '@/components/home/OverlayDialog'
 import { LAUNCH_DIALOG_SHELL_CLASS } from '@/components/projects/LaunchModeVisuals'
 import { AnimatedMarkdownPlan } from '@/components/projects/AnimatedMarkdownPlan'
 import { PlanningStepsPulse } from '@/components/projects/PlanningStepsPulse'
-import { SetupAgentRail } from '@/components/projects/SetupAgentRail'
-import { SetupAgentQuestPanel } from '@/components/projects/SetupAgentQuestPanel'
 import { connectorCatalog } from '@/components/settings/connectorCatalog'
 import { AnimatedCheckbox } from '@/components/ui/animated-checkbox'
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +29,7 @@ import { connectorInstanceMode, connectorTargetLabel, normalizeConnectorTargets,
 import { useI18n } from '@/lib/i18n'
 import { normalizeZhUiCopy } from '@/lib/i18n/normalizeZhUiCopy'
 import type { QuestMessageAttachmentDraft } from '@/lib/hooks/useQuestMessageAttachments'
-import { normalizeBuiltinRunnerName, runnerLabel } from '@/lib/runnerBranding'
+import { normalizeBuiltinRunnerName } from '@/lib/runnerBranding'
 import {
   applyStartResearchIntensityPreset,
   buildStartResearchLaunchSnapshot,
@@ -1449,7 +1447,6 @@ function StartSetupPlanningReviewDialog({
   onClose,
   onAcceptAutonomous,
   onReviewForm,
-  onSwitchToCopilot,
 }: {
   open: boolean
   locale: 'en' | 'zh'
@@ -1459,29 +1456,26 @@ function StartSetupPlanningReviewDialog({
   onClose: () => void
   onAcceptAutonomous?: (() => void) | undefined
   onReviewForm?: (() => void) | undefined
-  onSwitchToCopilot?: (() => void) | undefined
 }) {
   if (!open) return null
 
-  const decision = resolveSetupPlanDecision(session)
-  const showCopilotAction = decision === 'copilot' && Boolean(onSwitchToCopilot)
+  const rawDecision = resolveSetupPlanDecision(session)
+  const decision = rawDecision === 'copilot' ? 'provisional' : rawDecision
   const fitSummary = String(session.fitAssessment?.summary || session.fitAssessment?.reason || '').trim()
   const planSummary = String(session.previewPlan?.summary || '').trim()
   const planMarkdown = String(session.previewPlan?.markdown || '').replace(/\\n/g, '\n').trim()
   const launchReadiness = String(session.launchReadiness || '').trim()
-  const recommendedMode = String(session.recommendedWorkspaceMode || session.fitAssessment?.verdict || '').trim()
-  const modeLabel = decision === 'copilot'
-    ? locale === 'zh' ? '建议协作模式' : 'Copilot recommended'
-    : decision === 'provisional'
+  const recommendedMode = rawDecision === 'copilot'
+    ? locale === 'zh' ? '全自动，需要确认' : 'Autonomous with confirmations'
+    : String(session.recommendedWorkspaceMode || session.fitAssessment?.verdict || '').trim()
+  const modeLabel = decision === 'provisional'
       ? locale === 'zh' ? '暂可全自动，需确认' : 'Autonomous with confirmations'
       : locale === 'zh' ? '建议全自动' : 'Autonomous recommended'
   const readinessLabel = launchReadiness
     ? launchReadiness.replace(/_/g, ' ')
     : decision === 'autonomous'
       ? 'ready'
-      : decision === 'copilot'
-        ? 'recommend_copilot'
-        : 'needs_confirmation'
+      : 'needs_confirmation'
 
   return (
     <div
@@ -1508,8 +1502,8 @@ function StartSetupPlanningReviewDialog({
             </div>
             <div className="mt-1 text-sm leading-6 text-[rgba(86,82,77,0.78)]">
               {locale === 'zh'
-                ? 'SetupAgent 已整理出一份可审阅的启动方案。你可以继续商讨、切到协作模式，或确认直接开始。'
-                : 'SetupAgent prepared a reviewable launch plan. You can keep discussing, switch to Copilot, or start directly.'}
+                ? 'SetupAgent 已整理出一份可审阅的启动方案。你可以继续补充要求，或确认启动全自动研究。'
+                : 'SetupAgent prepared a reviewable launch plan. You can keep refining it or confirm the autonomous launch.'}
             </div>
           </div>
           <button
@@ -1599,12 +1593,6 @@ function StartSetupPlanningReviewDialog({
                 {locale === 'zh' ? '查看/编辑表单' : 'Review form'}
               </Button>
             ) : null}
-            {showCopilotAction ? (
-              <Button type="button" variant="outline" className="rounded-full" onClick={onSwitchToCopilot} disabled={loading}>
-                <ArrowUpRight className="mr-1.5 h-4 w-4" />
-                {locale === 'zh' ? '转到协作模式' : 'Switch to Copilot'}
-              </Button>
-            ) : null}
             {hasSuggestedForm && onAcceptAutonomous ? (
               <Button type="button" className="rounded-full bg-[#2D2A26] text-white hover:bg-[#3B3731]" onClick={onAcceptAutonomous} disabled={loading}>
                 {decision === 'provisional'
@@ -1626,7 +1614,6 @@ export function StartSetupAssessmentCard({
   loading = false,
   onAcceptAutonomous,
   onReviewForm,
-  onSwitchToCopilot,
   onContinueDiscuss,
   onDismiss,
 }: {
@@ -1636,7 +1623,6 @@ export function StartSetupAssessmentCard({
   loading?: boolean
   onAcceptAutonomous?: (() => void) | undefined
   onReviewForm?: (() => void) | undefined
-  onSwitchToCopilot?: (() => void) | undefined
   onContinueDiscuss?: (() => void) | undefined
   onDismiss?: (() => void) | undefined
 }) {
@@ -1664,8 +1650,9 @@ export function StartSetupAssessmentCard({
     stages.length > 0
   if (!hasContent) return null
 
-  const decision = resolveSetupPlanDecision(session)
-  const tone = decision === 'copilot' ? 'warning' : decision === 'provisional' ? 'soft' : fitAssessmentTone(session.recommendedWorkspaceMode || fitVerdict)
+  const rawDecision = resolveSetupPlanDecision(session)
+  const decision = rawDecision === 'copilot' ? 'provisional' : rawDecision
+  const tone = decision === 'provisional' ? 'soft' : fitAssessmentTone(session.recommendedWorkspaceMode || fitVerdict)
   const toneClassName =
     tone === 'warning'
       ? 'border-[rgba(154,96,68,0.18)] bg-[linear-gradient(145deg,rgba(252,244,239,0.96),rgba(244,233,225,0.94))]'
@@ -1673,11 +1660,7 @@ export function StartSetupAssessmentCard({
         ? 'border-[rgba(122,148,159,0.18)] bg-[linear-gradient(145deg,rgba(248,250,251,0.96),rgba(236,242,245,0.94))]'
         : 'border-[rgba(126,77,42,0.16)] bg-[linear-gradient(145deg,rgba(251,247,241,0.96),rgba(241,233,223,0.94))]'
   const badgeText =
-    decision === 'copilot'
-      ? locale === 'zh'
-        ? 'Recommended mode · 协作模式'
-        : 'Copilot recommended'
-      : decision === 'provisional'
+    decision === 'provisional'
         ? locale === 'zh'
           ? 'Recommended mode · 需确认'
           : 'Launchable with confirmation'
@@ -1685,11 +1668,7 @@ export function StartSetupAssessmentCard({
           ? 'Recommended mode · 全自动'
           : 'Good autonomous fit'
   const statusBody =
-    decision === 'copilot'
-      ? locale === 'zh'
-        ? 'SetupAgent 判断这个任务更适合多轮协作。你仍然可以继续全自动，但建议先进入协作模式。'
-        : 'SetupAgent thinks this is better handled in Copilot. You can still continue autonomously if you prefer.'
-      : decision === 'provisional'
+    decision === 'provisional'
         ? locale === 'zh'
           ? 'SetupAgent 已经准备了规划，但还有少量关键确认项会影响启动路线。'
           : 'SetupAgent prepared a plan, but a few confirmations may still affect launch.'
@@ -1735,21 +1714,9 @@ export function StartSetupAssessmentCard({
                 {locale === 'zh' ? '继续询问 SetupAgent' : 'Keep discussing'}
               </Button>
             ) : null}
-            {decision === 'copilot' && onSwitchToCopilot ? (
-              <Button type="button" className="rounded-full bg-[#2D2A26] text-white hover:bg-[#3B3731]" onClick={onSwitchToCopilot} disabled={loading}>
-                <ArrowUpRight className="mr-1.5 h-4 w-4" />
-                {locale === 'zh' ? '按建议创建协作模式' : 'Create Copilot'}
-              </Button>
-            ) : null}
             {hasSuggestedForm && onAcceptAutonomous ? (
-              <Button type="button" variant={decision === 'copilot' ? 'outline' : 'default'} className="rounded-full" onClick={onAcceptAutonomous} disabled={loading}>
-                {decision === 'copilot'
-                  ? locale === 'zh'
-                    ? '仍继续全自动'
-                    : 'Continue autonomous'
-                  : locale === 'zh'
-                    ? '确认并启动全自动'
-                    : 'Confirm autonomous'}
+              <Button type="button" className="rounded-full" onClick={onAcceptAutonomous} disabled={loading}>
+                {locale === 'zh' ? '确认并启动全自动' : 'Confirm autonomous'}
               </Button>
             ) : null}
             {hasSuggestedForm && onReviewForm ? (
@@ -1779,12 +1746,6 @@ export function StartSetupAssessmentCard({
                 </div>
               ) : null}
             </div>
-            {tone === 'warning' && onSwitchToCopilot && decision !== 'copilot' ? (
-              <Button type="button" variant="outline" className="rounded-full" onClick={onSwitchToCopilot}>
-                <ArrowUpRight className="mr-1.5 h-4 w-4" />
-                {locale === 'zh' ? '改走协作模式' : 'Switch to Copilot'}
-              </Button>
-            ) : null}
           </div>
 
       {planSummary ? (
@@ -2342,7 +2303,6 @@ export function CreateProjectDialog({
   onBack,
   onClose,
   onRequestSetupAgent,
-  onSwitchToCopilot,
   onOpenBenchStore,
   onCreate,
 }: {
@@ -2362,13 +2322,6 @@ export function CreateProjectDialog({
     attachments?: QuestMessageAttachmentDraft[]
     createOnly?: boolean
   }) => Promise<void>
-  onSwitchToCopilot?: (payload: {
-    title: string
-    message: string
-    setupQuestId?: string | null
-    setupAttachments?: LaunchMaterialAttachment[]
-    localAttachments?: QuestMessageAttachmentDraft[]
-  }) => Promise<void> | void
   onOpenBenchStore?: () => void
   onCreate: (payload: {
     title: string
@@ -2389,7 +2342,7 @@ export function CreateProjectDialog({
   const t = normalizedCopy[locale]
   const backLabel = locale === 'zh' ? '返回' : 'Back'
   const [entryMode, setEntryMode] = useState<'intake' | 'form'>(setupPacket ? 'form' : 'intake')
-  const [rightPaneMode, setRightPaneMode] = useState<StartResearchRightPaneMode>('assistant')
+  const [rightPaneMode, setRightPaneMode] = useState<StartResearchRightPaneMode>('preview')
   const [showAdvanced, setShowAdvanced] = useState(true)
   const [form, setForm] = useState<StartResearchTemplate>(defaultStartResearchTemplate(locale))
   const [intakeMessage, setIntakeMessage] = useState(initialGoal)
@@ -2639,7 +2592,7 @@ export function CreateProjectDialog({
       return
     }
     setEntryMode(setupPacket ? 'form' : 'intake')
-    setRightPaneMode('assistant')
+    setRightPaneMode('preview')
     setBenchAutoAssistReady(!(setupPacket && onRequestSetupAgent))
     autoBenchAssistStartedRef.current = null
     setIntakeMessage(initialGoal || '')
@@ -2684,7 +2637,6 @@ export function CreateProjectDialog({
     setSelectedConnectorBindings({})
     setShowAdvanced(true)
     setAgentManagedValues({})
-    processedPatchMessageIdsRef.current = new Set()
   }, [initialGoal, locale, onRequestSetupAgent, open, setupPacket])
 
   useEffect(() => {
@@ -2783,7 +2735,7 @@ export function CreateProjectDialog({
     if (setupAssessmentKey) {
       setPlanningReviewDismissedKey(setupAssessmentKey)
     }
-    setRightPaneMode('assistant')
+    setRightPaneMode('preview')
   }, [setupAssessmentKey])
 
   const setupPlanningNoticeSettled = setupPlanningNoticeElapsedMs >= SETUP_PLANNING_NOTICE_SETTLED_MS
@@ -2882,7 +2834,7 @@ export function CreateProjectDialog({
       setSetupPlanningNoticeDismissed(true)
       setSetupPlanningNoticeElapsedMs(0)
       setupPlanningNoticeStartedAtRef.current = null
-      setRightPaneMode('assistant')
+      setRightPaneMode('preview')
     }, 1800)
   }, [setupPlanningNoticeClosing, setupPlanningNoticeOpen])
 
@@ -2966,7 +2918,7 @@ export function CreateProjectDialog({
   useEffect(() => {
     if (!setupQuestId) return
     setEntryMode('form')
-    setRightPaneMode('assistant')
+    setRightPaneMode('preview')
   }, [setupQuestId])
 
   const setField = <K extends keyof StartResearchTemplate>(
@@ -3363,33 +3315,6 @@ export function CreateProjectDialog({
     setPromptDraft(compiledPromptPreview)
   }
 
-  const handleStartSetupFromIntake = useCallback(async () => {
-    await onRequestSetupAgent?.({
-      message: intakeMessage,
-      form,
-      setupPacket,
-      attachments: localLaunchAttachments,
-    })
-  }, [intakeMessage, form, setupPacket, localLaunchAttachments, onRequestSetupAgent])
-
-  const handleSwitchToCopilot = useCallback(() => {
-    onSwitchToCopilot?.({
-      title: form.title || undefined,
-      message: intakeMessage,
-      setupQuestId: setupQuestId || null,
-      setupAttachments: (setupLaunchAttachments || []).map((item) => ({ ...item })),
-      localAttachments: [...(localLaunchAttachments || [])],
-    })
-  }, [
-    form.title,
-    intakeMessage,
-    setupQuestId,
-    setupLaunchAttachments,
-    localLaunchAttachments,
-    onSwitchToCopilot,
-  ])
-
-
   const applyResearchIntensity = (presetId: ResearchIntensity) => {
     setForm((current) => {
       const next = applyStartResearchIntensityPreset(current, presetId)
@@ -3404,7 +3329,7 @@ export function CreateProjectDialog({
     setField('quest_id', nextQuestId)
   }
 
-  const handleCreate = async () => {
+  const handleCreate = async (formOverride?: StartResearchTemplate) => {
     if (benchAutoAssistLocked) {
       return
     }
@@ -3505,6 +3430,26 @@ export function CreateProjectDialog({
     })
   }
 
+  const handleCreateFromIntake = async () => {
+    const goal = intakeMessage.trim()
+    if (!goal) {
+      setValidationMessage(locale === 'zh' ? '请先描述研究目标。' : 'Please describe the research goal first.')
+      setValidationTarget('goal')
+      setValidationDialogOpen(true)
+      return
+    }
+    const firstLine = goal.split(/\n+/).map((line) => line.trim()).find(Boolean) || goal
+    const directLaunchForm: StartResearchTemplate = {
+      ...form,
+      title: form.title.trim() || firstLine.slice(0, 120),
+      goal,
+      custom_brief: form.custom_brief.trim() || goal,
+    }
+    setForm(directLaunchForm)
+    setEntryMode('form')
+    await handleCreate(directLaunchForm)
+  }
+
   const handleAcceptAutonomousPlan = () => {
     const suggested = durableSetupSuggestedForm ? { ...latestFormRef.current, ...durableSetupSuggestedForm } : latestFormRef.current
     if (durableSetupSuggestedForm) {
@@ -3526,17 +3471,15 @@ export function CreateProjectDialog({
         {entryMode === 'intake' && !setupPacket ? (
           <AutonomousSetupIntakeSurface
             locale={locale}
-            assistantLabel={`${runnerLabel(activeRunnerName)} · SetupAgent`}
             value={intakeMessage}
             onValueChange={setIntakeMessage}
             attachments={localLaunchAttachments}
             onQueueFiles={queueLocalLaunchAttachments}
             onRemoveAttachment={removeLocalLaunchAttachment}
-            onSubmit={handleStartSetupFromIntake}
-            submitting={setupQuestCreating}
+            onSubmit={handleCreateFromIntake}
+            submitting={loading}
             error={error}
             onSwitchToForm={() => setEntryMode('form')}
-            onSwitchToCopilot={() => void handleSwitchToCopilot()}
             onOpenBenchStore={onOpenBenchStore}
             onClose={onClose}
           />
@@ -3562,38 +3505,8 @@ export function CreateProjectDialog({
         >
           <div className="hidden shrink-0 border-b border-[rgba(45,42,38,0.08)] px-4 py-3 lg:block dark:border-[rgba(45,42,38,0.08)]">
             <div className="flex flex-wrap items-center justify-end gap-2 lg:justify-between">
-              <div className="flex flex-wrap items-center gap-2" data-onboarding-id="start-research-preview-mode-tabs">
-                <Button
-                  type="button"
-                  variant={rightPaneMode === 'assistant' ? 'secondary' : 'ghost'}
-                  className="rounded-full"
-                  onClick={() => {
-                    setRightPaneMode('assistant')
-                  }}
-                  data-onboarding-id="start-research-toggle-assistant"
-                >
-                  {t.setupAgentToggle}
-                </Button>
-                {onSwitchToCopilot ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={() => void handleSwitchToCopilot()}
-                  >
-                    <ArrowUpRight className="mr-1.5 h-4 w-4" />
-                    {locale === 'zh' ? '协作模式' : 'Copilot'}
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant={rightPaneMode === 'preview' ? 'secondary' : 'ghost'}
-                  className="rounded-full"
-                  onClick={() => setRightPaneMode('preview')}
-                  data-onboarding-id="start-research-toggle-preview"
-                >
-                  {t.previewPanel}
-                </Button>
+              <div className="text-sm font-semibold text-[rgba(38,36,33,0.95)]">
+                {t.previewPanel}
               </div>
               <Button type="button" variant="ghost" size="icon" className="rounded-full" onClick={onClose} aria-label={locale === 'zh' ? '关闭' : 'Close'}>
                 <X className="h-4 w-4" />
@@ -3904,34 +3817,7 @@ export function CreateProjectDialog({
           )}
         >
           <div className="hidden min-h-0 flex-1 lg:block">
-            {rightPaneMode === 'assistant' ? (
-              <div data-onboarding-id="start-research-assistant-surface" className="h-full min-h-0">
-                {setupQuestId ? (
-                  <SetupAgentQuestPanel
-                    questId={setupQuestId}
-                    locale={locale}
-                    transformSubmitMessage={transformSetupAgentSubmitMessage}
-                  />
-                ) : (
-                  <SetupAgentRail
-                    locale={locale}
-                    setupPacket={setupPacket}
-                    assistantLabel={`${runnerLabel(activeRunnerName)} · SetupAgent`}
-                    loading={setupQuestCreating}
-                    error={error}
-                    onStartAssist={async (message, attachments) => {
-                      await onRequestSetupAgent?.({
-                        message,
-                        form,
-                        setupPacket,
-                        attachments,
-                      })
-                    }}
-                  />
-                )}
-              </div>
-            ) : (
-              <div className="flex h-full min-h-0 flex-col rounded-[24px] border border-[rgba(45,42,38,0.08)] bg-[rgba(255,255,255,0.78)] shadow-[0_20px_56px_-42px_rgba(45,42,38,0.28)] backdrop-blur-xl" data-onboarding-id="start-research-preview-surface">
+            <div className="flex h-full min-h-0 flex-col rounded-[24px] border border-[rgba(45,42,38,0.08)] bg-[rgba(255,255,255,0.78)] shadow-[0_20px_56px_-42px_rgba(45,42,38,0.28)] backdrop-blur-xl" data-onboarding-id="start-research-preview-surface">
                 <div className="shrink-0 border-b border-[rgba(45,42,38,0.08)] px-4 py-3">
                   <div className="text-sm font-semibold text-[rgba(38,36,33,0.95)]">{t.preview}</div>
                   <div className="mt-1 text-xs leading-5 text-[rgba(107,103,97,0.72)]">{t.previewBody}</div>
@@ -3945,8 +3831,7 @@ export function CreateProjectDialog({
                     className={`h-full min-h-full overflow-y-auto rounded-[18px] border-[rgba(45,42,38,0.08)] bg-white/70 text-xs leading-6 ${fieldToneClassName} dark:border-[rgba(45,42,38,0.08)] dark:bg-white/78`}
                   />
                 </div>
-              </div>
-            )}
+            </div>
           </div>
 
           <div className="mt-3 flex shrink-0 flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between lg:px-0">
@@ -4012,7 +3897,6 @@ export function CreateProjectDialog({
               handleReviewSuggestedForm()
               closePlanningReview()
             }}
-            onSwitchToCopilot={onSwitchToCopilot ? () => void handleSwitchToCopilot() : undefined}
           />
         ) : null}
         </div>

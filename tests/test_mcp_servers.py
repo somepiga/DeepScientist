@@ -323,10 +323,11 @@ def test_artifact_mcp_server_interact_delivers_to_bound_qq_connector(
             run_id="run-mcp-artifact-qq",
             active_anchor="baseline",
             conversation_id="quest:test",
-            agent_role="pi",
-            worker_id="worker-main",
+            agent_role="baseline",
+            worker_id="run-mcp-artifact-qq",
             worktree_root=None,
             team_mode="single",
+            agent_id="baseline",
         )
         server = build_artifact_server(context)
 
@@ -353,6 +354,14 @@ def test_artifact_mcp_server_interact_delivers_to_bound_qq_connector(
         assert outbox
         assert outbox[-1]["conversation_id"] == conversation_id
         assert outbox[-1]["delivery"]["ok"] is True
+        artifact_event = next(
+            item
+            for item in reversed(read_jsonl(quest_root / ".ds" / "events.jsonl"))
+            if item.get("type") == "artifact.recorded"
+        )
+        assert artifact_event["agent_id"] == "baseline"
+        assert artifact_event["agent_role"] == "baseline"
+        assert artifact_event["agent_instance_id"] == "run-mcp-artifact-qq"
 
     asyncio.run(scenario())
 

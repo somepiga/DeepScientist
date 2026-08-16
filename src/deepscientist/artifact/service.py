@@ -186,8 +186,18 @@ def _clean_start_setup_suggested_form(value: dict[str, Any] | None) -> dict[str,
 
 
 class ArtifactService:
-    def __init__(self, home: Path) -> None:
+    def __init__(
+        self,
+        home: Path,
+        *,
+        agent_id: str | None = None,
+        agent_role: str | None = None,
+        agent_instance_id: str | None = None,
+    ) -> None:
         self.home = home
+        self.agent_id = str(agent_id or agent_role or "").strip() or None
+        self.agent_role = str(agent_role or agent_id or "").strip() or None
+        self.agent_instance_id = str(agent_instance_id or "").strip() or None
         self.baselines = BaselineRegistry(home)
         self.quest_service = QuestService(home)
         self.benchstore_service = BenchStoreService(home, repo_root=repo_root())
@@ -1378,6 +1388,13 @@ class ArtifactService:
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
         normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
+        planned_steps = list(
+            dict.fromkeys(
+                item
+                for item in (normalized_method_brief, mechanism.strip())
+                if item
+            )
+        )
         metadata = {
             "id": f"{idea_id}-draft",
             "type": "ideas",
@@ -1398,6 +1415,7 @@ class ArtifactService:
             "novelty_audit": normalized_novelty_audit,
             "evidence_paths": evidence_paths,
             "risks": risks,
+            "planned_steps": planned_steps,
             "foundation_ref": normalized_foundation or None,
             "foundation_reason": foundation_reason.strip() or None,
             "lineage_intent": normalized_lineage_intent,
@@ -1528,6 +1546,13 @@ class ArtifactService:
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
         normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
+        planned_steps = list(
+            dict.fromkeys(
+                item
+                for item in (normalized_method_brief, mechanism.strip())
+                if item
+            )
+        )
         metadata = {
             "id": idea_id,
             "type": "ideas",
@@ -1547,6 +1572,7 @@ class ArtifactService:
             "novelty_audit": normalized_novelty_audit,
             "evidence_paths": evidence_paths,
             "risks": risks,
+            "planned_steps": planned_steps,
             "foundation_ref": normalized_foundation or None,
             "foundation_reason": foundation_reason.strip() or None,
             "lineage_intent": normalized_lineage_intent,
@@ -1669,6 +1695,13 @@ class ArtifactService:
         normalized_change_layer = str(change_layer or "").strip() or None
         normalized_source_lens = str(source_lens or "").strip() or None
         normalized_novelty_audit = normalize_novelty_audit(novelty_audit)
+        planned_steps = list(
+            dict.fromkeys(
+                item
+                for item in (normalized_method_brief, mechanism.strip())
+                if item
+            )
+        )
         metadata = {
             "id": f"{idea_id}-candidate-draft",
             "type": "ideas",
@@ -1689,6 +1722,7 @@ class ArtifactService:
             "novelty_audit": normalized_novelty_audit,
             "evidence_paths": evidence_paths,
             "risks": risks,
+            "planned_steps": planned_steps,
             "foundation_ref": normalized_foundation or None,
             "foundation_reason": foundation_reason.strip() or None,
             "lineage_intent": normalized_lineage_intent,
@@ -9423,6 +9457,22 @@ class ArtifactService:
         push: bool | None = None,
     ) -> dict:
         payload = dict(payload)
+        if self.agent_id:
+            payload.setdefault("agent_id", self.agent_id)
+        if self.agent_role:
+            payload.setdefault("agent_role", self.agent_role)
+        if self.agent_instance_id:
+            payload.setdefault("agent_instance_id", self.agent_instance_id)
+        if self.agent_id or self.agent_role or self.agent_instance_id:
+            source = dict(payload.get("source") or {})
+            source.setdefault("kind", "agent")
+            if self.agent_role:
+                source.setdefault("role", self.agent_role)
+            if self.agent_id:
+                source.setdefault("agent_id", self.agent_id)
+            if self.agent_instance_id:
+                source.setdefault("agent_instance_id", self.agent_instance_id)
+            payload["source"] = source
         payload["evidence_type"] = inferred_evidence_type(payload)
         errors = [*validate_artifact_payload(payload), *validate_evidence_payload(payload)]
         if errors:
@@ -9573,6 +9623,9 @@ class ArtifactService:
                 "slice_id": record.get("slice_id"),
                 "details": record.get("details") or {},
                 "checkpoint": checkpoint_result,
+                "agent_id": record.get("agent_id"),
+                "agent_role": record.get("agent_role"),
+                "agent_instance_id": record.get("agent_instance_id"),
             },
         )
         self._touch_quest_updated_at(quest_root)
@@ -15256,7 +15309,13 @@ class ArtifactService:
         dedupe_key: str | None = None,
         suppress_if_unchanged: bool | None = None,
         min_interval_seconds: int | None = None,
+        agent_id: str | None = None,
+        agent_role: str | None = None,
+        agent_instance_id: str | None = None,
     ) -> dict:
+        agent_id = str(agent_id or self.agent_id or agent_role or self.agent_role or "").strip() or None
+        agent_role = str(agent_role or self.agent_role or agent_id or self.agent_id or "").strip() or None
+        agent_instance_id = str(agent_instance_id or self.agent_instance_id or "").strip() or None
         durable_kind = {
             "progress": "progress",
             "answer": "answer",
@@ -15482,7 +15541,15 @@ class ArtifactService:
             "allow_free_text": allow_free_text,
             "reply_schema": reply_schema_resolved,
             "reply_to_interaction_id": reply_to_interaction_id,
-            "source": {"kind": "agent", "role": "pi"},
+            "source": {
+                "kind": "agent",
+                "role": str(agent_role or agent_id or "pi").strip() or "pi",
+                "agent_id": str(agent_id or agent_role or "").strip() or None,
+                "agent_instance_id": str(agent_instance_id or "").strip() or None,
+            },
+            "agent_id": str(agent_id or agent_role or "").strip() or None,
+            "agent_role": str(agent_role or agent_id or "").strip() or None,
+            "agent_instance_id": str(agent_instance_id or "").strip() or None,
         }
         if durable_kind == "decision":
             payload.update(
@@ -15542,6 +15609,9 @@ class ArtifactService:
                     "reply_schema": reply_schema_resolved,
                     "reply_to_interaction_id": reply_to_interaction_id,
                     "attachments": attachments_resolved,
+                    "agent_id": payload.get("agent_id"),
+                    "agent_role": payload.get("agent_role"),
+                    "agent_instance_id": payload.get("agent_instance_id"),
                 }
                 delivery_result = self._deliver_to_channel(channel_name, payload, connectors=connectors)
                 delivery_result["conversation_id"] = target

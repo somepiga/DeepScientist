@@ -12,7 +12,7 @@ from ..artifact import ArtifactService
 from ..gitops import export_git_graph
 from ..process_control import process_session_popen_kwargs
 from ..prompts import PromptBuilder
-from ..prompts.agent_prompts import get_agent_prompt
+from ..prompts.agent_prompts import get_agent_prompt_for_runtime
 from ..runtime_logs import JsonlLogger
 from ..shared import append_jsonl, ensure_dir, ensure_utf8_subprocess_env, generate_id, read_yaml, resolve_runner_binary, utc_now, write_json, write_text
 from .base import RunRequest, RunResult
@@ -224,12 +224,30 @@ class PiRunner:
             turn_mode=request.turn_mode,
             retry_context=request.retry_context,
             runner_name=self.runner_name,
-            agent_prompt=get_agent_prompt(self.repo_root, request.skill_id)[0],
+            agent_id=request.effective_agent_id,
+            agent_role=request.effective_agent_role,
+            agent_instance_id=request.effective_agent_instance_id,
+            agent_context_scope=request.agent_context_scope,
+            team_mode=request.team_mode,
+            agent_prompt=get_agent_prompt_for_runtime(
+                self.repo_root, request.effective_agent_id, quest_root=request.quest_root
+            ),
         )
         write_text(run_root / "prompt.md", prompt)
         runner_config = self._load_runner_config()
         command = self._build_command(request, history_root=history_root, runner_config=runner_config)
-        write_json(run_root / "command.json", {"command": command, "cwd": str(workspace_root), "session_root": str(history_root)})
+        write_json(
+            run_root / "command.json",
+            {
+                "command": command,
+                "cwd": str(workspace_root),
+                "session_root": str(history_root),
+                "agent_id": request.effective_agent_id,
+                "agent_role": request.effective_agent_role,
+                "agent_instance_id": request.effective_agent_instance_id,
+                "team_mode": request.team_mode,
+            },
+        )
         env = ensure_utf8_subprocess_env(self._build_env(request, workspace_root=workspace_root, runner_config=runner_config))
         process = subprocess.Popen(command, **self._subprocess_popen_kwargs(workspace_root=workspace_root, env=env))
         with self._process_lock:
@@ -418,8 +436,10 @@ class PiRunner:
                 "DS_TURN_REASON": request.turn_reason,
                 "DS_TURN_INTENT": request.turn_intent,
                 "DS_TURN_MODE": request.turn_mode,
-                "DS_AGENT_ROLE": request.skill_id,
-                "DS_TEAM_MODE": "single",
+                "DS_AGENT_ID": request.effective_agent_id,
+                "DS_AGENT_ROLE": request.effective_agent_role,
+                "DS_WORKER_ID": request.effective_agent_instance_id,
+                "DS_TEAM_MODE": request.team_mode,
             }
         )
         configured_agent_dir = str(runner_config.get("config_dir") or "").strip()

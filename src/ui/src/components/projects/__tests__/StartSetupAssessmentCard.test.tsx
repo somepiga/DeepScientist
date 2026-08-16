@@ -55,7 +55,7 @@ describe('StartSetupAssessmentCard', () => {
     expect(screen.getByText('Baseline / 起点可信化')).toBeInTheDocument()
   })
 
-  it('renders science task metadata and copilot recommendation from SetupAgent', () => {
+  it('keeps a legacy copilot recommendation in the autonomous confirmation path', () => {
     render(
       <StartSetupAssessmentCard
         locale="zh"
@@ -95,7 +95,7 @@ describe('StartSetupAssessmentCard', () => {
       />
     )
 
-    expect(screen.getByText('Recommended mode · 协作模式')).toBeInTheDocument()
+    expect(screen.getByText('Recommended mode · 需确认')).toBeInTheDocument()
     expect(screen.getByText('Science Evidence Graph')).toBeInTheDocument()
     expect(screen.getByText('quantum_chemistry · computational_run')).toBeInTheDocument()
     expect(screen.getByText('Packages: pyscf')).toBeInTheDocument()

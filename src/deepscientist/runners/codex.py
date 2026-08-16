@@ -21,7 +21,7 @@ from ..evidence_packets import compact_runner_tool_event
 from ..gitops import export_git_graph
 from ..process_control import process_session_popen_kwargs
 from ..prompts import PromptBuilder
-from ..prompts.agent_prompts import get_agent_prompt
+from ..prompts.agent_prompts import get_agent_prompt_for_runtime
 from ..runtime_logs import JsonlLogger
 from ..shared import append_jsonl, ensure_dir, ensure_utf8_subprocess_env, generate_id, read_yaml, resolve_runner_binary, utc_now, write_json, write_text
 from ..web_search import extract_web_search_payload
@@ -34,6 +34,12 @@ from .base import (
     extract_start_setup_patch_from_text,
     extract_start_setup_session_patch_from_text,
     resolve_mcp_tool_profile_for_quest,
+)
+from .codex_telemetry import (
+    DEFAULT_TURN_TOOL_CALL_BUDGET,
+    _finalize_tool_budget_telemetry,
+    _new_tool_budget_telemetry,
+    _record_tool_budget_event,
 )
 from .events import RunnerEventWriter
 
@@ -630,6 +636,8 @@ def _mcp_tool_metadata(
     *,
     quest_id: str,
     run_id: str,
+    agent_id: str = "pi",
+    agent_instance_id: str | None = None,
     server: str,
     tool: str,
     item: dict[str, Any],
@@ -653,8 +661,8 @@ def _mcp_tool_metadata(
         if server == "bash_exec" and tool == "bash_exec" and isinstance(arguments.get("id"), str):
             metadata["bash_id"] = arguments.get("id")
     metadata["session_id"] = f"quest:{quest_id}"
-    metadata["agent_id"] = "pi"
-    metadata["agent_instance_id"] = run_id
+    metadata["agent_id"] = agent_id
+    metadata["agent_instance_id"] = agent_instance_id or run_id
     metadata["quest_id"] = quest_id
     result_payload = _mcp_result_payload(item)
     if server == "bash_exec" and tool == "bash_exec" and result_payload:
@@ -685,6 +693,8 @@ def _tool_event(
     quest_id: str,
     run_id: str,
     skill_id: str,
+    agent_id: str = "pi",
+    agent_instance_id: str | None = None,
     known_tool_names: dict[str, str],
     created_at: str,
 ) -> dict[str, Any] | None:
@@ -793,6 +803,8 @@ def _tool_event(
         metadata = _mcp_tool_metadata(
             quest_id=quest_id,
             run_id=run_id,
+            agent_id=agent_id,
+            agent_instance_id=agent_instance_id or run_id,
             server=server,
             tool=tool,
             item=item,
@@ -924,7 +936,14 @@ class CodexRunner:
             turn_intent=request.turn_intent,
             turn_mode=request.turn_mode,
             retry_context=request.retry_context,
-            agent_prompt=get_agent_prompt(self.repo_root, request.skill_id)[0],
+            agent_id=request.effective_agent_id,
+            agent_role=request.effective_agent_role,
+            agent_instance_id=request.effective_agent_instance_id,
+            agent_context_scope=request.agent_context_scope,
+            team_mode=request.team_mode,
+            agent_prompt=get_agent_prompt_for_runtime(
+                self.repo_root, request.effective_agent_id, quest_root=request.quest_root
+            ),
         )
         prompt = self._apply_chat_wire_tool_call_guard(prompt, runner_config=runner_config)
         prompt_to_send = prompt
@@ -957,6 +976,10 @@ class CodexRunner:
                 "turn_reason": request.turn_reason,
                 "turn_intent": request.turn_intent,
                 "turn_mode": request.turn_mode,
+                "agent_id": request.effective_agent_id,
+                "agent_role": request.effective_agent_role,
+                "agent_instance_id": request.effective_agent_instance_id,
+                "team_mode": request.team_mode,
                 "windows_gbk_prompt_sanitized": bool(prompt_sanitization),
                 "windows_gbk_sanitized_prompt_path": sanitized_prompt_path,
                 "windows_gbk_replacements": prompt_sanitization,
@@ -971,6 +994,10 @@ class CodexRunner:
             "quest_id": request.quest_id,
             "run_id": request.run_id,
             "skill_id": request.skill_id,
+            "agent_id": request.effective_agent_id,
+            "agent_role": request.effective_agent_role,
+            "agent_instance_id": request.effective_agent_instance_id,
+            "team_mode": request.team_mode,
             "turn_reason": request.turn_reason,
             "turn_intent": request.turn_intent,
             "turn_mode": request.turn_mode,
@@ -1016,8 +1043,10 @@ class CodexRunner:
         quest_yaml = read_yaml(request.quest_root / "quest.yaml", {})
         env["DS_ACTIVE_ANCHOR"] = str(quest_yaml.get("active_anchor", "baseline"))
         env["DS_CONVERSATION_ID"] = f"quest:{request.quest_id}"
-        env["DS_AGENT_ROLE"] = request.skill_id
-        env["DS_TEAM_MODE"] = "single"
+        env["DS_AGENT_ID"] = request.effective_agent_id
+        env["DS_AGENT_ROLE"] = request.effective_agent_role
+        env["DS_WORKER_ID"] = request.effective_agent_instance_id
+        env["DS_TEAM_MODE"] = request.team_mode
         env = ensure_utf8_subprocess_env(env)
         popen_kwargs = self._subprocess_popen_kwargs(workspace_root=workspace_root, env=env)
         process = subprocess.Popen(command, **popen_kwargs)
@@ -1117,10 +1146,15 @@ class CodexRunner:
                     quest_id=request.quest_id,
                     run_id=request.run_id,
                     skill_id=request.skill_id,
+                    agent_id=request.effective_agent_id,
+                    agent_instance_id=request.effective_agent_instance_id,
                     known_tool_names=known_tool_names,
                     created_at=timestamp,
                 )
                 if tool_event is not None:
+                    tool_event.setdefault("agent_id", request.effective_agent_id)
+                    tool_event.setdefault("agent_role", request.effective_agent_role)
+                    tool_event.setdefault("agent_instance_id", request.effective_agent_instance_id)
                     if str(tool_event.get("type") or "") == "runner.tool_call":
                         _record_tool_budget_event(telemetry, tool_event)
                         args_text = str(tool_event.get("args") or "")
@@ -1163,6 +1197,9 @@ class CodexRunner:
                     created_at=timestamp,
                 )
                 for message_event in message_events:
+                    message_event.setdefault("agent_id", request.effective_agent_id)
+                    message_event.setdefault("agent_role", request.effective_agent_role)
+                    message_event.setdefault("agent_instance_id", request.effective_agent_instance_id)
                     append_jsonl(quest_events, message_event)
                     if message_event.get("type") == "runner.agent_message":
                         text = message_event.get("text")
@@ -1194,6 +1231,10 @@ class CodexRunner:
                 stderr_text=stderr_text,
                 summary=summary_text or output_text,
             )
+            _finalize_tool_budget_telemetry(telemetry)
+            telemetry["completed_at"] = utc_now()
+            telemetry_path = run_root / "telemetry.json"
+            write_json(telemetry_path, telemetry)
             append_jsonl(
                 quest_events,
                 {

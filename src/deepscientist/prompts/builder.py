@@ -5,6 +5,7 @@ import os
 import re
 from pathlib import Path
 
+from ..agent_orchestration import STAGE_AGENT_CONTEXT_SCOPES, recent_agent_handoffs
 from ..connector_runtime import normalize_conversation_id, parse_conversation_id
 from ..config import ConfigManager
 from ..home import repo_root
@@ -24,44 +25,7 @@ _AUTO_CONTINUE_MONITOR_INTERVAL_SECONDS = 240
 
 COMPANION_SKILLS = companion_skill_ids(repo_root())
 
-STAGE_MEMORY_PLAN = {
-    "scout": {
-        "quest": ("papers", "knowledge", "decisions"),
-        "global": ("papers", "knowledge", "templates"),
-    },
-    "baseline": {
-        "quest": ("papers", "decisions", "episodes", "knowledge"),
-        "global": ("knowledge", "templates", "papers"),
-    },
-    "idea": {
-        "quest": ("papers", "ideas", "decisions", "knowledge"),
-        "global": ("papers", "knowledge", "templates"),
-    },
-    "optimize": {
-        "quest": ("episodes", "decisions", "ideas", "knowledge"),
-        "global": ("knowledge", "templates"),
-    },
-    "experiment": {
-        "quest": ("ideas", "decisions", "episodes", "knowledge"),
-        "global": ("knowledge", "templates"),
-    },
-    "analysis-campaign": {
-        "quest": ("ideas", "decisions", "episodes", "knowledge", "papers"),
-        "global": ("knowledge", "templates", "papers"),
-    },
-    "write": {
-        "quest": ("papers", "decisions", "knowledge", "ideas"),
-        "global": ("templates", "knowledge", "papers"),
-    },
-    "finalize": {
-        "quest": ("decisions", "knowledge", "episodes"),
-        "global": ("knowledge", "templates"),
-    },
-    "decision": {
-        "quest": ("decisions", "knowledge", "episodes", "ideas"),
-        "global": ("knowledge", "templates"),
-    },
-}
+STAGE_MEMORY_PLAN = STAGE_AGENT_CONTEXT_SCOPES
 
 
 def current_standard_skills(
@@ -138,6 +102,11 @@ class PromptBuilder:
         retry_context: dict | None = None,
         runner_name: str = "codex",
         agent_prompt: str | None = None,
+        agent_id: str | None = None,
+        agent_role: str | None = None,
+        agent_instance_id: str | None = None,
+        agent_context_scope: dict[str, tuple[str, ...]] | None = None,
+        team_mode: str = "single",
     ) -> str:
         snapshot = self.quest_service.snapshot(quest_id)
         runtime_config = self.config_manager.load_named("config")
@@ -145,6 +114,10 @@ class PromptBuilder:
         quest_root = Path(snapshot["quest_root"])
         self.skill_installer.sync_quest_prompts(quest_root)
         active_anchor = str(snapshot.get("active_anchor") or skill_id)
+        resolved_agent_id = str(agent_id or skill_id).strip() or skill_id
+        resolved_agent_role = str(agent_role or resolved_agent_id).strip() or resolved_agent_id
+        resolved_agent_instance_id = str(agent_instance_id or "").strip() or "none"
+        resolved_team_mode = str(team_mode or "single").strip() or "single"
         default_locale = str(runtime_config.get("default_locale") or "en-US")
         workspace_mode = self._workspace_mode(snapshot)
         custom_profile = self._custom_profile(snapshot)
@@ -247,6 +220,10 @@ class PromptBuilder:
                 f"active_anchor: {active_anchor}",
                 f"active_branch: {snapshot.get('branch')}",
                 f"requested_skill: {skill_id}",
+                f"agent_id: {resolved_agent_id}",
+                f"agent_role: {resolved_agent_role}",
+                f"agent_instance_id: {resolved_agent_instance_id}",
+                f"team_mode: {resolved_team_mode}",
                 f"runner_name: {runner_name}",
                 f"model: {model}",
                 f"conversation_id: quest:{quest_id}",
@@ -279,6 +256,8 @@ class PromptBuilder:
                     "",
                     "## Active Agent Dedicated Prompt",
                     "The following is this agent's dedicated prompt. Follow it as the primary instruction for the current stage; the skill path listing below remains available for cross-stage reference.",
+                    "agent_boundary_rule: own only the requested stage. When a durable tool operation advances `active_anchor` to another stage, stop doing downstream work in this process and return a concise handoff so the daemon can start the next dedicated agent.",
+                    "agent_context_rule: use the handoff packet, durable quest state, and this agent's allowed memory namespaces as the default context. Do not reconstruct a hidden all-in-one chain of thought from every earlier agent conversation.",
                     "",
                     agent_prompt,
                 ]
@@ -319,6 +298,9 @@ class PromptBuilder:
                 "## Active User Requirements",
                 self._active_user_requirements_block(quest_root),
                 "",
+                "## Agent Handoff Packet",
+                self._agent_handoff_block(quest_root, agent_id=resolved_agent_id),
+                "",
                 "## Quest Context",
                 self._quest_context_block(quest_root),
                 "",
@@ -357,10 +339,16 @@ class PromptBuilder:
                     skill_id=skill_id,
                     active_anchor=active_anchor,
                     user_message=user_message,
+                    context_scope=agent_context_scope,
                 ),
                 "",
                 "## Recent Conversation Window",
-                self._special_conversation_block(snapshot, quest_id=quest_id),
+                self._special_conversation_block(
+                    snapshot,
+                    quest_id=quest_id,
+                    agent_id=resolved_agent_id,
+                    team_mode=resolved_team_mode,
+                ),
                 "",
                 "## Current Turn Attachments",
                 self._current_turn_attachments_block(
@@ -2143,9 +2131,10 @@ class PromptBuilder:
         skill_id: str,
         active_anchor: str,
         user_message: str,
+        context_scope: dict[str, tuple[str, ...]] | None = None,
     ) -> str:
         stage = active_anchor if active_anchor in STAGE_MEMORY_PLAN else skill_id
-        plan = STAGE_MEMORY_PLAN.get(stage, STAGE_MEMORY_PLAN["decision"])
+        plan = context_scope or STAGE_MEMORY_PLAN.get(stage, STAGE_MEMORY_PLAN["decision"])
         quest_kinds = ", ".join(plan.get("quest", ())) or "none"
         global_kinds = ", ".join(plan.get("global", ())) or "none"
         lines = [
@@ -2321,9 +2310,67 @@ class PromptBuilder:
             used += len(line)
         return "\n".join(lines)
 
-    def _special_conversation_block(self, snapshot: dict, *, quest_id: str) -> str:
+    def _agent_conversation_block(self, quest_id: str, *, agent_id: str, limit: int = 80) -> str:
+        history = self.quest_service.history(quest_id, limit=limit)
+        same_agent = [
+            item
+            for item in history
+            if str(item.get("role") or "").strip() == "assistant"
+            and str(item.get("agent_id") or item.get("skill_id") or "").strip() == agent_id
+        ]
+        lines = [
+            "- agent_conversation_isolation: this stage agent does not inherit the full cross-agent chat transcript by default.",
+            "- agent_context_source_order: current user message -> latest handoff packet -> durable artifacts/state -> same-agent checkpoint -> targeted conversation lookup only when necessary.",
+            "- conversation_tool: call artifact.get_conversation_context(limit=12, include_attachments=False) only when an explicit user instruction or unresolved interaction cannot be recovered from durable state.",
+        ]
+        if same_agent:
+            item = same_agent[-1]
+            preview = " ".join(str(item.get("content") or "").split())
+            if len(preview) > 1000:
+                preview = preview[:997].rstrip() + "..."
+            lines.extend(
+                [
+                    f"- same_agent_previous_run_id: {item.get('run_id') or 'unknown'}",
+                    f"- same_agent_previous_checkpoint: {preview or 'none'}",
+                ]
+            )
+        else:
+            lines.append("- same_agent_previous_checkpoint: none")
+        return "\n".join(lines)
+
+    def _agent_handoff_block(self, quest_root: Path, *, agent_id: str) -> str:
+        handoffs = recent_agent_handoffs(quest_root, limit=3, to_agent_id=agent_id)
+        if not handoffs:
+            return "- handoff: none; recover the stage entry state from durable quest artifacts and the active user requirements."
+        lines = [
+            "- handoff_rule: treat this packet as a compact routing summary, then verify important claims against its durable refs before acting.",
+        ]
+        for item in handoffs:
+            refs = item.get("durable_refs") if isinstance(item.get("durable_refs"), dict) else {}
+            lines.extend(
+                [
+                    f"- handoff_id: {item.get('handoff_id') or 'unknown'}",
+                    f"  from_agent_id: {item.get('from_agent_id') or 'unknown'}",
+                    f"  to_agent_id: {item.get('to_agent_id') or agent_id}",
+                    f"  reason: {item.get('reason') or 'stage_transition'}",
+                    f"  summary: {item.get('summary') or 'none'}",
+                    f"  durable_refs: {json.dumps(refs, ensure_ascii=False, sort_keys=True)}",
+                ]
+            )
+        return "\n".join(lines)
+
+    def _special_conversation_block(
+        self,
+        snapshot: dict,
+        *,
+        quest_id: str,
+        agent_id: str | None = None,
+        team_mode: str = "single",
+    ) -> str:
         if self._start_setup_session(snapshot) or self._custom_profile(snapshot) in {"settings_issue", "admin_ops"}:
             return self._expanded_conversation_block(quest_id)
+        if str(team_mode or "").strip() == "stage_agents" and str(agent_id or "").strip():
+            return self._agent_conversation_block(quest_id, agent_id=str(agent_id).strip())
         return self._conversation_block(quest_id)
 
     def _markdown_body(self, path: Path) -> str:

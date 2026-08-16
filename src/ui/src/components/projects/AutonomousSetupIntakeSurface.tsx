@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ArrowUpRight, BookOpen, Sparkles, X } from 'lucide-react'
+import { BookOpen, Sparkles, X } from 'lucide-react'
 
 import { QuestCopilotComposer } from '@/components/workspace/QuestCopilotComposer'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,6 @@ type AutonomousSetupIntakeSurfaceProps = {
   submitting?: boolean
   error?: string | null
   onSwitchToForm: () => void
-  onSwitchToCopilot: () => void
   onOpenBenchStore?: () => void
   onClose?: () => void
 }
@@ -28,30 +27,28 @@ function copy(locale: 'en' | 'zh') {
     ? {
         title: '你想研究什么？',
         body:
-          '直接描述目标、已有材料、约束和期望产出；可以把论文、代码、数据或 reviewer comments 一起拖进来。SetupAgent 会先帮你整理计划，再判断更适合全自动还是协作模式。',
+          '直接描述目标、已有材料、约束和期望产出；可以把论文、代码、数据或 reviewer comments 一起拖进来。系统会直接创建研究任务，并由阶段化多 Agent 工作流推进。',
         placeholder:
           '可以这样写：\n我想基于这篇论文和已有代码复现 baseline，并继续优化方法。已有材料包括……\n运行限制：1 张 GPU，最多跑 24 小时；可以/不可以使用外部 API；数据需要保密。\n希望产出：可信 baseline、改进实验、分析图表，最终可能写成论文。',
-        sendLabel: '交给 SetupAgent',
+        sendLabel: '创建研究任务',
         stopLabel: '停止',
         enterHint: '拖入文件 · Enter 发送 · Shift+Enter 换行',
-        assistantLabel: 'SetupAgent 只做启动规划，不会直接开始研究执行',
-        manualAutonomous: '手动进入全自动',
-        manualCopilot: '手动进入协作模式',
+        assistantLabel: '创建后将进入多 Agent 研究任务控制台',
+        manualAutonomous: '编辑研究配置',
         benchText: '还不确定任务 → 点击“BenchStore”阅读开放任务',
         closeLabel: '关闭',
       }
     : {
         title: 'What do you want to research?',
         body:
-          'Describe the goal, materials, constraints, and desired output. Drop in papers, code, data, or reviewer comments. SetupAgent will plan first, then recommend autonomous or Copilot mode.',
+          'Describe the goal, materials, constraints, and desired output. Drop in papers, code, data, or reviewer comments. The system will create the research task directly and run it through a staged multi-Agent workflow.',
         placeholder:
           'You can write:\nI want to reproduce the baseline from this paper and existing repo, then keep optimizing the method. Available materials include…\nConstraints: 1 GPU, up to 24 hours; external APIs allowed/not allowed; data must stay private.\nDesired output: trusted baseline, improved experiments, analysis figures, and possibly a paper draft.',
-        sendLabel: 'Send to SetupAgent',
+        sendLabel: 'Create research task',
         stopLabel: 'Stop',
         enterHint: 'Drop files · Enter to send · Shift+Enter for newline',
-        assistantLabel: 'SetupAgent plans the launch only. It will not start research execution yet.',
-        manualAutonomous: 'Manual autonomous',
-        manualCopilot: 'Manual Copilot',
+        assistantLabel: 'The task opens in the multi-Agent research control console.',
+        manualAutonomous: 'Edit research configuration',
         benchText: 'Not sure yet → click “BenchStore” to browse open tasks',
         closeLabel: 'Close',
       }
@@ -104,10 +101,6 @@ export function AutonomousSetupIntakeSurface(props: AutonomousSetupIntakeSurface
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-              <Button type="button" variant="outline" className="w-full rounded-full bg-white/64 sm:w-auto" onClick={props.onSwitchToCopilot}>
-                <ArrowUpRight className="mr-1.5 h-4 w-4" />
-                {t.manualCopilot}
-              </Button>
               <Button
                 type="button"
                 variant="secondary"

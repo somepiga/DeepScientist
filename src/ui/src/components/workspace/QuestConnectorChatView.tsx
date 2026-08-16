@@ -60,6 +60,7 @@ type QuestConnectorChatViewProps = {
   onWithdraw?: (messageId: string) => Promise<MessageQueueActionResult | void>
   onStopRun: () => Promise<void>
   prefill?: CopilotPrefill | null
+  beforeFeed?: React.ReactNode
 }
 
 function formatTime(value?: string) {
@@ -213,6 +214,7 @@ export function QuestConnectorChatView({
   onWithdraw,
   onStopRun,
   prefill = null,
+  beforeFeed = null,
 }: QuestConnectorChatViewProps) {
   const { t } = useI18n('workspace')
   const { addToast } = useToast()
@@ -539,23 +541,25 @@ export function QuestConnectorChatView({
       }
     >
       {({ bottomInset }) => (
-        <ChatScrollProvider value={{ isNearBottom }}>
-          <div
-            ref={listRef}
-            className="feed-scrollbar flex-1 min-h-0 overflow-x-hidden overflow-y-auto px-4 pt-4"
-            style={{
-              paddingBottom: bottomInset,
-              scrollPaddingBottom: bottomInset,
-            }}
-            onWheel={(event) => {
-              const root = listRef.current
-              if (!root || event.deltaY >= 0 || root.scrollTop > 24) {
-                return
-              }
-              void handleLoadOlderHistory()
-            }}
-          >
-            <div ref={contentRef} className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-h-0 flex-1 flex-col">
+          {beforeFeed}
+          <ChatScrollProvider value={{ isNearBottom }}>
+            <div
+              ref={listRef}
+              className="feed-scrollbar flex-1 min-h-0 overflow-x-hidden overflow-y-auto px-4 pt-4"
+              style={{
+                paddingBottom: bottomInset,
+                scrollPaddingBottom: bottomInset,
+              }}
+              onWheel={(event) => {
+                const root = listRef.current
+                if (!root || event.deltaY >= 0 || root.scrollTop > 24) {
+                  return
+                }
+                void handleLoadOlderHistory()
+              }}
+            >
+              <div ref={contentRef} className="flex min-w-0 flex-col gap-3">
               {hasOlderHistory ? (
                 <div className="flex justify-center pb-1">
                   <button
@@ -602,9 +606,10 @@ export function QuestConnectorChatView({
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : null}
+              </div>
             </div>
-          </div>
-        </ChatScrollProvider>
+          </ChatScrollProvider>
+        </div>
       )}
     </QuestCopilotPaneLayout>
   )

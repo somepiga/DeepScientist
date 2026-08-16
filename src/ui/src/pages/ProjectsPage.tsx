@@ -2,7 +2,6 @@ import { FolderOpen, Loader2, Plus } from 'lucide-react'
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { ExperimentLaunchModeDialog } from '@/components/projects/ExperimentLaunchModeDialog'
 import { ProjectDisplayPreviewCard } from '@/components/projects/ProjectDisplayPreviewCard'
 import { Button } from '@/components/ui/button'
 import { listProjects, type Project } from '@/lib/api/projects'
@@ -12,7 +11,7 @@ const copy = {
   en: {
     eyebrow: 'Projects',
     title: 'All research workspaces',
-    body: 'Open an existing quest, or start a new Copilot or autonomous experiment from here.',
+    body: 'Open an existing quest, or start a new autonomous research project from here.',
     create: 'Start Experiment',
     empty: 'No project yet. Start your first experiment to create a workspace.',
     updated: 'Updated',
@@ -20,7 +19,7 @@ const copy = {
   zh: {
     eyebrow: 'Projects',
     title: '全部科研工作区',
-    body: '你可以从这里打开已有 quest，或者开始一个新的 Copilot / 全自动实验。',
+    body: '你可以从这里打开已有 quest，或者开始一个新的全自动研究项目。',
     create: 'Start Experiment',
     empty: '还没有项目。开始你的第一个实验后，这里就会出现工作区。',
     updated: '更新于',
@@ -47,7 +46,6 @@ export function ProjectsPage() {
   const [items, setItems] = React.useState<Project[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [launchOpen, setLaunchOpen] = React.useState(false)
 
   React.useEffect(() => {
     let active = true
@@ -87,7 +85,7 @@ export function ProjectsPage() {
             </div>
             <Button
               className="h-11 rounded-full bg-[#C7AD96] px-5 text-[#2D2A26] hover:bg-[#D7C6AE]"
-              onClick={() => setLaunchOpen(true)}
+              onClick={() => navigate('/projects/new/auto')}
             >
               <Plus className="mr-2 h-4 w-4" />
               {t.create}
@@ -117,8 +115,7 @@ export function ProjectsPage() {
                     : null
                 const display = resolveProjectDisplay(projectDisplayInput)
                 const templateMeta = resolveProjectTemplate(display.template)
-                const workspaceMode = String((settings as Record<string, unknown>).workspace_mode || '').trim().toLowerCase()
-                const modeLabel = workspaceMode === 'copilot' ? 'Copilot' : 'Auto'
+                const modeLabel = 'Auto'
                 return (
                   <button
                     key={item.id}
@@ -152,16 +149,6 @@ export function ProjectsPage() {
           )}
         </div>
       </div>
-
-      <ExperimentLaunchModeDialog
-        open={launchOpen}
-        locale={locale}
-        onClose={() => setLaunchOpen(false)}
-        onSelectMode={(mode) => {
-          setLaunchOpen(false)
-          navigate(mode === 'copilot' ? '/projects/new/copilot' : '/projects/new/auto')
-        }}
-      />
     </div>
   )
 }

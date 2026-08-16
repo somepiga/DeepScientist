@@ -95,6 +95,8 @@ DeepScientist 不是靠一份静态大 prompt 工作的。
 2. 已经有哪些持久状态不能被忽略
 3. 这一轮在当前 surface 和当前 stage 下应该遵守什么规则
 
+在组装 prompt 之前，运行时会先解析当前 stage 对应的专属 Agent。Agent identity、instance id、context scope 和 team mode 都是后端运行时上下文，而不只是 prompt 中的文字标签。
+
 ## 4. 各个主要 prompt block 到底在做什么
 
 ### 4.1 `system.md`
@@ -284,6 +286,20 @@ DeepScientist 不是随机往 prompt 里塞 memory 的。
 也就是说，prompt 会有明确的 stage bias。
 
 agent 不应该在每一轮都看到完全同一批 memory。
+
+### 4.11 Stage Agent 上下文隔离
+
+在 `stage_agents` 模式下，每个阶段 Agent 都有独立的 prompt 身份和上下文策略。
+
+builder 遵循这些规则：
+
+- 只注入同一 Agent 身份最近的 checkpoint
+- 默认不注入跨 Agent 的完整对话窗口
+- 注入最近一份定向给当前 Agent 的持久 handoff
+- 根据 Agent 定义限制 priority memory 范围
+- 一旦 `active_anchor` 推进，当前 Agent 必须停止继续做下游阶段工作并交棒
+
+如果 durable artifact 或 handoff 不足，Agent 仍可通过 `artifact.get_conversation_context(...)` 定向读取必要的对话片段。因此，上下文隔离是默认策略，不是信息封锁。
 
 ## 5. 本地 active prompt 与历史版本
 
@@ -535,12 +551,14 @@ artifact 名字虽然多，但本质上还是一个家族。
 
 1. 用户或 connector 发来一条消息
 2. daemon 恢复 quest snapshot 和 history
-3. `PromptBuilder` 组装当前 turn prompt
-4. 当前 active skill 定义这一轮的阶段纪律
-5. 注入 priority memory
-6. agent 使用 `memory`、`artifact` 和 `bash_exec`
-7. 输出被持久化进文件、artifact、memory cards、logs 和 Git 状态
-8. `artifact.interact(...)` 保持用户可见线程不断线
+3. 运行时为当前 stage 分配专属 Agent
+4. `PromptBuilder` 组装该 Agent 的 prompt 与隔离上下文
+5. 当前 active skill 定义这一轮的阶段纪律
+6. 注入限定范围的 priority memory 和最近的定向 handoff
+7. Agent 使用 `memory`、`artifact` 和 `bash_exec`
+8. 输出被持久化进文件、artifact、memory cards、logs 和 Git 状态
+9. stage 变化时为下一个 Agent 写入 durable handoff
+10. `artifact.interact(...)` 保持用户可见线程不断线
 
 这也是 DeepScientist 更像一个持续科研工作坊，而不是无状态聊天的原因。
 

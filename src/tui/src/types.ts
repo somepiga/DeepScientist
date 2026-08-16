@@ -32,6 +32,30 @@ export type QuestSummary = {
   bound_conversations?: string[]
 }
 
+export type QuestAgentOrchestrationPayload = {
+  ok: boolean
+  quest_id: string
+  mode: 'stage_agents' | string
+  selected_agent_id?: string | null
+  active_agent_id?: string | null
+  active_agent_instance_id?: string | null
+  last_agent_id?: string | null
+  last_agent_instance_id?: string | null
+  updated_at?: string | null
+  agents: Array<{
+    id: string
+    skill_id: string
+    name: string
+    role: string
+    description: string
+    prompt_file: string
+    context_scope: { quest: string[]; global: string[] }
+    modes: string[]
+  }>
+  recent_runs: Array<Record<string, unknown>>
+  recent_handoffs: Array<Record<string, unknown>>
+}
+
 export type ConnectorBindingSnapshot = {
   conversation_id: string
   quest_id?: string | null
@@ -480,6 +504,9 @@ export type FeedItem =
       stream?: boolean
       runId?: string | null
       skillId?: string | null
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
     }
   | {
       id: string
@@ -504,6 +531,9 @@ export type FeedItem =
       details?: Record<string, unknown>
       checkpoint?: Record<string, unknown> | null
       attachments?: Array<Record<string, unknown>>
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
     }
   | {
       id: string
@@ -520,6 +550,9 @@ export type FeedItem =
       mcpTool?: string
       metadata?: Record<string, unknown>
       createdAt?: string
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
     }
   | {
       id: string
@@ -527,4 +560,10 @@ export type FeedItem =
       label: string
       content: string
       createdAt?: string
+      runId?: string | null
+      skillId?: string | null
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
+      details?: Record<string, unknown>
     }

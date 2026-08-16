@@ -88,6 +88,8 @@ Important quest state lives in:
 - `.ds/user_message_queue.json`
 - `.ds/events.jsonl`
 - `.ds/interaction_journal.jsonl`
+- `.ds/agent_runs.jsonl`
+- `.ds/agent_handoffs.jsonl`
 
 The quest layout contract is defined in `src/deepscientist/quest/layout.py`. If it changes, update quest services, daemon handlers, UI/TUI consumers, and tests together.
 
@@ -117,6 +119,19 @@ The quest layout contract is defined in `src/deepscientist/quest/layout.py`. If 
   - maintain quest snapshots
   - persist runtime state
   - derive explorer and canvas state
+
+### Stage Agent Orchestration
+
+- files:
+  - `src/deepscientist/agent_orchestration.py`
+  - `src/deepscientist/team/service.py`
+- responsibility:
+  - map standard stage skills to dedicated Agent definitions
+  - assign one Agent instance per quest turn
+  - persist Agent run history and cross-stage handoffs
+  - expose quest orchestration state through `GET /api/quests/<quest_id>/agents`
+
+This layer is intentionally small. It does not introduce a central DAG scheduler or a fourth public contract. `quest.yaml.active_anchor`, durable artifacts, evidence events, and existing stage gates remain authoritative for routing.
 
 ### Artifact
 
@@ -206,6 +221,10 @@ Research workflow behavior should primarily live in:
 - `src/skills/*/SKILL.md`
 
 The daemon should persist and route state, but avoid becoming a rigid workflow scheduler.
+
+In `stage_agents` mode, the selected stage skill also determines the Agent identity and context policy. The prompt builder includes same-Agent checkpoints and targeted handoffs, while excluding full cross-Agent conversation by default. Runner metadata, MCP context, bash sessions, assistant messages, and telemetry preserve the effective Agent identity end to end.
+
+The Quest dock is an observer and interaction surface over that control plane. Chat, Studio, and Agents all consume the same `/api/quests/<id>/agents` snapshot and ACP identity fields. UI state must not become a second scheduler: user input targets the Quest, and backend `active_anchor` routing selects the stage Agent.
 
 ## UI Contract
 

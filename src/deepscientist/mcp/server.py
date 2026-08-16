@@ -1086,7 +1086,12 @@ def build_memory_server(context: McpContext) -> FastMCP:
 
 
 def build_artifact_server(context: McpContext) -> FastMCP:
-    service = ArtifactService(context.home)
+    service = ArtifactService(
+        context.home,
+        agent_id=context.agent_id or context.agent_role,
+        agent_role=context.agent_role,
+        agent_instance_id=context.worker_id or context.run_id,
+    )
     quest_service = service.quest_service
     custom_profile = str(context.custom_profile or "").strip().lower()
     issue_only_profile = custom_profile == "settings_issue"
@@ -2538,6 +2543,9 @@ def build_artifact_server(context: McpContext) -> FastMCP:
             dedupe_key=dedupe_key,
             suppress_if_unchanged=suppress_if_unchanged,
             min_interval_seconds=min_interval_seconds,
+            agent_id=context.agent_id or context.agent_role,
+            agent_role=context.agent_role,
+            agent_instance_id=context.worker_id or context.run_id,
         )
         result["interaction_watchdog"] = quest_service.artifact_interaction_watchdog_status(context.require_quest_root())
         return result

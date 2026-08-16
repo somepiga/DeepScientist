@@ -14,6 +14,9 @@ export type QuestTranscriptMessage = {
   readAt?: string | null
   messageId?: string | null
   interactionId?: string | null
+  agentId?: string | null
+  agentRole?: string | null
+  agentInstanceId?: string | null
   emphasis?: 'message' | 'artifact'
 }
 
@@ -129,6 +132,10 @@ export function buildQuestTranscriptMessages(feed: FeedItem[]): QuestTranscriptM
       createdAt: item.createdAt,
       streaming: false,
       interactionId: item.interactionId ?? null,
+      agentId: item.agentId ?? null,
+      agentRole: item.agentRole ?? null,
+      agentInstanceId: item.agentInstanceId ?? null,
+      badge: item.agentId ? `@${item.agentId}` : null,
       emphasis: 'message',
     })
   }

@@ -88,9 +88,9 @@ from ..quest import QuestService
 from ..runners import ClaudeRunner, CodexRunner, KimiRunner, OpenCodeRunner, PiRunner, RunRequest, get_runner_factory, register_builtin_runners
 from ..runners.metadata import get_runner_metadata
 from ..runtime_logs import JsonlLogger
-from ..shared import append_jsonl, ensure_dir, generate_id, iter_jsonl, read_json, read_jsonl, read_jsonl_tail, read_text, resolve_within, run_command, slugify, utc_now, utf8_text_subprocess_kwargs, which, write_json
+from ..shared import append_jsonl, ensure_dir, generate_id, iter_jsonl, read_json, read_jsonl, read_jsonl_tail, read_text, read_yaml, resolve_within, run_command, slugify, utc_now, utf8_text_subprocess_kwargs, which, write_json
 from ..skills import SkillInstaller
-from ..team import SingleTeamService
+from ..team import StageAgentTeamService
 from ..connector.weixin_support import (
     DEFAULT_WEIXIN_BOT_TYPE,
     fetch_weixin_qrcode,
@@ -214,7 +214,7 @@ class DaemonApp:
         self.artifact_service = ArtifactService(home)
         self.benchstore_service = BenchStoreService(home, repo_root=self.repo_root)
         self.bash_exec_service = BashExecService(home)
-        self.team_service = SingleTeamService(home)
+        self.team_service = StageAgentTeamService(home, repo_root=self.repo_root)
         self.cloud_service = CloudLinkService(home)
         config = self.runtime_config
         skill_config = config.get("skills") if isinstance(config.get("skills"), dict) else {}
@@ -3264,6 +3264,11 @@ class DaemonApp:
 
         for attempt_index in range(resumed_start_attempt, max_attempts + 1):
             current_run_id = run_id if attempt_index == 1 else generate_id("run")
+            agent_assignment = self.team_service.assignment(
+                skill_id=skill_id,
+                turn_id=turn_id,
+                run_id=current_run_id,
+            )
             if attempt_index > 1:
                 self._append_retry_event(
                     quest_id,
@@ -3298,8 +3303,31 @@ class DaemonApp:
                 max_attempts=max_attempts,
                 retry_context=retry_context,
                 runtime_capabilities=get_runner_metadata(runner_name).runtime_capabilities,
+                agent_id=str(agent_assignment["agent_id"]),
+                agent_role=str(agent_assignment["agent_role"]),
+                agent_instance_id=str(agent_assignment["agent_instance_id"]),
+                agent_context_scope=dict(agent_assignment["agent_context_scope"]),
+                team_mode=str(agent_assignment["team_mode"]),
             )
-            self.quest_service.mark_turn_started(quest_id, run_id=current_run_id, status="running")
+            self.quest_service.mark_turn_started(
+                quest_id,
+                run_id=current_run_id,
+                status="running",
+                agent_id=request.effective_agent_id,
+                agent_instance_id=request.effective_agent_instance_id,
+            )
+            self.team_service.record_started(
+                quest_root,
+                quest_id=quest_id,
+                run_id=current_run_id,
+                turn_id=turn_id,
+                skill_id=skill_id,
+                agent_id=request.effective_agent_id,
+                agent_instance_id=request.effective_agent_instance_id,
+                runner_name=runner_name,
+                model=model,
+                attempt_index=attempt_index,
+            )
             if attempt_index > 1:
                 self.quest_service.update_runtime_state(
                     quest_root=quest_root,
@@ -3317,6 +3345,17 @@ class DaemonApp:
                 try:
                     result = runner.run(request)
                 except Exception as exc:  # pragma: no cover - exercised via integration behavior
+                    self.team_service.record_finished(
+                        quest_root,
+                        quest_id=quest_id,
+                        run_id=current_run_id,
+                        turn_id=turn_id,
+                        skill_id=skill_id,
+                        agent_id=request.effective_agent_id,
+                        agent_instance_id=request.effective_agent_instance_id,
+                        ok=False,
+                        exit_code=None,
+                    )
                     if self._turn_stop_requested(quest_id):
                         return
                     failure_summary = f"Runner `{runner_name}` failed on attempt {attempt_index}/{max_attempts}: {exc}"
@@ -3446,6 +3485,18 @@ class DaemonApp:
                     )
                     return
 
+                self.team_service.record_finished(
+                    quest_root,
+                    quest_id=quest_id,
+                    run_id=result.run_id,
+                    turn_id=turn_id,
+                    skill_id=skill_id,
+                    agent_id=request.effective_agent_id,
+                    agent_instance_id=request.effective_agent_instance_id,
+                    ok=result.ok,
+                    exit_code=result.exit_code,
+                )
+
                 if self._turn_stop_requested(quest_id):
                     return
 
@@ -3472,6 +3523,9 @@ class DaemonApp:
                                 source=runner_name,
                                 run_id=result.run_id,
                                 skill_id=skill_id,
+                                agent_id=request.effective_agent_id,
+                                agent_role=request.effective_agent_role,
+                                agent_instance_id=request.effective_agent_instance_id,
                             )
                         except Exception as exc:
                             self._record_turn_postprocess_warning(
@@ -3502,6 +3556,14 @@ class DaemonApp:
                                 stage="connector_relay",
                                 error=exc,
                             )
+                    self._record_agent_handoff_after_turn(
+                        quest_id=quest_id,
+                        quest_root=quest_root,
+                        run_id=result.run_id,
+                        turn_id=turn_id,
+                        from_agent_id=request.effective_agent_id,
+                        output_text=result.output_text,
+                    )
                     self._normalize_status_after_turn(quest_id, turn_reason=turn_reason)
                     return
 
@@ -3641,6 +3703,27 @@ class DaemonApp:
                     run_id=current_run_id,
                     turn_reason=turn_reason,
                 )
+
+    def _record_agent_handoff_after_turn(
+        self,
+        *,
+        quest_id: str,
+        quest_root: Path,
+        run_id: str,
+        turn_id: str,
+        from_agent_id: str,
+        output_text: str,
+    ) -> dict[str, Any] | None:
+        snapshot = self.quest_service.snapshot(quest_id)
+        return self.team_service.handoff_after_run(
+            quest_root,
+            quest_id=quest_id,
+            run_id=run_id,
+            turn_id=turn_id,
+            from_agent_id=from_agent_id,
+            output_text=output_text,
+            snapshot=snapshot,
+        )
 
     def _runner_name_for(self, snapshot: dict) -> str:
         return self._resolve_enabled_runner_name(snapshot)
@@ -4259,6 +4342,10 @@ class DaemonApp:
             status="active",
             display_status=display_status,
             active_run_id=None,
+            active_agent_id=None,
+            active_agent_instance_id=None,
+            last_agent_id=skill_id,
+            last_agent_instance_id=run_id,
             retry_state=retry_state,
         )
         runner_label = self._connector_runner_label(runner_name)

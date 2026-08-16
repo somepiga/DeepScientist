@@ -95,6 +95,8 @@ The runtime is trying to answer three questions before the model acts:
 2. what durable state already exists
 3. what behavior rules apply on this surface and in this stage
 
+Before assembly, the runtime resolves the dedicated Agent for the active stage. Agent identity, instance id, context scope, and team mode are part of the runtime context rather than prompt-only labels.
+
 ## 4. What the major prompt blocks actually do
 
 ### 4.1 `system.md`
@@ -284,6 +286,20 @@ Examples:
 This means the prompt is stage-biased on purpose.
 
 The agent should not see the same memory bundle on every turn.
+
+### 4.11 Stage Agent context isolation
+
+In `stage_agents` mode, each stage Agent gets its own prompt identity and context policy.
+
+The builder follows these rules:
+
+- include the latest checkpoint from the same Agent identity
+- exclude the full cross-Agent conversation window by default
+- inject the latest durable handoff targeted to the current Agent
+- scope priority memory through the Agent definition
+- require the current Agent to stop downstream work once `active_anchor` advances and hand control to the next stage
+
+An Agent can still request a targeted conversation excerpt through `artifact.get_conversation_context(...)` when a durable artifact or handoff is insufficient. Context isolation is therefore the default, not an information firewall.
 
 ## 5. Managed local prompt copies and historical versions
 
@@ -535,12 +551,14 @@ A typical turn looks like this:
 
 1. a user or connector message arrives
 2. the daemon restores quest snapshot and history
-3. `PromptBuilder` assembles the current turn prompt
-4. the active skill defines the stage discipline
-5. priority memory is injected
-6. the agent uses `memory`, `artifact`, and `bash_exec`
-7. outputs are persisted into files, artifacts, memory cards, logs, and Git state
-8. `artifact.interact(...)` keeps the user-facing thread continuous
+3. the runtime assigns the dedicated Agent for the active stage
+4. `PromptBuilder` assembles that Agent's prompt and isolated context
+5. the active skill defines the stage discipline
+6. scoped priority memory and the latest targeted handoff are injected
+7. the Agent uses `memory`, `artifact`, and `bash_exec`
+8. outputs are persisted into files, artifacts, memory cards, logs, and Git state
+9. a stage change writes a durable handoff for the next Agent
+10. `artifact.interact(...)` keeps the user-facing thread continuous
 
 That is why DeepScientist feels more like a persistent workshop than a stateless chat.
 

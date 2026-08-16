@@ -333,6 +333,32 @@ export interface QuestSummary {
   } | null
 }
 
+export interface QuestAgentOrchestrationPayload {
+  ok: boolean
+  quest_id: string
+  mode: 'stage_agents' | string
+  selected_agent_id?: string | null
+  active_agent_id?: string | null
+  active_agent_instance_id?: string | null
+  last_agent_id?: string | null
+  last_agent_instance_id?: string | null
+  updated_at?: string | null
+  agents: Array<{
+    id: string
+    skill_id: string
+    name: string
+    role: string
+    description: string
+    prompt_file: string
+    context_scope: { quest: string[]; global: string[] }
+    modes: string[]
+    quest_configured?: boolean
+    quest_config_updated_at?: string | null
+  }>
+  recent_runs: Array<Record<string, unknown>>
+  recent_handoffs: Array<Record<string, unknown>>
+}
+
 export type BaselineRegistryVariant = {
   variant_id: string
   label?: string | null
@@ -1484,6 +1510,9 @@ export type FeedItem =
       messageId?: string | null
       runId?: string | null
       skillId?: string | null
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
       reasoning?: boolean
       eventType?: string | null
       clientMessageId?: string | null
@@ -1529,6 +1558,9 @@ export type FeedItem =
       expectsReply?: boolean
       replyMode?: string | null
       comment?: AgentComment | null
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
     }
   | {
       id: string
@@ -1551,6 +1583,9 @@ export type FeedItem =
       monitorPlanSeconds?: number[]
       monitorStepIndex?: number | null
       nextCheckAfterSeconds?: number | null
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
     }
   | {
       id: string
@@ -1558,6 +1593,12 @@ export type FeedItem =
       label: string
       content: string
       createdAt?: string
+      runId?: string | null
+      skillId?: string | null
+      agentId?: string | null
+      agentRole?: string | null
+      agentInstanceId?: string | null
+      details?: Record<string, unknown>
     }
 
 export type AgentComment = {

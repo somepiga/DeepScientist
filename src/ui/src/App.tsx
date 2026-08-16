@@ -192,7 +192,7 @@ function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/projects" element={<LandingDialogRedirect dialog="quests" />} />
         <Route path="/projects/new/auto" element={<LandingDialogRedirect dialog="autonomous" />} />
-        <Route path="/projects/new/copilot" element={<LandingDialogRedirect dialog="copilot" />} />
+        <Route path="/projects/new/copilot" element={<Navigate to="/projects/new/auto" replace />} />
         <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/admin" element={<Navigate to="/settings/summary" replace />} />

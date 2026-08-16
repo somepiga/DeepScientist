@@ -120,6 +120,7 @@ def test_backend_routes_cover_shared_web_and_tui_surface() -> None:
         ("GET", "/api/quests/q-001/memory", "quest_memory"),
         ("GET", "/api/quests/q-001/documents", "documents"),
         ("GET", "/api/quests/q-001/explorer", "explorer"),
+        ("GET", "/api/quests/q-001/agents", "quest_agents"),
         ("POST", "/api/quests/q-001/files/folder", "quest_file_create_folder"),
         ("POST", "/api/quests/q-001/files/upload", "quest_file_upload"),
         ("POST", "/api/quests/q-001/files/rename", "quest_file_rename"),
@@ -531,6 +532,8 @@ def test_workspace_surfaces_hide_autofigure_entry_points() -> None:
 def test_workspace_studio_uses_direct_timeline_surface() -> None:
     studio_view_source = _read("src/ui/src/components/workspace/QuestStudioTraceView.tsx")
     studio_timeline_source = _read("src/ui/src/components/workspace/QuestStudioDirectTimeline.tsx")
+    dock_source = _read("src/ui/src/components/workspace/QuestCopilotDockPanel.tsx")
+    agent_team_source = _read("src/ui/src/components/workspace/QuestAgentTeamView.tsx")
     bash_tool_source = _read("src/ui/src/components/workspace/QuestBashExecOperation.tsx")
     studio_tool_cards_source = _read("src/ui/src/components/workspace/StudioToolCards.tsx")
     studio_turns_source = _read("src/ui/src/lib/studioTurns.ts")
@@ -539,7 +542,12 @@ def test_workspace_studio_uses_direct_timeline_surface() -> None:
 
     assert "QuestStudioDirectTimeline" in studio_view_source
     assert "<QuestStudioDirectTimeline" in studio_view_source
-    assert "@DeepScientist" in studio_timeline_source
+    assert "turn.agentId || 'DeepScientist'" in studio_timeline_source
+    assert "agent_handoff" in studio_timeline_source
+    assert "client.questAgents(questId)" in dock_source
+    assert "QuestAgentTeamView" in dock_source
+    assert "recent_handoffs" in agent_team_source
+    assert "active_agent_id" in agent_team_source
     assert "buildStudioTurns(feed)" in studio_timeline_source
     assert "findLatestRenderedOperationId" in studio_timeline_source
     assert "QuestBashExecOperation" in studio_timeline_source

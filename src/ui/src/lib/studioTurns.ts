@@ -45,6 +45,9 @@ export type StudioTurn = {
   createdAt?: string
   runId?: string | null
   skillId?: string | null
+  agentId?: string | null
+  agentRole?: string | null
+  agentInstanceId?: string | null
   blocks: StudioTurnBlock[]
 }
 
@@ -68,7 +71,14 @@ function shouldRenderStudioEvent(item: EventItem) {
   if (!label) return false
   if (label === 'run_started' || label === 'run_finished') return false
   if (label === 'quest_runtime_reconciled') return false
-  return label === 'run_failed' || label.startsWith('quest_') || label === 'interaction.reply_received'
+  return (
+    label === 'run_failed' ||
+    label.startsWith('quest_') ||
+    label === 'interaction.reply_received' ||
+    label === 'agent_run_started' ||
+    label === 'agent_run_finished' ||
+    label === 'agent_handoff'
+  )
 }
 
 function createTurn(
@@ -78,6 +88,9 @@ function createTurn(
   let createdAt: string | undefined
   let runId: string | null | undefined
   let skillId: string | null | undefined
+  let agentId: string | null | undefined
+  let agentRole: string | null | undefined
+  let agentInstanceId: string | null | undefined
 
   if ('createdAt' in item) {
     createdAt = item.createdAt
@@ -87,6 +100,15 @@ function createTurn(
   }
   if ('skillId' in item) {
     skillId = item.skillId
+  }
+  if ('agentId' in item) {
+    agentId = item.agentId
+  }
+  if ('agentRole' in item) {
+    agentRole = item.agentRole
+  }
+  if ('agentInstanceId' in item) {
+    agentInstanceId = item.agentInstanceId
   }
 
   const basisId =
@@ -99,6 +121,9 @@ function createTurn(
     createdAt,
     runId,
     skillId,
+    agentId,
+    agentRole,
+    agentInstanceId,
     blocks: [],
   }
 }
@@ -126,6 +151,15 @@ function appendBlock(turn: StudioTurn, block: StudioTurnBlock) {
     block.item.skillId
   ) {
     turn.skillId = block.item.skillId
+  }
+  if (!turn.agentId && 'agentId' in block.item && block.item.agentId) {
+    turn.agentId = block.item.agentId
+  }
+  if (!turn.agentRole && 'agentRole' in block.item && block.item.agentRole) {
+    turn.agentRole = block.item.agentRole
+  }
+  if (!turn.agentInstanceId && 'agentInstanceId' in block.item && block.item.agentInstanceId) {
+    turn.agentInstanceId = block.item.agentInstanceId
   }
 }
 
@@ -165,10 +199,12 @@ function ensureAssistantTurn(
   item: RenderFeedItem | MessageItem | ArtifactItem | EventItem
 ) {
   const itemRunId = 'runId' in item ? item.runId ?? null : null
+  const itemAgentInstanceId = 'agentInstanceId' in item ? item.agentInstanceId ?? null : null
   if (
     current &&
     current.role === 'assistant' &&
-    (!itemRunId || !current.runId || current.runId === itemRunId)
+    (!itemRunId || !current.runId || current.runId === itemRunId) &&
+    (!itemAgentInstanceId || !current.agentInstanceId || current.agentInstanceId === itemAgentInstanceId)
   ) {
     return current
   }

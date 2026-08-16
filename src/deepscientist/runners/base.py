@@ -113,6 +113,23 @@ class RunRequest:
     max_attempts: int = 1
     retry_context: dict[str, Any] | None = None
     runtime_capabilities: tuple[str, ...] = ("start", "cancel")
+    agent_id: str | None = None
+    agent_role: str | None = None
+    agent_instance_id: str | None = None
+    agent_context_scope: dict[str, tuple[str, ...]] | None = None
+    team_mode: str = "stage_agents"
+
+    @property
+    def effective_agent_id(self) -> str:
+        return str(self.agent_id or self.skill_id).strip() or self.skill_id
+
+    @property
+    def effective_agent_role(self) -> str:
+        return str(self.agent_role or self.effective_agent_id).strip() or self.effective_agent_id
+
+    @property
+    def effective_agent_instance_id(self) -> str:
+        return str(self.agent_instance_id or self.run_id).strip() or self.run_id
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,10 @@ class RunnerEventWriter:
             "run_id": self.request.run_id,
             "source": self.source,
             "skill_id": self.request.skill_id,
+            "agent_id": self.request.effective_agent_id,
+            "agent_role": self.request.effective_agent_role,
+            "agent_instance_id": self.request.effective_agent_instance_id,
+            "team_mode": self.request.team_mode,
             "created_at": utc_now(),
             **fields,
         }

@@ -1,3 +1,3 @@
-from .service import SingleTeamService
+from .service import SingleTeamService, StageAgentTeamService
 
-__all__ = ["SingleTeamService"]
+__all__ = ["SingleTeamService", "StageAgentTeamService"]

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from deepscientist.artifact import ArtifactService
+from deepscientist.agent_orchestration import get_agent_definition, record_agent_handoff
 from deepscientist.config import ConfigManager
 from deepscientist.home import ensure_home_layout, repo_root
 from deepscientist.memory import MemoryService
@@ -682,6 +683,67 @@ def test_prompt_builder_includes_recent_conversation_window(temp_home: Path) -> 
     assert "## Recent Conversation Window" in prompt
     assert "conversation_tool:" in prompt
     assert "artifact.get_conversation_context" in prompt
+
+
+def test_prompt_builder_isolates_stage_agent_context_and_injects_handoff(temp_home: Path) -> None:
+    builder, snapshot = _make_builder(temp_home)
+    quest_root = Path(snapshot["quest_root"])
+    quest_service = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home))
+    quest_service.append_message(
+        snapshot["quest_id"],
+        role="assistant",
+        content="SCOUT_PRIVATE_TRANSCRIPT_SHOULD_NOT_BE_INJECTED",
+        source="codex",
+        run_id="run-scout",
+        skill_id="scout",
+        agent_id="scout",
+        agent_instance_id="run-scout",
+    )
+    quest_service.append_message(
+        snapshot["quest_id"],
+        role="assistant",
+        content="IDEA_AGENT_PREVIOUS_CHECKPOINT",
+        source="codex",
+        run_id="run-idea-old",
+        skill_id="idea",
+        agent_id="idea",
+        agent_instance_id="run-idea-old",
+    )
+    record_agent_handoff(
+        quest_root,
+        {
+            "handoff_id": "handoff-baseline-idea",
+            "from_agent_id": "baseline",
+            "to_agent_id": "idea",
+            "reason": "active_anchor_changed",
+            "summary": "Baseline is accepted and ready for idea generation.",
+            "durable_refs": {"active_baseline_id": "baseline-001"},
+        },
+    )
+    definition = get_agent_definition(repo_root(), "idea")
+
+    prompt = builder.build(
+        quest_id=snapshot["quest_id"],
+        skill_id="idea",
+        user_message="Propose the next method.",
+        model="inherit",
+        agent_id="idea",
+        agent_role="idea",
+        agent_instance_id="run-idea-new",
+        agent_context_scope=definition.context_scope,
+        team_mode="stage_agents",
+        agent_prompt="IDEA DEDICATED PROMPT",
+    )
+
+    assert "agent_id: idea" in prompt
+    assert "agent_instance_id: run-idea-new" in prompt
+    assert "team_mode: stage_agents" in prompt
+    assert "agent_boundary_rule:" in prompt
+    assert "handoff-baseline-idea" in prompt
+    assert "baseline-001" in prompt
+    assert "IDEA_AGENT_PREVIOUS_CHECKPOINT" in prompt
+    assert "SCOUT_PRIVATE_TRANSCRIPT_SHOULD_NOT_BE_INJECTED" not in prompt
+    assert "prefer quest memory kinds [papers, ideas, decisions, knowledge]" in prompt
 
 
 def test_prompt_builder_includes_priority_memory_for_stage_and_message(temp_home: Path) -> None:

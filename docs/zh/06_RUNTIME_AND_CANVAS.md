@@ -90,11 +90,11 @@ system prompt 定义的 canonical anchors（会写入 `quest.yaml.active_anchor`
 3. worker 线程 `_drain_turns(...)`
 4. `_run_quest_turn(...)`
 5. 选择 runner（当前主要是 Codex）
-6. 选择 skill
-7. 构建 prompt
-8. 运行 runner
-9. agent 使用 MCP / 文件 / Git / shell
-10. 退出并记录 run 输出
+6. 选择 stage skill 及其专属 Agent 定义
+7. 构建该 Agent 独立的 prompt 与上下文包
+8. 带着 Agent 身份运行 runner
+9. 当前 Agent 使用 MCP / 文件 / Git / shell
+10. 退出并记录 run 输出、Agent 历史以及可能发生的阶段 handoff
 
 ### 5.1 如果当前 quest 已经在运行
 
@@ -112,6 +112,18 @@ daemon 维护 per-quest turn state（`running/pending/stop_requested`）。
 4. 否则 fallback 到 `decision`
 
 实现位置：`src/deepscientist/daemon/app.py` 的 `_turn_skill_for(...)`。
+
+### 5.3 Stage Agent 分配与 handoff
+
+每个标准 stage skill 同时对应一个后端 Agent 身份。一次 turn 只运行一个活跃 Agent 实例，但完整 quest 会随着 `active_anchor` 推进而使用多个不同 Agent。
+
+运行时会记录：
+
+- quest runtime state 中选中的、正在运行的和最近完成的 Agent
+- 每次执行尝试对应的 `agent.run_started` 与 `agent.run_finished`
+- 成功 turn 推进到另一个标准 stage 时产生的 `agent.handoff`
+
+handoff 包含紧凑摘要，以及 active baseline、idea、analysis campaign、paper line、branch、workspace 等持久引用。下一个 Agent 接收定向给自己的最近 handoff，而不是继承上一个 Agent 的完整对话历史。
 
 ## 6. 现实：Anchor 推进不是强自动化的
 
@@ -269,3 +281,24 @@ daemon 的实时刷新依赖：
 - 文件与 artifacts 是持久化真相
 - events 是实时操作流
 - ACP 只是兼容包装层
+
+Quest 级 Agent 编排状态可通过下面的接口读取：
+
+- `GET /api/quests/<id>/agents`
+
+返回内容包括 Agent 定义、selected/active/last Agent、最近的 Agent runs 和 handoffs。
+
+Quest Dock 直接消费这份状态，并提供三个协同视图：
+
+- **Chat**：保留面向用户的交互线程，并在顶部持续显示当前阶段 Agent
+- **Studio**：按真实 Agent 身份展示推理、工具、artifact、生命周期事件和 handoff
+- **Agents**：展示阶段 Agent 列表、上下文范围、selected/active/last 状态、最近 runs 与持久 handoffs
+
+用户仍然把消息发给 Quest。界面不会允许用户绕过 `active_anchor`，把任务手动派给任意非活跃 Agent。
+
+ACP 的 message、artifact、operation 和 Agent 生命周期更新都会保留 `agent_id`、`agent_role` 与 `agent_instance_id`。
+
+Agent 运行与交接另外持久化在：
+
+- `.ds/agent_runs.jsonl`
+- `.ds/agent_handoffs.jsonl`

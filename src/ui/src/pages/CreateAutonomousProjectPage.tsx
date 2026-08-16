@@ -75,10 +75,6 @@ export function CreateAutonomousProjectPage() {
             `Only imported ${importedSetupAttachmentCount} of ${requestedSetupAttachmentCount} SetupAgent attachment(s). Please reopen the setup conversation or remove the missing attachment before launch.`
           )
         }
-        const importedDraftIdsNormalized = (importedPayload?.attachments || [])
-          .map((item) => String(item.draft_id || '').trim())
-          .filter(Boolean)
-        const localDraftIds: string[] = []
         for (const attachment of payload.launch_materials?.local_attachments || []) {
           if (attachment.status !== 'success' || !attachment.file) continue
           const contentBase64 = await fileToBase64(attachment.file)
@@ -88,18 +84,9 @@ export function CreateAutonomousProjectPage() {
             mime_type: attachment.contentType || undefined,
             content_base64: contentBase64,
           })
-          if (upload.ok && upload.draft_id) {
-            localDraftIds.push(String(upload.draft_id))
-          }
+          if (!upload.ok) throw new Error(`Failed to upload ${attachment.name}.`)
         }
-        await client.sendChat(
-          result.snapshot.quest_id,
-          payload.goal.trim(),
-          undefined,
-          undefined,
-          [...importedDraftIdsNormalized, ...localDraftIds]
-        )
-        navigate(`/projects/${result.snapshot.quest_id}`)
+        window.location.assign(`/projects/${result.snapshot.quest_id}`)
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'Failed to create quest.')
       } finally {

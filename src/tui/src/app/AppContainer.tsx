@@ -1168,6 +1168,31 @@ const parseConnectorUnbindActionId = (actionId: string) => {
   return connectorName ? connectorName : null
 }
 
+function firstNonEmptyAgentValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value !== 'string') continue
+    const normalized = value.trim()
+    if (normalized) return normalized
+  }
+  return null
+}
+
+function normalizeAgentIdentity(
+  raw: Record<string, unknown>,
+  payload?: Record<string, unknown>,
+  metadata?: Record<string, unknown>
+) {
+  return {
+    agentId: firstNonEmptyAgentValue(payload?.agent_id, raw.agent_id, metadata?.agent_id),
+    agentRole: firstNonEmptyAgentValue(payload?.agent_role, raw.agent_role, metadata?.agent_role),
+    agentInstanceId: firstNonEmptyAgentValue(
+      payload?.agent_instance_id,
+      raw.agent_instance_id,
+      metadata?.agent_instance_id
+    ),
+  }
+}
+
 function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
   const eventType = String(raw.event_type ?? '')
   const data = (raw.data ?? {}) as Record<string, unknown>
@@ -1186,6 +1211,7 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
       data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata)
         ? (data.metadata as Record<string, unknown>)
         : undefined
+    const agentIdentity = normalizeAgentIdentity(raw, data, metadata)
     return {
       id: buildId('operation', String(raw.event_id ?? raw.created_at ?? crypto.randomUUID())),
       type: 'operation',
@@ -1201,11 +1227,13 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
       mcpTool: typeof data.mcp_tool === 'string' ? data.mcp_tool : undefined,
       metadata,
       createdAt: raw.created_at ? String(raw.created_at) : undefined,
+      ...agentIdentity,
     }
   }
   const kind = String(raw.kind ?? 'event')
   if (kind === 'message') {
     const message = (raw.message ?? {}) as Record<string, unknown>
+    const agentIdentity = normalizeAgentIdentity(raw, message)
     return {
       id: buildId('message', String(raw.event_id ?? raw.created_at ?? crypto.randomUUID())),
       type: 'message',
@@ -1216,10 +1244,12 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
       stream: Boolean(message.stream),
       runId: message.run_id ? String(message.run_id) : null,
       skillId: message.skill_id ? String(message.skill_id) : null,
+      ...agentIdentity,
     }
   }
   if (kind === 'artifact') {
     const artifact = (raw.artifact ?? {}) as Record<string, unknown>
+    const agentIdentity = normalizeAgentIdentity(raw, artifact)
     return {
       id: buildId('artifact', String(raw.event_id ?? raw.created_at ?? crypto.randomUUID())),
       type: 'artifact',
@@ -1253,14 +1283,20 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
             (item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item)
           ) as Array<Record<string, unknown>>)
         : [],
+      ...agentIdentity,
     }
   }
+  const agentIdentity = normalizeAgentIdentity(raw, data)
   return {
     id: buildId('event', String(raw.event_id ?? raw.created_at ?? crypto.randomUUID())),
     type: 'event',
     label: String(data.label ?? raw.event_type ?? 'event'),
     content: String(data.summary ?? data.run_id ?? raw.event_type ?? 'Event updated.'),
     createdAt: raw.created_at ? String(raw.created_at) : undefined,
+    runId: firstNonEmptyAgentValue(data.run_id, raw.run_id),
+    skillId: firstNonEmptyAgentValue(data.skill_id, raw.skill_id),
+    details: data,
+    ...agentIdentity,
   }
 }
 

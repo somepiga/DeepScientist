@@ -105,11 +105,11 @@ The current runtime flow is:
 3. worker thread enters `_drain_turns(...)`
 4. `_run_quest_turn(...)`
 5. choose runner
-6. choose skill
-7. build prompt
-8. start Codex runner
-9. agent uses MCP tools, files, Git, and shell
-10. runner exits and runtime records run outputs
+6. choose the stage skill and its dedicated Agent definition
+7. build an Agent-scoped prompt and context packet
+8. start the selected runner with the Agent identity
+9. the active Agent uses MCP tools, files, Git, and shell
+10. the runner exits and the runtime records run outputs, Agent history, and any stage handoff
 
 ### 5.1 Scheduling behavior
 
@@ -132,6 +132,18 @@ The skill selection rule is currently simple and important:
 4. Otherwise fall back to `decision`.
 
 This is implemented in `src/deepscientist/daemon/app.py` via `_turn_skill_for(...)`.
+
+### 5.3 Stage Agent assignment and handoff
+
+Each standard stage skill also defines one backend Agent identity. A turn runs one active Agent instance, while a full quest can use different Agent identities as `active_anchor` changes.
+
+The runtime records:
+
+- the selected, active, and last Agent in quest runtime state
+- `agent.run_started` and `agent.run_finished` records for every execution attempt
+- an `agent.handoff` packet when a successful turn advances to another standard stage
+
+The handoff contains a compact summary and durable references such as the active baseline, idea, analysis campaign, paper line, branch, and workspace. The next Agent receives the latest handoff targeted to it instead of inheriting the previous Agent's entire transcript.
 
 ## 6. Important Reality: Anchor Progression Is Not Strongly Automated
 
@@ -395,6 +407,8 @@ During and after a run, continuity is reconstructed from durable files such as:
 - `.ds/events.jsonl`
 - `.ds/user_message_queue.json`
 - `.ds/interaction_journal.jsonl`
+- `.ds/agent_runs.jsonl`
+- `.ds/agent_handoffs.jsonl`
 - `.ds/codex_history/<run_id>/events.jsonl`
 - `.ds/bash_exec/*`
 
@@ -406,6 +420,20 @@ The daemon also exposes quest events through:
 
 - `GET /api/quests/<id>/events`
 
+Quest-specific Agent orchestration state is exposed through:
+
+- `GET /api/quests/<id>/agents`
+
+This returns Agent definitions, the selected/active/last Agent identity, recent Agent runs, and recent handoffs.
+
+The Quest dock consumes this state directly through three coordinated views:
+
+- **Chat** keeps the user-facing interaction thread and shows the current stage Agent above it
+- **Studio** renders reasoning, tools, artifacts, lifecycle events, and handoffs with the real Agent identity attached to each turn
+- **Agents** shows the stage roster, context scopes, selected/active/last state, recent runs, and durable handoffs
+
+Users still send messages to the Quest. The UI does not let a user bypass `active_anchor` by manually dispatching work to an arbitrary inactive Agent.
+
 This endpoint can return:
 
 - native event payloads
@@ -416,6 +444,7 @@ Current practical rule:
 
 - web and TUI should treat the quest event stream as the live update channel
 - `format=acp` returns ACP-style session updates derived from quest events
+- ACP message, artifact, operation, and Agent lifecycle updates preserve `agent_id`, `agent_role`, and `agent_instance_id`
 - the ACP bridge is optional and is not the core source of truth
 
 So the runtime model remains:
@@ -655,18 +684,19 @@ If you are modifying this system, the safest current mental model is:
 
 1. user message or connector event enters the daemon
 2. daemon schedules one quest turn
-3. active skill is chosen from `active_anchor` or `decision`
-4. prompt is assembled from system prompt, skill paths, quest files, memory, and recent history
-5. Codex runs inside the quest repo with built-in MCP namespaces
-6. agent writes memory, artifacts, shell sessions, Git checkpoints, and reports
-7. `artifact.interact(...)` keeps user-facing continuity alive
-8. workflow and Canvas are reconstructed from those durable outputs and the raw quest event stream
+3. active skill and dedicated stage Agent are chosen from `active_anchor` or `decision`
+4. an Agent-scoped prompt is assembled from system policy, skill paths, quest files, scoped memory, and the latest targeted handoff
+5. the selected runner starts one Agent instance inside the quest repo with the built-in MCP namespaces
+6. the Agent writes memory, artifacts, shell sessions, Git checkpoints, and reports
+7. a stage change produces a durable handoff for the next Agent
+8. `artifact.interact(...)` keeps user-facing continuity alive
+9. workflow and Canvas are reconstructed from those durable outputs and the raw quest event stream
 
 ## 23. Suggested Next Hardening Direction
 
 If this runtime is tightened further, the most valuable next steps would be:
 
-1. make `active_anchor` advancement more explicit and durable
+1. make stage transition gates more code-enforced without introducing a central DAG scheduler
 2. keep remote and local Canvas semantics equally artifact-first
 3. add stronger decision/evidence edges in Canvas
 4. keep the core small while making the protocol clearer rather than adding a large scheduler

@@ -131,6 +131,12 @@ def build_session_update(
         "created_at": created_at,
         "cursor": cursor,
     }
+    agent_identity = {
+        key: event.get(key)
+        for key in ("agent_id", "agent_role", "agent_instance_id")
+        if event.get(key) not in {None, ""}
+    }
+    update_payload.update(agent_identity)
     if event_type == "conversation.message":
         update_kind = "message"
         update_payload["message"] = {
@@ -335,6 +341,40 @@ def build_session_update(
             "summary": event.get("summary"),
             "failure_summary": event.get("failure_summary"),
         }
+    elif event_type == "agent.run_started":
+        update_kind = "event"
+        update_payload["data"] = {
+            "label": "agent_run_started",
+            "run_id": event.get("run_id"),
+            "turn_id": event.get("turn_id"),
+            "skill_id": event.get("skill_id"),
+            "runner": event.get("runner"),
+            "model": event.get("model"),
+            "attempt_index": event.get("attempt_index"),
+        }
+    elif event_type == "agent.run_finished":
+        update_kind = "event"
+        update_payload["data"] = {
+            "label": "agent_run_finished",
+            "run_id": event.get("run_id"),
+            "turn_id": event.get("turn_id"),
+            "skill_id": event.get("skill_id"),
+            "ok": event.get("ok"),
+            "exit_code": event.get("exit_code"),
+        }
+    elif event_type == "agent.handoff":
+        update_kind = "event"
+        update_payload["data"] = {
+            "label": "agent_handoff",
+            "handoff_id": event.get("handoff_id"),
+            "run_id": event.get("run_id"),
+            "turn_id": event.get("turn_id"),
+            "from_agent_id": event.get("from_agent_id"),
+            "to_agent_id": event.get("to_agent_id"),
+            "summary": event.get("summary"),
+            "reason": event.get("reason"),
+            "durable_refs": event.get("durable_refs") or {},
+        }
     elif event_type == "quest.control":
         update_kind = "event"
         update_payload["data"] = {
@@ -347,6 +387,13 @@ def build_session_update(
         }
     else:
         update_payload["data"] = event
+
+    for container_key in ("message", "artifact", "data"):
+        container = update_payload.get(container_key)
+        if not isinstance(container, dict):
+            continue
+        for key, value in agent_identity.items():
+            container.setdefault(key, value)
 
     return {
         "jsonrpc": "2.0",

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FolderOpen } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { CreateCopilotProjectDialog } from '@/components/projects/CreateCopilotProjectDialog'
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog'
 import { OpenQuestDialog } from '@/components/projects/OpenQuestDialog'
 import { Button } from '@/components/ui/button'
@@ -21,9 +20,9 @@ import { EntryCoachDialog } from './EntryCoachDialog'
 import HeroNav from './HeroNav'
 import { UpdateReminderDialog } from './UpdateReminderDialog'
 
-export type LandingDialogRequest = 'quests' | 'copilot' | 'autonomous'
+export type LandingDialogRequest = 'quests' | 'autonomous'
 
-type ActiveLandingDialog = LandingDialogRequest | 'launch' | null
+type ActiveLandingDialog = LandingDialogRequest | null
 
 function sortQuests(items: QuestSummary[]) {
   return [...items].sort((left, right) => {
@@ -182,13 +181,6 @@ export default function Hero(props: {
   const [autonomousCreating, setAutonomousCreating] = useState(false)
   const [autonomousError, setAutonomousError] = useState<string | null>(null)
   const [benchSetupPacket, setBenchSetupPacket] = useState<BenchSetupPacket | null>(null)
-  const [copilotSeed, setCopilotSeed] = useState<{
-    title?: string
-    message?: string
-    setupQuestId?: string | null
-    setupAttachments?: unknown[]
-    localAttachments?: unknown[]
-  } | null>(null)
   const [activeRunnerName, setActiveRunnerName] = useState(() => normalizeBuiltinRunnerName("codex"))
   const [setupQuestId, setSetupQuestId] = useState<string | null>(null)
   const [setupQuestCreating, setSetupQuestCreating] = useState(false)
@@ -289,6 +281,33 @@ export default function Hero(props: {
       return
     }
   }, [setupQuestId])
+
+  const createManualWorkspace = useCallback(async () => {
+    if (autonomousCreating) return
+    setAutonomousCreating(true)
+    setAutonomousError(null)
+    try {
+      const isChinese = locale === 'zh'
+      const result = await client.createQuestWithOptions({
+        title: isChinese ? '未命名研究任务' : 'Untitled Research Task',
+        goal: isChinese
+          ? '此任务将在工作台中由用户手工配置研究目标和各阶段 Agent，然后显式开始运行。'
+          : 'Configure the research objective and each stage agent manually in the workspace before explicitly starting the run.',
+        source: 'web-react',
+        auto_start: false,
+        auto_bind_latest_connectors: false,
+        startup_contract: {
+          workspace_mode: 'autonomous',
+          launch_form_source: 'manual_workspace',
+          entry_mode: 'manual_agent_setup',
+        },
+      })
+      window.location.assign(`/projects/${result.snapshot.quest_id}`)
+    } catch (caught) {
+      setAutonomousError(caught instanceof Error ? caught.message : 'Failed to create workspace.')
+      setAutonomousCreating(false)
+    }
+  }, [autonomousCreating, locale])
 
   const ensureSetupQuest = useCallback(
     async (args: {
@@ -418,7 +437,8 @@ export default function Hero(props: {
   const entryCoachOpen =
     !entryCoachDismissed &&
     !landingModalOpen &&
-    shouldShowConnectorCoach
+    shouldShowConnectorCoach &&
+    !isPortraitMode
 
   useEffect(() => {
     const htmlStyle = document.documentElement.style
@@ -464,13 +484,13 @@ export default function Hero(props: {
             <Button
               className="h-12 rounded-full bg-[#C7AD96] px-7 text-[#2D2A26] shadow-[0_12px_28px_-14px_rgba(45,42,38,0.55)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#D7C6AE]"
               onClick={() => {
-                window.setTimeout(() => {
-                  setActiveDialog('launch')
-                }, 120)
+                setEntryCoachDismissed(true)
+                void createManualWorkspace()
               }}
+              disabled={autonomousCreating}
               data-onboarding-id="landing-start-research"
             >
-              {hero.copy.primaryCta}
+              {autonomousCreating ? (locale === 'zh' ? '正在创建工作台…' : 'Creating workspace…') : hero.copy.primaryCta}
             </Button>
             <Button
               variant="outline"
@@ -481,6 +501,11 @@ export default function Hero(props: {
               {hero.copy.secondaryCta}
             </Button>
           </div>
+          {autonomousError ? (
+            <div className="mt-3 max-w-md text-center text-sm text-red-700" role="alert">
+              {autonomousError}
+            </div>
+          ) : null}
         </section>
 
       </div>
@@ -509,70 +534,19 @@ export default function Hero(props: {
           }
         }}
       />
-      <CreateCopilotProjectDialog
-        open={activeDialog === 'copilot'}
-        onClose={() => {
-          setCopilotSeed(null)
-          setBenchSetupPacket(null)
-          setActiveDialog(null)
-          void cleanupSetupQuest()
-        }}
-        onBack={() => {
-          setCopilotSeed(null)
-          setBenchSetupPacket(null)
-          setActiveDialog('autonomous')
-          void cleanupSetupQuest()
-        }}
-        initialTitle={copilotSeed?.title || ''}
-        initialMessage={copilotSeed?.message || ''}
-        initialSetupQuestId={copilotSeed?.setupQuestId || null}
-        initialSetupAttachments={copilotSeed?.setupAttachments || []}
-        initialLocalAttachments={copilotSeed?.localAttachments || []}
-        onCreated={(questId) => {
-          setCopilotSeed(null)
-          setActiveDialog(null)
-          setBenchSetupPacket(null)
-          void cleanupSetupQuest()
-          navigate(`/projects/${questId}`)
-        }}
-      />
       <CreateProjectDialog
         open={activeDialog === 'autonomous'}
         onClose={() => {
           setBenchSetupPacket(null)
           setActiveDialog(null)
-          void cleanupSetupQuest()
         }}
         onBack={() => {
           setBenchSetupPacket(null)
           setActiveDialog(null)
-          void cleanupSetupQuest()
         }}
         loading={autonomousCreating}
         error={autonomousError}
         setupPacket={benchSetupPacket}
-        setupQuestId={setupQuestId}
-        setupQuestCreating={setupQuestCreating}
-        onRequestSetupAgent={async ({ message, form, setupPacket, attachments, createOnly }) => {
-          await ensureSetupQuest({
-            message,
-            source: setupPacket ? 'benchstore' : 'manual',
-            form,
-            setupPacket,
-            attachments,
-            createOnly,
-          })
-        }}
-        onSwitchToCopilot={async ({ title, message, setupQuestId, setupAttachments, localAttachments }) => {
-          setCopilotSeed({
-            title,
-            message,
-            setupQuestId,
-            setupAttachments: (setupAttachments || []).map((item) => ({ ...item })),
-            localAttachments: [...(localAttachments || [])],
-          })
-          setActiveDialog('copilot')
-        }}
         onOpenBenchStore={openBenchStoreDialog}
         onCreate={async (payload) => {
           if (!payload.goal.trim()) {
@@ -592,27 +566,19 @@ export default function Hero(props: {
               requested_baseline_ref: payload.requested_baseline_ref ?? undefined,
               startup_contract: payload.startup_contract ?? undefined,
             })
-            const importedDraftIds = await importSetupAttachmentsToQuest(
+            await importSetupAttachmentsToQuest(
               result.snapshot.quest_id,
               payload.launch_materials?.setup_quest_id || null,
               (payload.launch_materials?.setup_attachments || []).map((item) => ({ ...item }))
             )
-            const localDraftIds = await uploadLocalAttachmentsToQuest(
+            await uploadLocalAttachmentsToQuest(
               result.snapshot.quest_id,
               payload.launch_materials?.local_attachments || []
             )
-            await client.sendChat(
-              result.snapshot.quest_id,
-              payload.goal.trim(),
-              undefined,
-              undefined,
-              [...importedDraftIds, ...localDraftIds]
-            )
             setActiveDialog(null)
             setBenchSetupPacket(null)
-            setCopilotSeed(null)
             await cleanupSetupQuest()
-            navigate(`/projects/${result.snapshot.quest_id}`)
+            window.location.assign(`/projects/${result.snapshot.quest_id}`)
           } catch (caught) {
             setAutonomousError(caught instanceof Error ? caught.message : 'Failed to create quest.')
           } finally {

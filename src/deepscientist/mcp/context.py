@@ -19,6 +19,7 @@ class McpContext:
     worker_id: str | None
     worktree_root: Path | None
     team_mode: str | None
+    agent_id: str | None = None
     custom_profile: str | None = None
 
     @classmethod
@@ -35,6 +36,7 @@ class McpContext:
             run_id=os.environ.get("DS_RUN_ID") or None,
             active_anchor=os.environ.get("DS_ACTIVE_ANCHOR") or None,
             conversation_id=os.environ.get("DS_CONVERSATION_ID") or None,
+            agent_id=os.environ.get("DS_AGENT_ID") or os.environ.get("DS_AGENT_ROLE") or None,
             agent_role=os.environ.get("DS_AGENT_ROLE") or None,
             worker_id=os.environ.get("DS_WORKER_ID") or None,
             worktree_root=_path("DS_WORKTREE_ROOT"),

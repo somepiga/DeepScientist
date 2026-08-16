@@ -3350,6 +3350,10 @@ class QuestService:
             "active_baseline_id": active_baseline_id,
             "active_baseline_variant_id": active_baseline_variant_id,
             "active_run_id": runtime_state.get("active_run_id"),
+            "active_agent_id": runtime_state.get("active_agent_id"),
+            "active_agent_instance_id": runtime_state.get("active_agent_instance_id"),
+            "last_agent_id": runtime_state.get("last_agent_id"),
+            "last_agent_instance_id": runtime_state.get("last_agent_instance_id"),
             "continuation_policy": runtime_state.get("continuation_policy") or "auto",
             "continuation_anchor": runtime_state.get("continuation_anchor"),
             "continuation_reason": runtime_state.get("continuation_reason"),
@@ -3880,6 +3884,10 @@ class QuestService:
             "active_baseline_id": active_baseline_id,
             "active_baseline_variant_id": active_baseline_variant_id,
             "active_run_id": runtime_state.get("active_run_id"),
+            "active_agent_id": runtime_state.get("active_agent_id"),
+            "active_agent_instance_id": runtime_state.get("active_agent_instance_id"),
+            "last_agent_id": runtime_state.get("last_agent_id"),
+            "last_agent_instance_id": runtime_state.get("last_agent_instance_id"),
             "continuation_policy": runtime_state.get("continuation_policy") or "auto",
             "continuation_anchor": runtime_state.get("continuation_anchor"),
             "continuation_reason": runtime_state.get("continuation_reason"),
@@ -3952,6 +3960,9 @@ class QuestService:
         attachments: list[dict[str, Any]] | None = None,
         run_id: str | None = None,
         skill_id: str | None = None,
+        agent_id: str | None = None,
+        agent_role: str | None = None,
+        agent_instance_id: str | None = None,
         reply_to_interaction_id: str | None = None,
         client_message_id: str | None = None,
     ) -> dict:
@@ -3971,6 +3982,12 @@ class QuestService:
             record["run_id"] = run_id
         if skill_id:
             record["skill_id"] = skill_id
+        if agent_id:
+            record["agent_id"] = agent_id
+        if agent_role:
+            record["agent_role"] = agent_role
+        if agent_instance_id:
+            record["agent_instance_id"] = agent_instance_id
         if client_message_id:
             record["client_message_id"] = str(client_message_id)
         if role == "user":
@@ -4096,6 +4113,9 @@ class QuestService:
                 "content": content,
                 "run_id": run_id,
                 "skill_id": skill_id,
+                "agent_id": agent_id,
+                "agent_role": agent_role,
+                "agent_instance_id": agent_instance_id,
                 "reply_to_interaction_id": resolved_reply_to_interaction_id,
                 "client_message_id": record.get("client_message_id"),
                 "delivery_state": record.get("delivery_state"),
@@ -4137,12 +4157,22 @@ class QuestService:
             write_yaml(quest_root / "quest.yaml", quest_data)
         return record
 
-    def mark_turn_started(self, quest_id: str, *, run_id: str, status: str = "running") -> dict:
+    def mark_turn_started(
+        self,
+        quest_id: str,
+        *,
+        run_id: str,
+        status: str = "running",
+        agent_id: str | None = None,
+        agent_instance_id: str | None = None,
+    ) -> dict:
         quest_root = self._quest_root(quest_id)
         self.update_runtime_state(
             quest_root=quest_root,
             status=status,
             active_run_id=run_id,
+            active_agent_id=agent_id,
+            active_agent_instance_id=agent_instance_id,
             stop_reason=None,
         )
         return self.snapshot(quest_id)
@@ -4155,9 +4185,16 @@ class QuestService:
         stop_reason: str | None | object = _UNSET,
     ) -> dict:
         quest_root = self._quest_root(quest_id)
+        runtime_state = self._read_runtime_state(quest_root)
         self.update_runtime_state(
             quest_root=quest_root,
             active_run_id=None,
+            active_agent_id=None,
+            active_agent_instance_id=None,
+            last_agent_id=runtime_state.get("active_agent_id") or runtime_state.get("last_agent_id"),
+            last_agent_instance_id=(
+                runtime_state.get("active_agent_instance_id") or runtime_state.get("last_agent_instance_id")
+            ),
             status=status if status is not None else _UNSET,
             stop_reason=stop_reason,
             retry_state=None,
@@ -4171,10 +4208,17 @@ class QuestService:
         stop_reason: str = "completed_by_user_approval",
     ) -> dict:
         quest_root = self._quest_root(quest_id)
+        runtime_state = self._read_runtime_state(quest_root)
         self.update_runtime_state(
             quest_root=quest_root,
             status="completed",
             active_run_id=None,
+            active_agent_id=None,
+            active_agent_instance_id=None,
+            last_agent_id=runtime_state.get("active_agent_id") or runtime_state.get("last_agent_id"),
+            last_agent_instance_id=(
+                runtime_state.get("active_agent_instance_id") or runtime_state.get("last_agent_instance_id")
+            ),
             active_interaction_id=None,
             stop_reason=stop_reason,
         )
@@ -4510,6 +4554,12 @@ class QuestService:
                 quest_root=quest_root,
                 status="stopped",
                 active_run_id=None,
+                active_agent_id=None,
+                active_agent_instance_id=None,
+                last_agent_id=runtime_state.get("active_agent_id") or runtime_state.get("last_agent_id"),
+                last_agent_instance_id=(
+                    runtime_state.get("active_agent_instance_id") or runtime_state.get("last_agent_instance_id")
+                ),
                 stop_reason="crash_recovered",
                 **reconciled_policy_updates,
             )
@@ -6047,6 +6097,10 @@ class QuestService:
             "status": status,
             "display_status": status,
             "active_run_id": quest_yaml.get("active_run_id"),
+            "active_agent_id": None,
+            "active_agent_instance_id": None,
+            "last_agent_id": None,
+            "last_agent_instance_id": None,
             "active_interaction_id": None,
             "stop_reason": None,
             "last_transition_at": timestamp,
@@ -6135,6 +6189,10 @@ class QuestService:
             payload = defaults
         merged = {**defaults, **payload}
         merged["pending_user_message_count"] = int(merged.get("pending_user_message_count") or 0)
+        merged["active_agent_id"] = str(merged.get("active_agent_id") or "").strip() or None
+        merged["active_agent_instance_id"] = str(merged.get("active_agent_instance_id") or "").strip() or None
+        merged["last_agent_id"] = str(merged.get("last_agent_id") or "").strip() or None
+        merged["last_agent_instance_id"] = str(merged.get("last_agent_instance_id") or "").strip() or None
         merged["tool_calls_since_last_artifact_interact"] = int(merged.get("tool_calls_since_last_artifact_interact") or 0)
         merged["continuation_policy"] = self._normalize_continuation_policy(
             merged.get("continuation_policy"),
@@ -6168,6 +6226,10 @@ class QuestService:
         quest_root: Path,
         status: str | object = _UNSET,
         active_run_id: str | None | object = _UNSET,
+        active_agent_id: str | None | object = _UNSET,
+        active_agent_instance_id: str | None | object = _UNSET,
+        last_agent_id: str | None | object = _UNSET,
+        last_agent_instance_id: str | None | object = _UNSET,
         stop_reason: str | None | object = _UNSET,
         active_interaction_id: str | None | object = _UNSET,
         last_transition_at: str | None | object = _UNSET,
@@ -6212,6 +6274,18 @@ class QuestService:
             if active_run_id is not _UNSET:
                 state["active_run_id"] = str(active_run_id).strip() if active_run_id else None
                 run_changed = True
+            if active_agent_id is not _UNSET:
+                state["active_agent_id"] = str(active_agent_id).strip() if active_agent_id else None
+            if active_agent_instance_id is not _UNSET:
+                state["active_agent_instance_id"] = (
+                    str(active_agent_instance_id).strip() if active_agent_instance_id else None
+                )
+            if last_agent_id is not _UNSET:
+                state["last_agent_id"] = str(last_agent_id).strip() if last_agent_id else None
+            if last_agent_instance_id is not _UNSET:
+                state["last_agent_instance_id"] = (
+                    str(last_agent_instance_id).strip() if last_agent_instance_id else None
+                )
             if stop_reason is not _UNSET:
                 state["stop_reason"] = str(stop_reason).strip() if stop_reason else None
             elif status is not _UNSET and str(state.get("status") or "") not in {"stopped", "paused", "error", "completed"}:

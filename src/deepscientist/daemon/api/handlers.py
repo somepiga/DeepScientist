@@ -18,8 +18,10 @@ from ...shared import generate_id, read_json, read_text, resolve_within, run_com
 from ...prompts.agent_prompts import (
     get_agent_default_prompt,
     get_agent_prompt,
+    get_quest_agent_skill,
     list_agents,
     reset_agent_prompt,
+    set_quest_agent_skill,
     set_agent_prompt,
 )
 from ...runners import RunRequest
@@ -893,6 +895,44 @@ npm --prefix src/ui run build</pre>
     # ------------------------------------------------------------------
     def agents(self) -> list[dict]:
         return list_agents(self.app.repo_root)
+
+    def quest_agents(self, quest_id: str) -> dict | tuple[int, dict]:
+        try:
+            quest_root = self.app.quest_service._quest_root(quest_id)
+        except FileNotFoundError as exc:
+            return 404, {"ok": False, "message": str(exc)}
+        return {
+            "ok": True,
+            "quest_id": quest_id,
+            **self.app.team_service.snapshot(quest_root),
+        }
+
+    def quest_agent_config_get(self, quest_id: str, agent_id: str) -> dict | tuple[int, dict]:
+        try:
+            quest_root = self.app.quest_service._quest_root(quest_id)
+            skill = get_quest_agent_skill(self.app.repo_root, quest_root, agent_id)
+        except FileNotFoundError as exc:
+            return 404, {"ok": False, "message": str(exc)}
+        except KeyError:
+            return 404, {"ok": False, "message": f"Unknown agent: {agent_id}"}
+        return {"ok": True, "quest_id": quest_id, **skill}
+
+    def quest_agent_config_put(self, quest_id: str, agent_id: str, body: dict | None = None) -> dict | tuple[int, dict]:
+        if not isinstance(body, dict) or not isinstance(body.get("skill_markdown"), str):
+            return 400, {"ok": False, "message": "`skill_markdown` must be a string."}
+        skill_markdown = str(body.get("skill_markdown") or "")
+        if len(skill_markdown) > 250_000:
+            return 400, {"ok": False, "message": "`skill_markdown` must not exceed 250,000 characters."}
+        try:
+            quest_root = self.app.quest_service._quest_root(quest_id)
+            skill = set_quest_agent_skill(self.app.repo_root, quest_root, agent_id, skill_markdown)
+        except FileNotFoundError as exc:
+            return 404, {"ok": False, "message": str(exc)}
+        except KeyError:
+            return 404, {"ok": False, "message": f"Unknown agent: {agent_id}"}
+        except ValueError as exc:
+            return 400, {"ok": False, "message": str(exc)}
+        return {"ok": True, "quest_id": quest_id, **skill}
 
     def agents_prompt_get(self, agent_id: str) -> dict:
         try:
@@ -2531,20 +2571,74 @@ npm --prefix src/ui run build</pre>
             if raw_reasoning_effort is not None and str(raw_reasoning_effort).strip()
             else ("xhigh" if raw_reasoning_effort is None else None)
         )
+        run_id = str(body.get("run_id") or generate_id("run"))
+        turn_id = generate_id("turn")
+        skill_id = str(body.get("skill_id") or "decision").strip() or "decision"
+        try:
+            agent_assignment = self.app.team_service.assignment(
+                skill_id=skill_id,
+                turn_id=turn_id,
+                run_id=run_id,
+            )
+        except KeyError as exc:
+            return 400, {"ok": False, "message": str(exc)}
         request = RunRequest(
             quest_id=quest_id,
             quest_root=quest_root,
             worktree_root=self.app.quest_service.active_workspace_root(quest_root),
-            run_id=body.get("run_id") or generate_id("run"),
-            skill_id=body.get("skill_id", "decision"),
+            run_id=run_id,
+            skill_id=skill_id,
             message=body.get("message", "").strip(),
             model=body.get("model") or runner_cfg.get("model", "gpt-5.4"),
             approval_policy=runner_cfg.get("approval_policy", "on-request"),
             sandbox_mode=runner_cfg.get("sandbox_mode", "workspace-write"),
             turn_reason=body.get("turn_reason") or "user_message",
             reasoning_effort=reasoning_effort,
+            turn_id=turn_id,
+            agent_id=str(agent_assignment["agent_id"]),
+            agent_role=str(agent_assignment["agent_role"]),
+            agent_instance_id=str(agent_assignment["agent_instance_id"]),
+            agent_context_scope=dict(agent_assignment["agent_context_scope"]),
+            team_mode=str(agent_assignment["team_mode"]),
         )
-        result = runner.run(request)
+        self.app.team_service.record_started(
+            quest_root,
+            quest_id=quest_id,
+            run_id=run_id,
+            turn_id=turn_id,
+            skill_id=skill_id,
+            agent_id=request.effective_agent_id,
+            agent_instance_id=request.effective_agent_instance_id,
+            runner_name=runner_name,
+            model=request.model,
+            attempt_index=1,
+        )
+        try:
+            result = runner.run(request)
+        except Exception:
+            self.app.team_service.record_finished(
+                quest_root,
+                quest_id=quest_id,
+                run_id=run_id,
+                turn_id=turn_id,
+                skill_id=skill_id,
+                agent_id=request.effective_agent_id,
+                agent_instance_id=request.effective_agent_instance_id,
+                ok=False,
+                exit_code=None,
+            )
+            raise
+        self.app.team_service.record_finished(
+            quest_root,
+            quest_id=quest_id,
+            run_id=result.run_id,
+            turn_id=turn_id,
+            skill_id=skill_id,
+            agent_id=request.effective_agent_id,
+            agent_instance_id=request.effective_agent_instance_id,
+            ok=result.ok,
+            exit_code=result.exit_code,
+        )
         if result.output_text:
             self.app.quest_service.append_message(
                 quest_id,
@@ -2553,6 +2647,18 @@ npm --prefix src/ui run build</pre>
                 source=runner_name,
                 run_id=result.run_id,
                 skill_id=request.skill_id,
+                agent_id=request.effective_agent_id,
+                agent_role=request.effective_agent_role,
+                agent_instance_id=request.effective_agent_instance_id,
+            )
+        if result.ok:
+            self.app._record_agent_handoff_after_turn(
+                quest_id=quest_id,
+                quest_root=quest_root,
+                run_id=result.run_id,
+                turn_id=turn_id,
+                from_agent_id=request.effective_agent_id,
+                output_text=result.output_text,
             )
         return {
             "ok": result.ok,

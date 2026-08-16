@@ -12,7 +12,7 @@ from ..artifact import ArtifactService
 from ..gitops import export_git_graph
 from ..process_control import process_session_popen_kwargs
 from ..prompts import PromptBuilder
-from ..prompts.agent_prompts import get_agent_prompt
+from ..prompts.agent_prompts import get_agent_prompt_for_runtime
 from ..runtime_logs import JsonlLogger
 from ..shared import append_jsonl, ensure_dir, ensure_utf8_subprocess_env, generate_id, read_yaml, utc_now, write_json, write_text
 from .base import RunRequest, RunResult, extract_start_setup_patch_from_text
@@ -71,7 +71,14 @@ class SimpleCliRunner:
             turn_mode=request.turn_mode,
             retry_context=request.retry_context,
             runner_name=self.runner_name,
-            agent_prompt=get_agent_prompt(self.repo_root, request.skill_id)[0],
+            agent_id=request.effective_agent_id,
+            agent_role=request.effective_agent_role,
+            agent_instance_id=request.effective_agent_instance_id,
+            agent_context_scope=request.agent_context_scope,
+            team_mode=request.team_mode,
+            agent_prompt=get_agent_prompt_for_runtime(
+                self.repo_root, request.effective_agent_id, quest_root=request.quest_root
+            ),
         )
         write_text(run_root / "prompt.md", prompt)
 
@@ -98,8 +105,10 @@ class SimpleCliRunner:
         quest_yaml = read_yaml(request.quest_root / "quest.yaml", {})
         env["DS_ACTIVE_ANCHOR"] = str(quest_yaml.get("active_anchor", "baseline"))
         env["DS_CONVERSATION_ID"] = f"quest:{request.quest_id}"
-        env["DS_AGENT_ROLE"] = request.skill_id
-        env["DS_TEAM_MODE"] = "single"
+        env["DS_AGENT_ID"] = request.effective_agent_id
+        env["DS_AGENT_ROLE"] = request.effective_agent_role
+        env["DS_WORKER_ID"] = request.effective_agent_instance_id
+        env["DS_TEAM_MODE"] = request.team_mode
 
         runtime_env, runtime_meta = self._prepare_runtime(
             workspace_root=workspace_root,
@@ -123,6 +132,10 @@ class SimpleCliRunner:
                 "turn_reason": request.turn_reason,
                 "turn_intent": request.turn_intent,
                 "turn_mode": request.turn_mode,
+                "agent_id": request.effective_agent_id,
+                "agent_role": request.effective_agent_role,
+                "agent_instance_id": request.effective_agent_instance_id,
+                "team_mode": request.team_mode,
                 "prompt_strategy": prompt_strategy,
                 **runtime_meta,
             }

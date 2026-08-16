@@ -1,9 +1,13 @@
 'use client'
 
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Activity, MessageSquare, Workflow } from 'lucide-react'
 
 import { SegmentedControl, type SegmentedItem } from '@/components/ui/segmented-control'
 import { useQuestWorkspace } from '@/lib/acp'
+import { client } from '@/lib/api'
+import type { QuestMessageAttachmentDraft } from '@/lib/hooks/useQuestMessageAttachments'
 import type {
   AiManusChatMeta,
   CopilotPrefill,
@@ -11,6 +15,7 @@ import type {
 import { useI18n } from '@/lib/i18n/useI18n'
 
 import { QuestConnectorChatView } from './QuestConnectorChatView'
+import { QuestAgentStatusBar, QuestAgentTeamView } from './QuestAgentTeamView'
 import { useCopilotDockCallbacks } from './CopilotDockOverlay'
 import { QuestStudioTraceView } from './QuestStudioTraceView'
 import type { QuestWorkspaceState } from './QuestWorkspaceSurface'
@@ -25,7 +30,7 @@ type QuestCopilotDockPanelProps = {
   beforeFeed?: React.ReactNode
 }
 
-type QuestCopilotMode = 'chat' | 'studio'
+type QuestCopilotMode = 'constraints' | 'evidence' | 'agents'
 
 function isParkedCopilotWorkspace(workspace: QuestWorkspaceState) {
   const snapshot = workspace.snapshot
@@ -109,10 +114,19 @@ export function QuestCopilotDockPanel({
       previous: null,
       key: 0,
   })
-  const [mode, setMode] = React.useState<QuestCopilotMode>('studio')
+  const [mode, setMode] = React.useState<QuestCopilotMode>('agents')
+  const [controlAction, setControlAction] = React.useState<'start' | 'pause' | 'resume' | 'stage' | null>(null)
+  const [controlError, setControlError] = React.useState<string | null>(null)
+  const agentQuery = useQuery({
+    queryKey: ['quest-agents', questId],
+    queryFn: () => client.questAgents(questId),
+    enabled: Boolean(questId),
+    refetchInterval: 4_000,
+    refetchIntervalInBackground: false,
+  })
 
   React.useEffect(() => {
-    setMode('studio')
+    setMode('agents')
   }, [questId])
 
   React.useEffect(() => {
@@ -159,7 +173,7 @@ export function QuestCopilotDockPanel({
   )
 
   const handleSubmit = React.useCallback(
-    async (message: string, attachments = []) => {
+    async (message: string, attachments: QuestMessageAttachmentDraft[] = []) => {
       const nextMessage = transformSubmitMessage ? transformSubmitMessage(message) : message
       await workspace.submit(nextMessage, attachments, { displayValue: message })
     },
@@ -185,9 +199,11 @@ export function QuestCopilotDockPanel({
         connectionState: workspace.connectionState,
         snapshotStatus: workspace.snapshot?.summary?.status_line ?? null,
         readyLabel:
-          mode === 'studio'
+          mode === 'evidence'
             ? t('copilot_trace_ready', undefined, 'Studio trace ready')
-            : t('copilot_quest_status_ready'),
+            : mode === 'agents'
+              ? '研究任务控制台已就绪'
+              : '研究约束已就绪',
         t,
       })
       )
@@ -232,6 +248,38 @@ export function QuestCopilotDockPanel({
       setStopping(false)
     }
   }, [stopping, workspace])
+
+  const handleQuestControl = React.useCallback(
+    async (action: 'start' | 'pause' | 'resume') => {
+      setControlAction(action)
+      setControlError(null)
+      try {
+        await client.controlQuest(questId, action === 'start' ? 'resume' : action)
+        await agentQuery.refetch()
+      } catch (caught) {
+        setControlError(caught instanceof Error ? caught.message : '任务控制操作失败。')
+      } finally {
+        setControlAction(null)
+      }
+    },
+    [agentQuery, questId]
+  )
+
+  const handleSetNextStage = React.useCallback(
+    async (agentId: string) => {
+      setControlAction('stage')
+      setControlError(null)
+      try {
+        await client.updateQuestSettings(questId, { active_anchor: agentId })
+        await agentQuery.refetch()
+      } catch (caught) {
+        setControlError(caught instanceof Error ? caught.message : '无法更新下一研究阶段。')
+      } finally {
+        setControlAction(null)
+      }
+    },
+    [agentQuery, questId]
+  )
 
   const showStopButton = React.useMemo(
     () => stopping || effectiveHasLiveRun || effectiveActiveToolCount > 0 || effectiveStreaming,
@@ -282,10 +330,21 @@ export function QuestCopilotDockPanel({
 
   const tabItems = React.useMemo<SegmentedItem<QuestCopilotMode>[]>(
     () => [
-      { value: 'chat', label: t('copilot_chat_tab') },
-      { value: 'studio', label: t('copilot_studio_tab') },
+      { value: 'constraints', label: '研究约束', icon: <MessageSquare /> },
+      { value: 'evidence', label: '研究记录', icon: <Activity /> },
+      { value: 'agents', label: '控制台', icon: <Workflow /> },
     ],
     [t]
+  )
+
+  const agentError =
+    !agentQuery.data && agentQuery.error instanceof Error ? agentQuery.error.message : null
+  const agentStatusBar = (
+    <QuestAgentStatusBar
+      orchestration={agentQuery.data}
+      loading={agentQuery.isLoading}
+      error={agentError}
+    />
   )
 
   React.useEffect(() => {
@@ -308,7 +367,7 @@ export function QuestCopilotDockPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-onboarding-id="workspace-copilot-panel">
-      {mode === 'chat' ? (
+      {mode === 'constraints' ? (
         <QuestConnectorChatView
           questId={questId}
           feed={workspace.feed}
@@ -329,8 +388,9 @@ export function QuestCopilotDockPanel({
           onWithdraw={workspace.withdraw}
           onStopRun={handleStopRun}
           prefill={prefill}
+          beforeFeed={agentStatusBar}
         />
-      ) : (
+      ) : mode === 'evidence' ? (
         <QuestStudioTraceView
           questId={questId}
           feed={workspace.feed}
@@ -352,7 +412,28 @@ export function QuestCopilotDockPanel({
           onWithdraw={workspace.withdraw}
           onStopRun={handleStopRun}
           prefill={prefill}
-          beforeFeed={beforeFeed}
+          beforeFeed={
+            <>
+              {agentStatusBar}
+              {beforeFeed}
+            </>
+          }
+        />
+      ) : (
+        <QuestAgentTeamView
+          questId={questId}
+          orchestration={agentQuery.data}
+          loading={agentQuery.isLoading}
+          error={controlError || agentError}
+          questStatus={workspace.snapshot?.status || workspace.snapshot?.runtime_status || null}
+          controlAction={controlAction}
+          onStart={() => void handleQuestControl('start')}
+          onPause={() => void handleQuestControl('pause')}
+          onResume={() => void handleQuestControl('resume')}
+          onSetNextStage={(agentId) => void handleSetNextStage(agentId)}
+          onOpenChat={() => setMode('constraints')}
+          onOpenEvidence={() => setMode('evidence')}
+          onRefresh={() => void agentQuery.refetch()}
         />
       )}
     </div>

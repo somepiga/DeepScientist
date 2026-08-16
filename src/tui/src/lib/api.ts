@@ -14,6 +14,7 @@ import type {
   ConnectorSnapshot,
   FeedEnvelope,
   OpenDocumentPayload,
+  QuestAgentOrchestrationPayload,
   QuestSummary,
   SessionPayload,
   WeixinQrLoginStartPayload,
@@ -159,6 +160,8 @@ export const client = {
       body: JSON.stringify({ session_key: sessionKey, timeout_ms: timeoutMs }),
     }),
   session: (baseUrl: string, questId: string) => api<SessionPayload>(baseUrl, `/api/quests/${questId}/session`),
+  questAgents: (baseUrl: string, questId: string) =>
+    api<QuestAgentOrchestrationPayload>(baseUrl, `/api/quests/${questId}/agents`),
   openDocument: (baseUrl: string, questId: string, documentId: string) =>
     api<OpenDocumentPayload>(baseUrl, `/api/quests/${questId}/documents/open`, {
       method: 'POST',

@@ -458,7 +458,15 @@ function StudioArtifactBlock({ block }: { block: Extract<StudioTurnBlock, { kind
 function StudioEventBlock({ block }: { block: Extract<StudioTurnBlock, { kind: 'event' }> }) {
   const item = block.item
   const label = humanizeEventLabel(item.label)
-  const text = [label, item.content ? item.content.trim() : ''].filter(Boolean).join(' · ')
+  const fromAgent = String(item.details?.from_agent_id || '').trim()
+  const toAgent = String(item.details?.to_agent_id || '').trim()
+  const lifecycleText =
+    item.label === 'agent_handoff' && fromAgent && toAgent
+      ? `${fromAgent} -> ${toAgent}`
+      : item.agentId
+        ? `@${item.agentId}`
+        : ''
+  const text = [label, lifecycleText, item.content ? item.content.trim() : ''].filter(Boolean).join(' · ')
   return (
     <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-black/[0.06] px-3 py-1 text-[11px] text-muted-foreground dark:border-white/[0.10]">
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-black/[0.35] dark:bg-white/[0.35]" />
@@ -492,7 +500,10 @@ function AssistantTurn({
 
       <div className="min-w-0 flex-1 space-y-2.5">
         <div className="flex flex-wrap items-center gap-2 text-[11px] leading-4 text-muted-foreground">
-          <span className="font-medium text-foreground">@DeepScientist</span>
+          <span className="font-medium text-foreground">@{turn.agentId || 'DeepScientist'}</span>
+          {turn.agentRole && turn.agentRole !== turn.agentId ? (
+            <span>{turn.agentRole}</span>
+          ) : null}
           {turn.skillId ? <Badge className="bg-black/[0.03] dark:bg-white/[0.04]">{turn.skillId}</Badge> : null}
           {hasStreamingMessage ? (
             <span className="inline-flex h-2 w-2 rounded-full bg-[#2F3437] animate-caret dark:bg-[#E7DFD2]" />

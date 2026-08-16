@@ -19,6 +19,7 @@ import type {
   QuestNodeTraceDetailPayload,
   QuestNodeTraceListPayload,
   QuestRawEventListPayload,
+  QuestAgentOrchestrationPayload,
   QuestSummary,
   WorkflowEntry,
   WorkflowPayload,
@@ -2444,6 +2445,91 @@ function mapQuestSummaryToLabAgent(summary: QuestSummary): LabAgentInstance {
   }
 }
 
+function buildLocalStageAgentTemplates(orchestration: QuestAgentOrchestrationPayload): LabTemplate[] {
+  return orchestration.agents.map((agent) => ({
+    template_id: `local-stage-${agent.id}`,
+    template_key: `stage-${agent.id}`,
+    name: agent.name,
+    label: agent.id,
+    role: agent.role,
+    purpose: agent.description,
+    description: agent.description,
+    prompt_scope: 'quest-stage',
+    agent_engine: 'quest-runtime',
+    execution_target: 'local',
+    default_skills: [agent.skill_id],
+    typical_dod: `Complete the ${agent.id} stage and leave durable evidence for the next agent.`,
+    init_question: `What should the ${agent.id} agent do next?`,
+    init_answer: 'Read the durable handoff and active quest evidence, then execute only the current stage responsibility.',
+    mcp_servers: ['memory', 'artifact', 'bash_exec'],
+  }))
+}
+
+function mapQuestStageAgentsToLabAgents(
+  summary: QuestSummary,
+  orchestration: QuestAgentOrchestrationPayload
+): LabAgentInstance[] {
+  const latestRuntimeInstanceByAgent = new Map<string, string>()
+  for (const run of orchestration.recent_runs) {
+    const agentId = String(run.agent_id || '').trim()
+    const instanceId = String(run.agent_instance_id || '').trim()
+    if (agentId && instanceId) latestRuntimeInstanceByAgent.set(agentId, instanceId)
+  }
+
+  return orchestration.agents.map((agent) => {
+    const runCount = orchestration.recent_runs.filter((run) => String(run.agent_id || '').trim() === agent.id).length
+    const handoffCount = orchestration.recent_handoffs.filter(
+      (handoff) =>
+        String(handoff.from_agent_id || '').trim() === agent.id ||
+        String(handoff.to_agent_id || '').trim() === agent.id
+    ).length
+    const status =
+      orchestration.active_agent_id === agent.id
+        ? 'working'
+        : orchestration.last_agent_id === agent.id
+          ? 'done'
+          : orchestration.selected_agent_id === agent.id
+            ? 'waiting'
+            : 'idle'
+    return {
+      instance_id: `${summary.quest_id}:stage:${agent.id}`,
+      agent_id: agent.id,
+      mention_label: agent.id,
+      display_name: agent.name,
+      template_id: `local-stage-${agent.id}`,
+      status,
+      stats_json: {
+        runs: runCount,
+        handoffs: handoffCount,
+        context_scopes: agent.context_scope.quest.length + agent.context_scope.global.length,
+      },
+      profile_md: agent.description,
+      profile_json: {
+        role: agent.role,
+        skill_id: agent.skill_id,
+        prompt_file: agent.prompt_file,
+        context_scope: agent.context_scope,
+        modes: agent.modes,
+        runtime_instance_id:
+          orchestration.active_agent_id === agent.id
+            ? orchestration.active_agent_instance_id
+            : latestRuntimeInstanceByAgent.get(agent.id) || null,
+        quest_root: summary.quest_root || null,
+        branch: summary.branch || 'main',
+      },
+      avatar_frame_color: status === 'working' ? '#4F8A67' : status === 'waiting' ? '#A67C38' : '#8FA3B8',
+      avatar_logo: null,
+      direct_session_id: `quest:${summary.quest_id}`,
+      active_quest_id: summary.quest_id,
+      active_quest_branch: summary.branch || 'main',
+      active_quest_stage_key: agent.id,
+      cli_server_id: `local:${summary.quest_id}`,
+      status_updated_at: normalizeTimestamp(orchestration.updated_at || summary.updated_at),
+      created_at: normalizeTimestamp(summary.updated_at),
+    }
+  })
+}
+
 function extractTraceMetrics(trace?: LabQuestNodeTrace | null) {
   const payload = asRecordValue(trace?.payload_json)
   const metricsSummary = asRecordValue(payload?.metrics_summary)
@@ -3378,7 +3464,12 @@ async function resolveLocalMemoryEntry(projectId: string, entryId: string): Prom
 
 export async function listLabTemplates(projectId: string): Promise<LabListResponse<LabTemplate>> {
   if (await shouldUseLocalQuestLab(projectId)) {
-    return { items: LOCAL_LAB_TEMPLATE_CATALOG }
+    try {
+      const orchestration = await questClient.questAgents(projectId)
+      return { items: buildLocalStageAgentTemplates(orchestration) }
+    } catch {
+      return { items: LOCAL_LAB_TEMPLATE_CATALOG }
+    }
   }
   try {
     const response = await apiClient.get(`${LAB_BASE(projectId)}/templates`)
@@ -3393,7 +3484,17 @@ export async function listLabTemplates(projectId: string): Promise<LabListRespon
 
 export async function listLabPromptPools(projectId: string): Promise<LabListResponse<LabPromptPool>> {
   if (await shouldUseLocalQuestLab(projectId)) {
-    return { items: buildLocalTemplatePools() }
+    const templates = await listLabTemplates(projectId)
+    return {
+      items: templates.items.map((template) => ({
+        template_id: template.template_id,
+        template_key: template.template_key,
+        name_prompts: [template.name],
+        capability_prompts: [template.purpose || template.description || 'Research orchestration'],
+        strength_prompts: ['Precise', 'Auditable', 'Stage-scoped'],
+        motto_prompts: ['Read the handoff, own the stage, leave durable evidence.'],
+      })),
+    }
   }
   try {
     const response = await apiClient.get(`${LAB_BASE(projectId)}/prompt-pools`)
@@ -3412,7 +3513,12 @@ export async function listLabAgents(
 ): Promise<LabListResponse<LabAgentInstance>> {
   if (await shouldUseLocalQuestLab(projectId)) {
     const summary = await loadLocalQuestSummary(projectId)
-    return { items: [mapQuestSummaryToLabAgent(summary)] }
+    try {
+      const orchestration = await questClient.questAgents(projectId)
+      return { items: mapQuestStageAgentsToLabAgents(summary, orchestration) }
+    } catch {
+      return { items: [mapQuestSummaryToLabAgent(summary)] }
+    }
   }
   try {
     const response = await apiClient.get(`${LAB_BASE(projectId)}/agents`, buildLabRequestConfig(options))
@@ -3422,7 +3528,12 @@ export async function listLabAgents(
       throw error
     }
     const summary = await loadLocalQuestSummary(projectId)
-    return { items: [mapQuestSummaryToLabAgent(summary)] }
+    try {
+      const orchestration = await questClient.questAgents(projectId)
+      return { items: mapQuestStageAgentsToLabAgents(summary, orchestration) }
+    } catch {
+      return { items: [mapQuestSummaryToLabAgent(summary)] }
+    }
   }
 }
 
@@ -5065,10 +5176,13 @@ export async function restoreLabBaseline(
 
 export async function getLabOverview(projectId: string, options?: LabRequestOptions): Promise<LabOverview> {
   if (await shouldUseLocalQuestLab(projectId)) {
-    const summary = await loadLocalQuestSummary(projectId)
-    const branches = await loadLocalQuestBranches(projectId)
+    const [summary, branches, orchestration] = await Promise.all([
+      loadLocalQuestSummary(projectId),
+      loadLocalQuestBranches(projectId),
+      questClient.questAgents(projectId).catch(() => null),
+    ])
     return {
-      agents: { total: 1 },
+      agents: { total: orchestration?.agents.length || 1 },
       quests: {
         active: normalizeLabWorkingStatus(summary.status) === 'done' ? 0 : 1,
         blocked: normalizeLabWorkingStatus(summary.status) === 'blocked' ? 1 : 0,
@@ -5092,10 +5206,13 @@ export async function getLabOverview(projectId: string, options?: LabRequestOpti
     if (!isLocalLabFallbackError(error)) {
       throw error
     }
-    const summary = await loadLocalQuestSummary(projectId)
-    const branches = await loadLocalQuestBranches(projectId)
+    const [summary, branches, orchestration] = await Promise.all([
+      loadLocalQuestSummary(projectId),
+      loadLocalQuestBranches(projectId),
+      questClient.questAgents(projectId).catch(() => null),
+    ])
     return {
-      agents: { total: 1 },
+      agents: { total: orchestration?.agents.length || 1 },
       quests: {
         active: normalizeLabWorkingStatus(summary.status) === 'done' ? 0 : 1,
         blocked: normalizeLabWorkingStatus(summary.status) === 'blocked' ? 1 : 0,

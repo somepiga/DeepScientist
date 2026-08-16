@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from deepscientist.artifact import ArtifactService
 from deepscientist.config import ConfigManager
 from deepscientist.daemon import DaemonApp
 from deepscientist.home import ensure_home_layout, repo_root
@@ -281,6 +282,9 @@ def test_acp_artifact_update_exposes_interaction_metadata(temp_home: Path) -> No
         deliver_to_bound_conversations=False,
         include_recent_inbound_messages=False,
         options=[{"id": "go", "label": "Go", "description": "Proceed now."}],
+        agent_id="idea",
+        agent_role="idea",
+        agent_instance_id="run-idea-1",
     )
 
     payload = app.handlers.quest_events(
@@ -293,6 +297,66 @@ def test_acp_artifact_update_exposes_interaction_metadata(temp_home: Path) -> No
     assert update["artifact"]["interaction_id"]
     assert update["artifact"]["expects_reply"] is True
     assert update["artifact"]["options"][0]["id"] == "go"
+    assert update["artifact"]["agent_id"] == "idea"
+    assert update["artifact"]["agent_role"] == "idea"
+    assert update["artifact"]["agent_instance_id"] == "run-idea-1"
+
+
+def test_acp_agent_lifecycle_updates_preserve_handoff_metadata(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    quest = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).create(
+        "acp agent lifecycle quest"
+    )
+    quest_id = quest["quest_id"]
+    quest_root = Path(quest["quest_root"])
+    app = DaemonApp(temp_home)
+
+    append_jsonl(
+        quest_root / ".ds" / "events.jsonl",
+        {
+            "event_id": "evt-agent-start",
+            "type": "agent.run_started",
+            "quest_id": quest_id,
+            "run_id": "run-idea-1",
+            "turn_id": "turn-1",
+            "skill_id": "idea",
+            "agent_id": "idea",
+            "agent_role": "idea",
+            "agent_instance_id": "run-idea-1",
+            "runner": "codex",
+            "model": "gpt-5",
+        },
+    )
+    append_jsonl(
+        quest_root / ".ds" / "events.jsonl",
+        {
+            "event_id": "evt-agent-handoff",
+            "type": "agent.handoff",
+            "quest_id": quest_id,
+            "run_id": "run-idea-1",
+            "turn_id": "turn-1",
+            "from_agent_id": "idea",
+            "to_agent_id": "experiment",
+            "summary": "Promote the selected mechanism to validation.",
+            "reason": "active_anchor_changed",
+            "durable_refs": {"active_idea_id": "idea-1"},
+        },
+    )
+
+    payload = app.handlers.quest_events(
+        quest_id,
+        path=f"/api/quests/{quest_id}/events?format=acp&session_id=session:test",
+    )
+    updates = [item["params"]["update"] for item in payload["acp_updates"]]
+    started = next(item for item in updates if (item.get("data") or {}).get("label") == "agent_run_started")
+    handoff = next(item for item in updates if (item.get("data") or {}).get("label") == "agent_handoff")
+
+    assert started["agent_id"] == "idea"
+    assert started["data"]["agent_instance_id"] == "run-idea-1"
+    assert handoff["data"]["from_agent_id"] == "idea"
+    assert handoff["data"]["to_agent_id"] == "experiment"
+    assert handoff["data"]["durable_refs"]["active_idea_id"] == "idea-1"
 
 
 def test_acp_artifact_update_exposes_flow_metadata(temp_home: Path) -> None:
@@ -301,9 +365,17 @@ def test_acp_artifact_update_exposes_flow_metadata(temp_home: Path) -> None:
     quest = QuestService(temp_home, skill_installer=SkillInstaller(repo_root(), temp_home)).create("acp flow quest")
     quest_id = quest["quest_id"]
     app = DaemonApp(temp_home)
+    app.artifact_service = ArtifactService(
+        temp_home,
+        agent_id="idea",
+        agent_role="idea",
+        agent_instance_id="run-idea-flow",
+    )
     quest_root = Path(quest["quest_root"])
     baseline_root = quest_root / "baselines" / "local" / "acp-baseline"
     baseline_root.mkdir(parents=True, exist_ok=True)
+    baseline_evidence = baseline_root / "README.md"
+    baseline_evidence.write_text("# ACP baseline evidence\n", encoding="utf-8")
     app.artifact_service.confirm_baseline(
         quest_root,
         baseline_path=str(baseline_root),
@@ -324,8 +396,16 @@ def test_acp_artifact_update_exposes_flow_metadata(temp_home: Path) -> None:
         problem="Baseline saturates.",
         hypothesis="A small adapter helps.",
         mechanism="Insert a residual adapter.",
+        method_brief="Add one residual adapter while preserving the baseline evaluation surface.",
+        selection_scores={"utility": 0.8, "distinctness": 0.7},
+        mechanism_family="adapter",
+        change_layer="representation",
+        source_lens="baseline_bottleneck",
+        evidence_paths=[str(baseline_evidence)],
+        risks=["The adapter may overfit the validation split."],
         decision_reason="Promote the strongest next route.",
     )
+    assert "planned_steps:" in Path(result["idea_draft_path"]).read_text(encoding="utf-8")
 
     payload = app.handlers.quest_events(
         quest_id,
@@ -345,6 +425,8 @@ def test_acp_artifact_update_exposes_flow_metadata(temp_home: Path) -> None:
     assert update["artifact"]["workspace_root"] == result["worktree_root"]
     assert update["artifact"]["artifact_path"]
     assert update["artifact"]["details"]["title"] == "Adapter route"
+    assert update["artifact"]["agent_id"] == "idea"
+    assert update["artifact"]["agent_instance_id"] == "run-idea-flow"
 
 
 def test_api_command_status_and_graph_append_assistant_messages(temp_home: Path) -> None:

@@ -27,6 +27,7 @@ import type {
   QuestArtifactListPayload,
   QuestRawEventListPayload,
   QuestDocument,
+  QuestAgentOrchestrationPayload,
   QuestSummary,
   SessionPayload,
   SystemUpdateStatus,
@@ -159,6 +160,17 @@ export const client = {
     }),
   connectorsAvailability: () => api<ConnectorAvailabilitySnapshot>('/api/connectors/availability'),
   session: (questId: string) => api<SessionPayload>(`/api/quests/${questId}/session`),
+  questAgents: (questId: string) =>
+    api<QuestAgentOrchestrationPayload>(`/api/quests/${questId}/agents`),
+  questAgentConfig: (questId: string, agentId: string) =>
+    api<{ ok: boolean; quest_id: string; agent_id: string; skill_markdown: string; is_quest_override: boolean; updated_at?: string | null }>(
+      `/api/quests/${questId}/agents/${encodeURIComponent(agentId)}/config`
+    ),
+  updateQuestAgentConfig: (questId: string, agentId: string, skillMarkdown: string) =>
+    api<{ ok: boolean; quest_id: string; agent_id: string; skill_markdown: string; is_quest_override: boolean; updated_at?: string | null }>(
+      `/api/quests/${questId}/agents/${encodeURIComponent(agentId)}/config`,
+      { method: 'PUT', body: JSON.stringify({ skill_markdown: skillMarkdown }) }
+    ),
   layout: (questId: string) =>
     api<{
       layout_json?: Record<string, unknown> | null

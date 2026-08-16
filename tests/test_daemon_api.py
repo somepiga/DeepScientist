@@ -4308,6 +4308,72 @@ def test_exec_bash_session_attach_websocket_supports_live_input_and_output(temp_
         app.bash_exec_service.shutdown()
 
 
+def test_daemon_assigns_stage_agent_and_records_cross_stage_handoff(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create(
+        "stage agent handoff quest",
+        startup_contract={
+            "workspace_mode": "copilot",
+            "decision_policy": "user_gated",
+            "launch_mode": "custom",
+            "custom_profile": "freeform",
+        },
+    )
+    quest_id = quest["quest_id"]
+    captured = []
+
+    class StageRunner:
+        binary = ""
+
+        def run(self, request):
+            captured.append(request)
+            app.quest_service.update_settings(quest_id, active_anchor="baseline")
+            history_root = ensure_dir(request.quest_root / ".ds" / "codex_history" / request.run_id)
+            run_root = ensure_dir(request.quest_root / ".ds" / "runs" / request.run_id)
+            return RunResult(
+                ok=True,
+                run_id=request.run_id,
+                model=request.model,
+                output_text="Scout completed the framing and selected the baseline stage.",
+                exit_code=0,
+                history_root=history_root,
+                run_root=run_root,
+                stderr_text="",
+            )
+
+    app.runners["codex"] = StageRunner()
+    app.quest_service.append_message(quest_id, role="user", content="Start the research.", source="web-react")
+    app._turn_state[quest_id] = {"running": True, "pending": False, "reason": "user_message"}
+
+    app._run_quest_turn(quest_id)
+
+    assert len(captured) == 1
+    request = captured[0]
+    assert request.skill_id == "scout"
+    assert request.agent_id == "scout"
+    assert request.agent_role == "scout"
+    assert request.agent_instance_id == request.run_id
+    assert request.team_mode == "stage_agents"
+    assert request.agent_context_scope["quest"] == ("papers", "knowledge", "decisions")
+
+    snapshot = app.quest_service.snapshot(quest_id)
+    assert snapshot["active_agent_id"] is None
+    assert snapshot["last_agent_id"] == "scout"
+    history = app.quest_service.history(quest_id)
+    assert history[-1]["agent_id"] == "scout"
+    assert history[-1]["agent_instance_id"] == request.run_id
+
+    payload = app.handlers.quest_agents(quest_id)
+    assert payload["ok"] is True
+    assert payload["mode"] == "stage_agents"
+    assert payload["selected_agent_id"] == "baseline"
+    assert payload["recent_handoffs"][-1]["from_agent_id"] == "scout"
+    assert payload["recent_handoffs"][-1]["to_agent_id"] == "baseline"
+    assert match_route("GET", f"/api/quests/{quest_id}/agents")[0] == "quest_agents"
+
+
 def test_chat_endpoint_schedules_background_runner(temp_home: Path) -> None:
     ensure_home_layout(temp_home)
     ConfigManager(temp_home).ensure_files()
@@ -4953,6 +5019,22 @@ def test_run_create_allows_explicit_none_reasoning_effort(temp_home: Path) -> No
 
     assert payload["ok"] is True
     assert captured["reasoning_effort"] is None
+
+
+def test_run_create_rejects_unknown_stage_agent(temp_home: Path) -> None:
+    ensure_home_layout(temp_home)
+    ConfigManager(temp_home).ensure_files()
+    app = DaemonApp(temp_home)
+    quest = app.quest_service.create("unknown stage agent quest")
+
+    response = app.handlers.run_create(
+        quest["quest_id"],
+        {"message": "Run once.", "skill_id": "not-a-stage"},
+    )
+
+    assert response[0] == 400
+    assert response[1]["ok"] is False
+    assert "Unknown agent id" in response[1]["message"]
 
 
 def test_connector_outbound_events_are_persisted_to_quest_stream(temp_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:

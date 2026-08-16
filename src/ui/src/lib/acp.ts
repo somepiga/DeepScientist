@@ -125,6 +125,31 @@ function normalizeMetadata(value: unknown) {
   return value as Record<string, unknown>
 }
 
+function firstNonEmptyString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value !== 'string') continue
+    const normalized = value.trim()
+    if (normalized) return normalized
+  }
+  return null
+}
+
+function normalizeAgentIdentity(
+  raw: Record<string, unknown>,
+  payload?: Record<string, unknown>,
+  metadata?: Record<string, unknown>
+) {
+  return {
+    agentId: firstNonEmptyString(payload?.agent_id, raw.agent_id, metadata?.agent_id),
+    agentRole: firstNonEmptyString(payload?.agent_role, raw.agent_role, metadata?.agent_role),
+    agentInstanceId: firstNonEmptyString(
+      payload?.agent_instance_id,
+      raw.agent_instance_id,
+      metadata?.agent_instance_id
+    ),
+  }
+}
+
 function normalizeMessageAttachments(value: unknown) {
   if (!Array.isArray(value)) return undefined
   const items = value.filter(
@@ -149,6 +174,7 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
     const args = stringifyToolPayload(data.args)
     const output = stringifyToolPayload(data.output)
     const metadata = normalizeMetadata(data.metadata)
+    const agentIdentity = normalizeAgentIdentity(raw, data, metadata)
     const mcpIdentity = deriveMcpIdentity(
       toolName,
       typeof data.mcp_server === 'string' ? data.mcp_server : undefined,
@@ -181,6 +207,7 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
       monitorPlanSeconds: monitorFields.monitorPlanSeconds,
       monitorStepIndex: monitorFields.monitorStepIndex,
       nextCheckAfterSeconds: monitorFields.nextCheckAfterSeconds,
+      ...agentIdentity,
       metadata: metadata
         ? {
             ...metadata,
@@ -200,6 +227,7 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
   if (kind === 'message') {
     const message = (raw.message ?? {}) as Record<string, unknown>
     const isReasoning = eventType === 'runner.reasoning'
+    const agentIdentity = normalizeAgentIdentity(raw, message)
     return {
       id: buildId('message', String(raw.event_id ?? raw.created_at ?? safeRandomUUID())),
       type: 'message',
@@ -230,6 +258,7 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
       readReason: message.read_reason ? String(message.read_reason) : null,
       readAt: message.read_at ? String(message.read_at) : null,
       attachments: normalizeMessageAttachments(message.attachments),
+      ...agentIdentity,
     }
   }
 
@@ -257,6 +286,7 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
 
   if (kind === 'artifact') {
     const artifact = (raw.artifact ?? {}) as Record<string, unknown>
+    const agentIdentity = normalizeAgentIdentity(raw, artifact)
     return {
       id: buildId('artifact', String(raw.event_id ?? raw.created_at ?? safeRandomUUID())),
       type: 'artifact',
@@ -296,15 +326,21 @@ function normalizeUpdate(raw: Record<string, unknown>): FeedItem {
       expectsReply: Boolean(artifact.expects_reply),
       replyMode: artifact.reply_mode ? String(artifact.reply_mode) : null,
       comment: extractArtifactComment(artifact),
+      ...agentIdentity,
     }
   }
 
+  const agentIdentity = normalizeAgentIdentity(raw, data)
   return {
     id: buildId('event', String(raw.event_id ?? raw.created_at ?? safeRandomUUID())),
     type: 'event',
     label: String(data.label ?? raw.event_type ?? 'event'),
     content: String(data.summary ?? data.run_id ?? raw.event_type ?? 'Event updated.'),
     createdAt: String(raw.created_at ?? ''),
+    runId: firstNonEmptyString(data.run_id, raw.run_id),
+    skillId: firstNonEmptyString(data.skill_id, raw.skill_id),
+    details: data,
+    ...agentIdentity,
   }
 }
 
