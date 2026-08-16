@@ -576,11 +576,33 @@ const formatDeltaLabel = (delta?: Record<string, unknown> | number | null) => {
   return null
 }
 
+const STATE_LABEL_ZH: Record<string, string> = {
+  main: '主线',
+  idea: '想法',
+  analysis: '分析',
+  paper: '论文',
+  validation: '验证',
+  exploration: '探索',
+  idle: '空闲',
+  working: '进行中',
+  waiting: '等待中',
+  waived: '已豁免',
+  confirmed: '已确认',
+  pending: '待定',
+  go: '通过',
+  'no-go': '否决',
+  conditional: '有条件',
+  proven: '已证实',
+  disproven: '已证伪',
+  unverified: '未验证',
+  not_applicable: '不适用',
+}
 const formatStateLabel = (value?: string | null) => {
   const normalized = String(value || '')
     .trim()
     .replace(/[_-]+/g, ' ')
   if (!normalized) return 'N/A'
+  if (STATE_LABEL_ZH[normalized]) return STATE_LABEL_ZH[normalized]
   return normalized.replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
@@ -876,14 +898,14 @@ const STAGE_ORDER: BranchStage[] = [
 ]
 
 const BRANCH_STAGE_LABELS: Record<BranchStage, string> = {
-  scout: 'Scout',
-  baseline: 'Baseline',
-  idea: 'Idea',
-  experiment: 'Experiment',
-  'analysis-campaign': 'Analysis',
-  write: 'Write',
-  finalize: 'Finalize',
-  completed: 'Completed',
+  scout: '调研',
+  baseline: '基线',
+  idea: '想法',
+  experiment: '实验',
+  'analysis-campaign': '分析',
+  write: '写作',
+  finalize: '收尾',
+  completed: '完成',
 }
 
 const formatStageBadge = (stageKey?: string | null) => {
@@ -4176,7 +4198,7 @@ function LabQuestGraphCanvasInner({
                   : node.branch_name
               : node.stage_title || node.branch_name
               : isBaselineRoot
-                ? node.status || null
+                ? formatStateLabel(node.status) || null
               : isPlaceholder
                 ? t('quest_graph_next_step_placeholder', undefined, 'Next step')
                 : node.idea_title || branchInsight?.stageLabel || node.idea_id || 'Branch'
@@ -5422,7 +5444,7 @@ function LabQuestGraphCanvasInner({
           'quest_process_step_baseline_desc',
           undefined,
           baselineGateState === 'waived'
-            ? 'Baseline was explicitly waived for this route.'
+            ? '该路线的基线已被显式豁免。'
             : 'Bind baseline, define metric objectives, and confirm the gate.'
         ),
       },

@@ -225,16 +225,16 @@ def initial_status(startup_contract: dict | None = None) -> str:
         else ""
     )
     if workspace_mode == "copilot":
-        return "# Status\n\nReady for your first instruction.\n"
+        return "# Status\n\n等待你的第一条指令。\n"
     if research_mode == "validation":
-        return "# Status\n\nConfirm the comparison target, then start disciplined validation.\n"
+        return "# Status\n\n先确认对比目标，再开始有纪律的验证。\n"
     if research_mode == "paper_track":
-        return "# Status\n\nFocus on claim hardening, analysis closure, and manuscript-facing evidence.\n"
-    return "# Status\n\nStart broad, test aggressively, and converge only after strong signals emerge.\n"
+        return "# Status\n\n聚焦论点夯实、分析收口与面向文稿的证据。\n"
+    return "# Status\n\n先广泛探索，大胆试错，只有在出现强信号后再收敛。\n"
 
 
 def initial_summary() -> str:
-    return "# Summary\n\nNo completed milestones yet.\n"
+    return "# Summary\n\n尚无已完成的里程碑。\n"
 
 
 def gitignore() -> str:

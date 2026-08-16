@@ -1321,8 +1321,19 @@ function isCanonicalStage(stage?: string | null) {
 
 function formatStageTitle(stage?: string | null) {
   const normalized = resolveStageKey(stage)
-  if (!normalized) return 'General'
-  return normalized
+  if (!normalized) return '常规'
+  const STAGE_TITLE_ZH: Record<string, string> = {
+    scout: '调研',
+    baseline: '基线',
+    idea: '想法',
+    decision: '决策',
+    'analysis-campaign': '分析',
+    write: '写作',
+    paper: '论文',
+    finalize: '收尾',
+    experiment: '实验',
+  }
+  return STAGE_TITLE_ZH[normalized] || normalized
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
@@ -1668,12 +1679,12 @@ function resolveBaselineRootLabel(summary: QuestSummary): string {
   const ref = summary.confirmed_baseline_ref
   const baselineId = String(ref?.baseline_id || summary.active_baseline_id || '').trim()
   if (baselineGate === 'confirmed') {
-    return baselineId ? `Baseline · ${baselineId}` : 'Baseline · confirmed'
+    return baselineId ? `基线 · ${baselineId}` : '基线 · 已确认'
   }
   if (baselineGate === 'waived') {
-    return 'Baseline (waived)'
+    return '基线（已豁免）'
   }
-  return 'Baseline (pending)'
+  return '基线（待定）'
 }
 
 function resolveBaselineRootSummary(summary: QuestSummary): string {
@@ -1683,17 +1694,17 @@ function resolveBaselineRootSummary(summary: QuestSummary): string {
     const variantId = String(ref?.variant_id || summary.active_baseline_variant_id || '').trim()
     const relPath = resolveConfirmedBaselineRelPath(summary)
     if (variantId && relPath) {
-      return `Confirmed variant ${variantId} at ${relPath}.`
+      return `已确认变体 ${variantId}，位于 ${relPath}。`
     }
     if (relPath) {
-      return `Confirmed baseline root at ${relPath}.`
+      return `已确认基线根目录位于 ${relPath}。`
     }
-    return 'Baseline gate confirmed.'
+    return '基线门槛已确认。'
   }
   if (baselineGate === 'waived') {
-    return 'Baseline gate was explicitly waived. Downstream stages may proceed with caveats.'
+    return '基线门槛已被显式豁免。下游阶段可在附带注意事项的情况下继续。'
   }
-  return 'Attach/import/reproduce first, then call artifact.confirm_baseline(...) or artifact.waive_baseline(...).'
+  return '请先附加 / 导入 / 复现，然后调用 artifact.confirm_baseline(...) 或 artifact.waive_baseline(...)。'
 }
 
 function resolveBaselineScopePaths(summary: QuestSummary): string[] {
@@ -1790,7 +1801,7 @@ function buildLocalBranchGraphNodes(
     metrics_json: baselineSnapshot.metrics,
     status: baselineGate,
     stage_key: 'baseline',
-    stage_title: 'Baseline',
+    stage_title: '基线',
     event_count: 0,
     baseline_state: baselineGate,
     runtime_state: baselineGate === 'pending' ? 'waiting' : 'idle',
@@ -1860,7 +1871,7 @@ function buildLocalBranchGraphNodes(
     compare_head: null,
     node_summary: {
       last_event_type: 'next_stage',
-      last_reply: `Next durable stage after ${formatStageTitle(highestStage)}.`,
+      last_reply: `下一持久阶段位于 ${formatStageTitle(highestStage)} 之后。`,
     },
   })
   return nodes

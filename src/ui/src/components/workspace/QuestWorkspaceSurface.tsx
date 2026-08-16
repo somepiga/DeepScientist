@@ -1250,7 +1250,7 @@ function QuestCanvasSurface({
           memory_cards: 0,
         },
         summary: {
-          status_line: 'Restoring quest state...',
+          status_line: '正在恢复任务状态…',
         },
       },
     [questId, snapshot]
