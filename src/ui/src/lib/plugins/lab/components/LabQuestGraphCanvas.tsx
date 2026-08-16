@@ -1767,7 +1767,9 @@ const QuestGraphNode = ({ data }: NodeProps) => {
     nodeData.metricTone === 'good' ||
     isPositiveDeltaLabel(nodeData.deltaLabel) ||
     ['good', 'support', 'go'].includes(String(nodeData.verdict || '').toLowerCase())
-  const compactSummary =
+  const stripLegacyCreated = (s?: string | null) =>
+    s ? s.replace(/^Quest created in (?:validation|paper-track|exploration) mode\.\s*/i, '') : null
+  const rawSummary =
     nodeData.ideaTitle ||
     nodeData.foundationLabel ||
     nodeData.nowDoing ||
@@ -1776,6 +1778,7 @@ const QuestGraphNode = ({ data }: NodeProps) => {
     nodeData.evidenceStatus ||
     nodeData.status ||
     null
+  const compactSummary = stripLegacyCreated(rawSummary)
   const compactMeta = [
     nodeData.branchNo ? `#${nodeData.branchNo}` : null,
     isMetricMode ? nodeData.metricDeltaLabel : nodeData.deltaLabel,

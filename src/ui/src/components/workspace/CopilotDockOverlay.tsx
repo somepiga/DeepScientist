@@ -11,7 +11,6 @@ import type {
   CopilotSuggestionPayload,
 } from '@/lib/plugins/ai-manus/view-types'
 import type { ChatSurface } from '@/lib/types/chat-events'
-import { Noise } from '@/components/react-bits'
 import RotatingText from '@/components/RotatingText'
 import { cn } from '@/lib/utils'
 import { COPILOT_FILES_ENABLED } from '@/lib/feature-flags'
@@ -950,7 +949,6 @@ export function CopilotDockOverlay({
       >
         <div className="relative h-full w-full overflow-hidden rounded-[18px]">
           <div className="ds-copilot-glass">
-            <Noise size={260} className="ds-copilot-noise opacity-[0.06]" />
 
             <div className="ds-copilot-glass-inner">
               <div className="ds-copilot-header" onPointerDown={handleHeaderDrag}>

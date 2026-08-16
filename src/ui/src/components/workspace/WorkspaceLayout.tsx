@@ -61,7 +61,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/components/ui/toast'
 import { ConfirmModal } from '@/components/ui/modal'
-import { FadeContent, Noise, SpotlightCard } from '@/components/react-bits'
+import { FadeContent, SpotlightCard } from '@/components/react-bits'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -2716,26 +2716,6 @@ export function WorkspaceLayout({
         '--ws-scrollbar-fade-ms': `${scrollbarFadeMs}ms`,
       } as React.CSSProperties}
     >
-      {/* Atmosphere background shared with the landing page */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div
-          className={cn(
-            'absolute -top-40 -left-40 h-[560px] w-[560px] rounded-full blur-3xl animate-blob',
-            'bg-[radial-gradient(circle_at_center,rgba(143,163,184,0.16),transparent_72%)]',
-            'dark:bg-[radial-gradient(circle_at_center,rgba(143,163,184,0.16),transparent_72%)]'
-          )}
-        />
-        <div
-          className={cn(
-            'absolute top-10 -right-52 h-[640px] w-[640px] rounded-full blur-3xl animate-blob',
-            'bg-[radial-gradient(circle_at_center,rgba(47,52,55,0.08),transparent_72%)]',
-            'dark:bg-[radial-gradient(circle_at_center,rgba(47,52,55,0.10),transparent_72%)]'
-          )}
-          style={{ animationDelay: '1.5s' }}
-        />
-        <Noise size={260} className="opacity-[0.04] dark:opacity-[0.05]" />
-      </div>
-
       <div className={cn('workspace-navbar-shell', navbarCollapsed && 'is-collapsed')}>
         <Navbar
           projectId={projectId}
