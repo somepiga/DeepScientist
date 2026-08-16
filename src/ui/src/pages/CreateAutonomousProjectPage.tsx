@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { CreateProjectDialog } from '@/components/projects/CreateProjectDialog'
 import { client } from '@/lib/api'
+import { buildAppPath } from '@/lib/navigation'
 import type { QuestMessageAttachmentDraft } from '@/lib/hooks/useQuestMessageAttachments'
 
 function fileToBase64(file: File): Promise<string> {
@@ -86,7 +87,7 @@ export function CreateAutonomousProjectPage() {
           })
           if (!upload.ok) throw new Error(`Failed to upload ${attachment.name}.`)
         }
-        window.location.assign(`/projects/${result.snapshot.quest_id}`)
+        window.location.assign(buildAppPath(`/projects/${result.snapshot.quest_id}`))
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'Failed to create quest.')
       } finally {

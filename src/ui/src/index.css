@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400..700&family=VT323&display=swap');
 @import 'katex/dist/katex.min.css';
 @import 'react-diff-view/style/index.css';
 @import './styles/animations.css';
@@ -174,7 +175,7 @@
     --soft-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     --soft-shadow-floating: 0 16px 48px rgba(0, 0, 0, 0.5);
     --soft-shadow-glow: 0 0 30px rgba(47, 52, 55, 0.22);
-    --ds-app-bg: #16181d;
+    --ds-app-bg: #161616;
     --ds-brand: #e7dfd2;
     --ds-brand-hover: #f4ecdf;
     --ds-brand-subtle: rgba(255, 255, 255, 0.08);
@@ -185,11 +186,11 @@
     --ds-cool-glow: rgba(143, 163, 184, 0.14);
     --ds-shadow-md: 0 18px 50px -38px rgba(0, 0, 0, 0.48);
     --ds-shadow-float: 0 28px 90px -52px rgba(0, 0, 0, 0.56);
-    --text-primary: #f0e8dd;
-    --text-secondary: #c8c0b5;
-    --text-tertiary: #a7a098;
-    --text-quaternary: #8b847a;
-    --accent-primary: #d2b58a;
+    --text-primary: #fafafa;
+    --text-secondary: #c7c7c7;
+    --text-tertiary: #9a9a9a;
+    --text-quaternary: #6e6e6e;
+    --accent-primary: #d4d4d4;
     --background-main: rgba(24, 26, 30, 0.96);
     --background-gray-subtle: rgba(255, 255, 255, 0.08);
     --status-error: #e18c85;
@@ -197,11 +198,11 @@
     --shadow-light: 220 10% 18%;
     --ds-cardnav-bg: rgba(24, 27, 32, 0.92);
     --ds-cardnav-border: rgba(255, 255, 255, 0.12);
-    --ds-cardnav-text: #f0e8dd;
+    --ds-cardnav-text: #fafafa;
     --ds-cardnav-card-1: rgba(56, 63, 72, 0.92);
     --ds-cardnav-card-2: rgba(66, 55, 50, 0.92);
     --ds-cardnav-card-3: rgba(48, 46, 55, 0.92);
-    --ds-cardnav-cta-bg: #f0e8dd;
+    --ds-cardnav-cta-bg: #fafafa;
     --ds-cardnav-cta-text: #1d1f23;
   }
 
@@ -236,9 +237,9 @@
     z-index: -2;
     background:
       radial-gradient(60% 42% at 10% 0%, var(--ds-cool-glow), transparent 62%),
-      radial-gradient(46% 38% at 90% 10%, rgba(47, 52, 55, 0.10), transparent 64%),
+      radial-gradient(46% 38% at 90% 10%, rgba(120, 120, 135, 0.06), transparent 64%),
       radial-gradient(56% 36% at 52% 100%, var(--ds-warm-glow), transparent 68%),
-      linear-gradient(180deg, rgba(252, 249, 244, 0.98), rgba(246, 241, 234, 0.98));
+      linear-gradient(180deg, rgba(244, 244, 245, 0.98), rgba(237, 237, 239, 0.98));
     background-repeat: no-repeat;
     background-size: cover;
   }
@@ -254,10 +255,10 @@
 
   .dark body::before {
     background:
-      radial-gradient(60% 42% at 10% 0%, rgba(92, 112, 124, 0.20), transparent 62%),
-      radial-gradient(46% 38% at 90% 10%, rgba(158, 120, 82, 0.12), transparent 64%),
-      radial-gradient(56% 36% at 52% 100%, rgba(183, 165, 154, 0.10), transparent 68%),
-      linear-gradient(180deg, rgba(16, 18, 22, 0.98), rgba(11, 13, 17, 0.99));
+      radial-gradient(60% 42% at 10% 0%, rgba(120, 130, 140, 0.12), transparent 62%),
+      radial-gradient(46% 38% at 90% 10%, rgba(120, 130, 140, 0.08), transparent 64%),
+      radial-gradient(56% 36% at 52% 100%, rgba(255, 255, 255, 0.04), transparent 68%),
+      linear-gradient(180deg, rgba(14, 14, 16, 0.98), rgba(10, 10, 12, 0.99));
     background-repeat: no-repeat;
     background-size: cover;
   }
@@ -269,6 +270,264 @@
     background-repeat: repeat;
   }
 }
+
+  /* =====================================================================
+     PIXEL RETHEME OVERRIDES
+     Added on top of the base design tokens. Placed unlayered so it
+     wins over the layered @layer base rules above.
+     ===================================================================== */
+  :root {
+    --font-mono: 'VT323', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-pixel: 'Press Start 2P', ui-monospace, monospace;
+    --font-display: 'Pixelify Sans', 'Press Start 2P', sans-serif;
+
+    /* ---- retro pixel palette (light) ---- */
+    --brand: #1a1a1a;
+    --brand-foreground: #ffffff;
+    --brand-subtle: rgba(26, 26, 26, 0.08);
+    --brand-hover: #000000;
+    --bg-app: #f4f4f5;
+    --background: 40 14% 91%;
+    --foreground: 240 10% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 12%;
+    --primary: 240 6% 10%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 92%;
+    --secondary-foreground: 240 10% 12%;
+    --muted: 240 5% 92%;
+    --muted-foreground: 240 5% 40%;
+    --accent: 240 5% 92%;
+    --accent-foreground: 240 10% 12%;
+    --destructive: 348 50% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 54% 49%;
+    --success-foreground: 0 0% 100%;
+    --warning: 44 100% 60%;
+    --warning-foreground: 240 10% 12%;
+    --info: 205 100% 62%;
+    --info-foreground: 0 0% 100%;
+    --border: 240 10% 14%;
+    --input: 240 10% 14%;
+    --ring: 240 6% 10%;
+    --radius: 0px;
+
+    /* ---- pixel system ---- */
+    --pixel-border-color: 240 10% 14%;
+    --pixel-border-width: 3px;
+    --pixel-shadow-color: 240 10% 14%;
+    --pixel-shadow-size: 4px;
+    --pixel-grid: rgba(28, 28, 34, 0.05);
+
+    /* ---- soft tokens -> hard pixel shadows ---- */
+    --soft-bg-base-hsl: 240 5% 96%;
+    --soft-bg-surface-hsl: 0 0% 100%;
+    --soft-bg-elevated-hsl: 0 0% 100%;
+    --soft-bg-inset-hsl: 240 5% 92%;
+    --soft-text-primary-hsl: 240 10% 12%;
+    --soft-text-secondary-hsl: 240 5% 40%;
+    --soft-text-tertiary-hsl: 240 5% 55%;
+    --soft-accent-hsl: 240 6% 10%;
+    --soft-accent-light-hsl: 240 6% 20%;
+    --soft-border-hsl: 240 10% 14%;
+    --soft-bg-base: hsl(var(--soft-bg-base-hsl));
+    --soft-bg-surface: hsl(var(--soft-bg-surface-hsl));
+    --soft-bg-elevated: hsl(var(--soft-bg-elevated-hsl));
+    --soft-bg-inset: hsl(var(--soft-bg-inset-hsl));
+    --soft-text-primary: hsl(var(--soft-text-primary-hsl));
+    --soft-text-secondary: hsl(var(--soft-text-secondary-hsl));
+    --soft-text-tertiary: hsl(var(--soft-text-tertiary-hsl));
+    --soft-accent: hsl(var(--soft-accent-hsl));
+    --soft-accent-light: hsl(var(--soft-accent-light-hsl));
+    --soft-accent-bg: hsl(var(--soft-accent-hsl) / 0.12);
+    --soft-success: #38b764;
+    --soft-warning: #e0922e;
+    --soft-danger: #b13e53;
+    --soft-info: #41a6f6;
+    --soft-border: hsl(var(--soft-border-hsl));
+    --soft-shadow-light: transparent;
+    --soft-shadow-dark: rgba(20, 22, 30, 0.18);
+    --soft-shadow-raised: 4px 4px 0 0 hsl(var(--pixel-shadow-color));
+    --soft-shadow-raised-hover: 6px 6px 0 0 hsl(var(--pixel-shadow-color));
+    --soft-shadow-pressed: 2px 2px 0 0 hsl(var(--pixel-shadow-color));
+    --soft-shadow-inset: 0 0 0 0 transparent;
+    --soft-shadow-card: 4px 4px 0 0 hsl(var(--pixel-shadow-color));
+    --soft-shadow-floating: 8px 8px 0 0 hsl(var(--pixel-shadow-color));
+
+    /* ---- ds panels -> opaque, blocky ---- */
+    --ds-app-bg: #f4f4f5;
+    --ds-brand: #1a1a1a;
+    --ds-brand-hover: #000000;
+    --ds-brand-subtle: rgba(26, 26, 26, 0.08);
+    --ds-panel: #ffffff;
+    --ds-panel-elevated: #ffffff;
+    --ds-panel-soft: #f4f4f5;
+    --ds-warm-glow: rgba(120, 120, 135, 0.10);
+    --ds-cool-glow: rgba(120, 120, 135, 0.10);
+    --ds-shadow-md: 4px 4px 0 0 hsl(var(--pixel-shadow-color));
+    --ds-shadow-float: 8px 8px 0 0 hsl(var(--pixel-shadow-color));
+    --text-primary: #1c1c22;
+    --text-secondary: #5d5a55;
+    --text-tertiary: #7e8b97;
+    --text-quaternary: #a49b90;
+    --accent-primary: #1a1a1a;
+    --background-main: #ffffff;
+    --background-gray-subtle: rgba(28, 28, 34, 0.05);
+    --status-error: #b13e53;
+    --shadow-dark: 240 10% 14%;
+    --shadow-light: 0 0% 100%;
+    --ds-cardnav-bg: #ffffff;
+    --ds-cardnav-border: #1c1c22;
+    --ds-cardnav-text: #1c1c22;
+    --ds-cardnav-card-1: #f4f4f5;
+    --ds-cardnav-card-2: #ececef;
+    --ds-cardnav-card-3: #f0f0f2;
+    --ds-cardnav-cta-bg: #1a1a1a;
+    --ds-cardnav-cta-text: #ffffff;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --brand: #e5e5e5;
+    --brand-foreground: #0e0e0e;
+    --brand-subtle: rgba(229, 229, 229, 0.12);
+    --brand-hover: #ffffff;
+    --bg-app: #0e0e0e;
+    --background: 230 24% 11%;
+    --foreground: 210 20% 96%;
+    --card: 230 22% 16%;
+    --card-foreground: 210 20% 96%;
+    --popover: 230 22% 15%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 0 0% 95%;
+    --primary-foreground: 0 0% 6%;
+    --secondary: 230 16% 22%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 230 16% 20%;
+    --muted-foreground: 215 10% 70%;
+    --accent: 230 16% 22%;
+    --accent-foreground: 210 20% 96%;
+    --destructive: 348 60% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 54% 55%;
+    --success-foreground: 230 30% 6%;
+    --warning: 44 100% 66%;
+    --warning-foreground: 230 30% 6%;
+    --info: 190 100% 64%;
+    --info-foreground: 230 30% 6%;
+    --border: 220 16% 60%;
+    --input: 220 16% 60%;
+    --ring: 0 0% 85%;
+    --radius: 0px;
+
+    --pixel-border-color: 0 0% 24%;
+    --pixel-border-width: 3px;
+    --pixel-shadow-color: 0 0% 0%;
+    --pixel-shadow-size: 4px;
+    --pixel-grid: rgba(255, 255, 255, 0.045);
+
+    --soft-bg-base-hsl: var(--background);
+    --soft-bg-surface-hsl: 230 22% 16%;
+    --soft-bg-elevated-hsl: 230 20% 20%;
+    --soft-bg-inset-hsl: 230 24% 9%;
+    --soft-text-primary-hsl: var(--foreground);
+    --soft-text-secondary-hsl: 215 10% 72%;
+    --soft-text-tertiary-hsl: 215 8% 56%;
+    --soft-accent-hsl: 0 0% 85%;
+    --soft-accent-light-hsl: 0 0% 92%;
+    --soft-border-hsl: var(--border);
+    --soft-bg-base: hsl(var(--soft-bg-base-hsl));
+    --soft-bg-surface: hsl(var(--soft-bg-surface-hsl));
+    --soft-bg-elevated: hsl(var(--soft-bg-elevated-hsl));
+    --soft-bg-inset: hsl(var(--soft-bg-inset-hsl));
+    --soft-text-primary: hsl(var(--soft-text-primary-hsl));
+    --soft-text-secondary: hsl(var(--soft-text-secondary-hsl));
+    --soft-text-tertiary: hsl(var(--soft-text-tertiary-hsl));
+    --soft-accent: hsl(var(--soft-accent-hsl));
+    --soft-accent-light: hsl(var(--soft-accent-light-hsl));
+    --soft-accent-bg: hsl(var(--soft-accent-hsl) / 0.18);
+    --soft-success: #38b764;
+    --soft-warning: #e0922e;
+    --soft-danger: #ef4444;
+    --soft-info: #41a6f6;
+    --soft-border: hsl(var(--soft-border-hsl));
+    --soft-shadow-light: rgba(255, 255, 255, 0.02);
+    --soft-shadow-dark: rgba(0, 0, 0, 0.5);
+    --soft-shadow-raised: 4px 4px 0 0 #0d0e1a;
+    --soft-shadow-raised-hover: 6px 6px 0 0 #0d0e1a;
+    --soft-shadow-pressed: 2px 2px 0 0 #0d0e1a;
+    --soft-shadow-inset: 0 0 0 0 transparent;
+    --soft-shadow-card: 4px 4px 0 0 #0d0e1a;
+    --soft-shadow-floating: 8px 8px 0 0 #0d0e1a;
+
+    --ds-app-bg: #0e0e0e;
+    --ds-brand: #e5e5e5;
+    --ds-brand-hover: #ffffff;
+    --ds-brand-subtle: rgba(229, 229, 229, 0.12);
+    --ds-panel: #161616;
+    --ds-panel-elevated: #1c1c1c;
+    --ds-panel-soft: #121212;
+    --ds-warm-glow: rgba(255, 255, 255, 0.05);
+    --ds-cool-glow: rgba(255, 255, 255, 0.05);
+    --ds-shadow-md: 4px 4px 0 0 #0d0e1a;
+    --ds-shadow-float: 8px 8px 0 0 #0d0e1a;
+    --text-primary: #fafafa;
+    --text-secondary: #c7c7c7;
+    --text-tertiary: #9a9a9a;
+    --text-quaternary: #6e6e6e;
+    --accent-primary: #d4d4d4;
+    --background-main: #161616;
+    --background-gray-subtle: rgba(255, 255, 255, 0.08);
+    --status-error: #e18c85;
+    --shadow-dark: 230 30% 4%;
+    --shadow-light: 220 10% 18%;
+    --ds-cardnav-bg: #1a1a1a;
+    --ds-cardnav-border: rgba(255, 255, 255, 0.18);
+    --ds-cardnav-text: #fafafa;
+    --ds-cardnav-card-1: #222222;
+    --ds-cardnav-card-2: #2a2a2a;
+    --ds-cardnav-card-3: #1f1f1f;
+    --ds-cardnav-cta-bg: #fafafa;
+    --ds-cardnav-cta-text: #0d0e1a;
+  }
+
+  /* ---- global pixel enforcement: kill rounded + glass ---- */
+  *, *::before, *::after {
+    border-radius: 0 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: hsl(var(--pixel-border-color));
+  }
+
+  /* remove the old ambient glows so the pixel grid shows */
+  body::before,
+  body::after,
+  .dark body::before,
+  .dark body::after {
+    background: none !important;
+    content: none !important;
+  }
+
+  /* ---- pixel grid background ---- */
+  body {
+    background-color: var(--bg-app);
+    background-image:
+      linear-gradient(to right, var(--pixel-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--pixel-grid) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  /* ---- pixel display typography ---- */
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+  }
+
+  .font-pixel {
+    font-family: var(--font-pixel);
+  }
 
 @layer components {
   .shimmer-container {
@@ -499,7 +758,7 @@
     inset: 0;
     background:
       radial-gradient(280px circle at 20% -12%, rgba(47, 52, 55, 0.05), transparent 58%),
-      radial-gradient(240px circle at 112% 112%, rgba(183, 165, 154, 0.10), transparent 60%);
+      radial-gradient(240px circle at 112% 112%, rgba(120, 120, 135, 0.06), transparent 60%);
     pointer-events: none;
   }
 
@@ -848,8 +1107,8 @@
   --bg-panel-right: rgba(34, 37, 41, 0.9);
   --text-main: #1f2937;
   --text-muted: #6f6b66;
-  --text-on-dark: #f2eee8;
-  --text-muted-on-dark: rgba(242, 238, 232, 0.72);
+  --text-on-dark: #fafafa;
+  --text-muted-on-dark: rgba(240, 240, 242, 0.72);
   --border-light: rgba(47, 52, 55, 0.08);
   --border-dark: rgba(255, 255, 255, 0.08);
   --workspace-navbar-collapsed-height: 26px;
@@ -1431,9 +1690,9 @@
   pointer-events: none;
   opacity: 0.22;
   background:
-    radial-gradient(circle at 20% 18%, rgba(215, 198, 174, 0.28), transparent 48%),
-    radial-gradient(circle at 82% 20%, rgba(159, 177, 194, 0.22), transparent 52%),
-    radial-gradient(circle at 40% 80%, rgba(199, 173, 150, 0.18), transparent 56%);
+    radial-gradient(circle at 20% 18%, rgba(120, 120, 135, 0.12), transparent 48%),
+    radial-gradient(circle at 82% 20%, rgba(159, 177, 194, 0.16), transparent 52%),
+    radial-gradient(circle at 40% 80%, rgba(120, 120, 135, 0.08), transparent 56%);
 }
 
 .ds-copilot-glass-inner {
@@ -2807,4 +3066,289 @@
     transform: scale(1);
     box-shadow: 0 0 0 0 rgba(45, 42, 38, 0);
   }
+}
+
+/* ===========================================================================
+   PIXEL RETHEME — GLOBAL SURFACES
+   Appended last so it wins over the unlayered .navbar / .panel /
+   .chrome-tab / .ds-copilot-glass rules defined earlier in this file.
+   Only background / border / box-shadow / clip-path change; layout,
+   position, flex and sizing are untouched.
+   =========================================================================== */
+
+/* ---- hard pixel shadows on every common elevation utility ---- */
+.shadow-sm,
+.shadow-md,
+.shadow-lg,
+.shadow-xl,
+.shadow-2xl,
+.shadow-float,
+.shadow-floating,
+.shadow-soft-raised,
+.shadow-soft-raised-hover,
+.shadow-soft-floating {
+  box-shadow: 4px 4px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+
+/* ---- workspace chrome: navbar / panels ---- */
+.navbar {
+  background: #ffffff !important;
+  clip-path: none !important;
+  border-bottom: 3px solid hsl(var(--pixel-border-color)) !important;
+}
+#workspace-root.navbar-collapsed .navbar {
+  clip-path: none !important;
+  background: #ffffff !important;
+  border: 3px solid hsl(var(--pixel-border-color)) !important;
+}
+.panel {
+  border-radius: 0 !important;
+}
+.left-panel,
+.right-panel {
+  background: #1a1a1a !important;
+  border: 2px solid var(--ds-brand) !important;
+  box-shadow: 4px 4px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+.left-panel .panel-header,
+.center-panel .panel-header {
+  background: #161616 !important;
+  border-bottom: 2px solid var(--ds-brand) !important;
+  color: #fafafa !important;
+}
+.center-panel {
+  background: #f4f4f5 !important;
+  border: 2px solid hsl(var(--pixel-border-color)) !important;
+  box-shadow: 4px 4px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+
+/* ---- editor chrome tabs ---- */
+.chrome-tab {
+  background: #f4f4f5 !important;
+  border: 2px solid hsl(var(--pixel-border-color)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.chrome-tab.is-active {
+  background: hsl(var(--primary)) !important;
+  border-color: hsl(var(--pixel-shadow-color)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  box-shadow: 3px 3px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+.chrome-tab-close:hover {
+  background: hsl(var(--pixel-border-color)) !important;
+  color: #fff !important;
+}
+
+/* ---- copilot glass / chat dock ---- */
+.ds-copilot-glass {
+  background: #ffffff !important;
+  border: 3px solid hsl(var(--pixel-border-color)) !important;
+  border-radius: 0 !important;
+  box-shadow: 6px 6px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+.ds-copilot-glass::before {
+  display: none !important;
+}
+.ds-copilot-glass-inner {
+  background: #f4f4f5 !important;
+  border-radius: 0 !important;
+}
+.ds-copilot-icon-btn,
+.ds-copilot-fix-btn {
+  background: #ffffff !important;
+  border: 2px solid hsl(var(--pixel-border-color)) !important;
+  border-radius: 0 !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: 2px 2px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+.ds-copilot-icon-btn:hover,
+.ds-copilot-fix-btn:hover,
+.ds-copilot-icon-btn.is-active,
+.ds-copilot-fix-btn.is-active {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+.ds-copilot-snapzone {
+  border-radius: 0 !important;
+  border: 2px dashed var(--ds-brand) !important;
+}
+
+/* ---- landing / home / workflow cards ---- */
+.morandi-surface,
+.morandi-panel,
+.home-card,
+.workflow-card,
+.tool-effect-float {
+  background: #ffffff !important;
+  border: 3px solid hsl(var(--pixel-border-color)) !important;
+  border-radius: 0 !important;
+  box-shadow: 4px 4px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+.morandi-panel::before,
+.home-card::before,
+.tool-effect-float::after,
+.ds-spotlight::before {
+  display: none !important;
+}
+.home-card:hover,
+.workflow-card:hover {
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 6px 6px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+
+/* ---- square scrollbar thumbs ---- */
+.feed-scrollbar,
+.modal-scrollbar,
+.benchstore-scrollbar,
+.ds-stage-safe .canvas-content,
+.chrome-tabstrip {
+  scrollbar-width: thin;
+}
+.feed-scrollbar::-webkit-scrollbar-thumb,
+.modal-scrollbar::-webkit-scrollbar-thumb,
+.benchstore-scrollbar::-webkit-scrollbar-thumb,
+.ds-stage-safe .canvas-content ::-webkit-scrollbar-thumb,
+.chrome-tabstrip::-webkit-scrollbar-thumb {
+  border-radius: 0 !important;
+  background: hsl(var(--pixel-border-color)) !important;
+}
+.feed-scrollbar::-webkit-scrollbar-thumb:hover,
+.modal-scrollbar::-webkit-scrollbar-thumb:hover,
+.benchstore-scrollbar::-webkit-scrollbar-thumb:hover,
+.ds-stage-safe .canvas-content ::-webkit-scrollbar-thumb:hover,
+.chrome-tabstrip::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary)) !important;
+}
+
+/* ---- markdown code blocks ---- */
+.markdown-body pre {
+  background: #1c1c22 !important;
+  border: 2px solid hsl(var(--pixel-border-color)) !important;
+  border-radius: 0 !important;
+}
+.markdown-body :not(pre) > code {
+  background: #f4f4f5 !important;
+  border: 1px solid hsl(var(--pixel-border-color)) !important;
+  border-radius: 0 !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* ---- DARK theme variants for the surfaces above ---- */
+.dark .navbar,
+.dark #workspace-root.navbar-collapsed .navbar {
+  background: #1a1a1a !important;
+  border-bottom: 3px solid var(--ds-brand) !important;
+  border-color: var(--ds-brand) !important;
+}
+.dark .left-panel,
+.dark .right-panel {
+  background: #161616 !important;
+  border: 2px solid var(--ds-brand) !important;
+}
+.dark .center-panel {
+  background: #161616 !important;
+  border: 2px solid var(--ds-brand) !important;
+}
+.dark .left-panel .panel-header,
+.dark .center-panel .panel-header {
+  background: #0d0e1a !important;
+  border-bottom: 2px solid var(--ds-brand) !important;
+}
+.dark .chrome-tab {
+  background: #161616 !important;
+  border: 2px solid var(--ds-brand) !important;
+}
+.dark .chrome-tab.is-active {
+  background: var(--ds-brand) !important;
+  color: #0d0e1a !important;
+  border-color: #0d0e1a !important;
+}
+.dark .ds-copilot-glass {
+  background: #1a1a1a !important;
+  border: 3px solid var(--ds-brand) !important;
+}
+.dark .ds-copilot-glass-inner {
+  background: #161616 !important;
+}
+.dark .ds-copilot-icon-btn,
+.dark .ds-copilot-fix-btn {
+  background: #1a1a1a !important;
+  border: 2px solid var(--ds-brand) !important;
+  color: #fafafa !important;
+}
+.dark .ds-copilot-icon-btn:hover,
+.dark .ds-copilot-fix-btn:hover,
+.dark .ds-copilot-icon-btn.is-active,
+.dark .ds-copilot-fix-btn.is-active {
+  background: var(--ds-brand) !important;
+  color: #0d0e1a !important;
+}
+.dark .morandi-surface,
+.dark .morandi-panel,
+.dark .home-card,
+.dark .workflow-card,
+.dark .tool-effect-float {
+  background: #1a1a1a !important;
+  border: 3px solid var(--ds-brand) !important;
+}
+.dark .markdown-body pre {
+  background: #0d0e1a !important;
+  border-color: var(--ds-brand) !important;
+}
+.dark .markdown-body :not(pre) > code {
+  background: #161616 !important;
+}
+
+/* ---- CATCH-ALL: retro-fit hard pixel shadows onto every bespoke
+   card/button that uses an arbitrary Tailwind shadow utility
+   (e.g. shadow-[0_1px_2px_rgba(...)], the landing/agents cards). ---- */
+[class*="shadow-"]:not([class*="shadow-none"]):not([class*="drop-shadow"]) {
+  box-shadow: 4px 4px 0 0 hsl(var(--pixel-shadow-color)) !important;
+}
+
+/* ---- CATCH-ALL: force pixel display font on every interactive control
+   (covers bespoke buttons that don't use the rethemed <Button>). ---- */
+button,
+[role="button"],
+a[class*="btn"],
+a[class*="button"] {
+  font-family: var(--font-display) !important;
+}
+
+/* ---- BORDERLESS WORKSPACE SHELL ----
+   Remove the solid borders + hard offset shadows that frame the screen
+   (navbar / side panels / panel headers / chrome tabs / copilot glass).
+   Placed AFTER the catch-all shadow rule above so it wins specificity.
+   Inner components (cards, buttons, badges, landing cards) keep their
+   pixel styling. Backgrounds are untouched so panels stay separated by
+   colour contrast. ---- */
+.navbar,
+#workspace-root.navbar-collapsed .navbar,
+.left-panel,
+.right-panel,
+.center-panel,
+.left-panel .panel-header,
+.center-panel .panel-header,
+.chrome-tab,
+.chrome-tab.is-active,
+.ds-copilot-glass,
+.ds-copilot-icon-btn,
+.ds-copilot-fix-btn {
+  border: none !important;
+  box-shadow: none !important;
+}
+.dark .navbar,
+.dark #workspace-root.navbar-collapsed .navbar,
+.dark .left-panel,
+.dark .right-panel,
+.dark .center-panel,
+.dark .left-panel .panel-header,
+.dark .center-panel .panel-header,
+.dark .chrome-tab,
+.dark .chrome-tab.is-active,
+.dark .ds-copilot-glass,
+.dark .ds-copilot-icon-btn,
+.dark .ds-copilot-fix-btn {
+  border: none !important;
+  box-shadow: none !important;
 }

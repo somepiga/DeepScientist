@@ -42,6 +42,7 @@ import {
   replaceCachedSessionEvents,
 } from '@/lib/stores/chat-event-cache'
 import { getApiBaseUrl } from '@/lib/api/client'
+import { buildAppPath } from '@/lib/navigation'
 import { refreshCliServerStatus } from '@/lib/api/cli'
 import {
   runCopilotFixWithAi,
@@ -5188,7 +5189,7 @@ export function AiManusChatView({
     (targetId: string) => {
       if (!projectId || typeof window === 'undefined') return ''
       const url = new URL(window.location.origin)
-      url.pathname = `/projects/${projectId}`
+      url.pathname = buildAppPath(`/projects/${projectId}`)
       url.searchParams.set('copilotSession', targetId)
       return url.toString()
     },

@@ -3517,7 +3517,7 @@ export function CreateProjectDialog({
           <div className="min-w-0 max-w-full px-0 py-1 sm:px-0 sm:py-1 lg:feed-scrollbar lg:modal-scrollbar lg:min-h-0 lg:flex-1 lg:overflow-y-scroll lg:overscroll-contain lg:p-4">
             <div className="flex min-h-full min-w-0 max-w-full flex-col gap-4">
               {manualOverride ? (
-                <div className="rounded-lg border border-[#c4a066]/50 bg-[#c4a066]/10 px-3 py-2 text-xs text-[rgba(56,49,35,0.92)]">
+                <div className="rounded-lg border border-[#8f8f8f]/50 bg-[#8f8f8f]/10 px-3 py-2 text-xs text-[rgba(56,49,35,0.92)]">
                   <div className="flex items-center gap-2 font-semibold">
                     <Lock className="h-3.5 w-3.5" />
                     {t.manualTitle}

@@ -87,7 +87,7 @@ export function OrbitLogoStatus({
     [resolvedTheme]
   )
   const haloColor =
-    resolvedTheme === 'dark' ? 'rgba(210, 176, 119, 0.9)' : 'rgba(196, 160, 102, 0.85)'
+    resolvedTheme === 'dark' ? 'rgba(150, 150, 150, 0.9)' : 'rgba(143, 143, 143, 0.85)'
   const haloSpeed = compact ? '9s' : '7s'
   const haloThickness = compact ? 1 : 1.5
   const haloSpread = compact ? 4 : 6

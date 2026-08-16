@@ -46,9 +46,8 @@ import { useProject, useUpdateProject } from '@/lib/hooks/useProjects'
 import { useQuestWorkspace } from '@/lib/acp'
 import { client as questClient } from '@/lib/api'
 import { flattenQuestExplorerPayload, invalidateQuestFileTree } from '@/lib/api/quest-files'
-import { isQuestRuntimeSurface, supportsArxiv } from '@/lib/runtime/quest-runtime'
-import { useArxivStore } from '@/lib/stores/arxiv-store'
-import { CreateFileDialog, CreateLatexProjectDialog, FileIcon, FileTree } from '@/components/file-tree'
+import { isQuestRuntimeSurface } from '@/lib/runtime/quest-runtime'
+import { CreateFileDialog, CreateLatexProjectDialog, FileIcon } from '@/components/file-tree'
 import { PluginRenderer } from '@/components/plugin'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Icon3D } from '@/components/ui/icon-3d'
@@ -75,7 +74,7 @@ import { BUILTIN_PLUGINS } from '@/lib/types/plugin'
 import { buildFileTree, type FileNode } from '@/lib/types/file'
 import type { Tab } from '@/lib/types/tab'
 import { searchFileNodes } from '@/lib/search/file-search'
-import { SearchIcon, SettingsIcon, SparklesIcon, LayoutIcon } from '@/components/ui/workspace-icons'
+import { SearchIcon, SettingsIcon, SparklesIcon } from '@/components/ui/workspace-icons'
 import { CopilotDockOverlay } from '@/components/workspace/CopilotDockOverlay'
 import { COPILOT_DOCK_DEFAULTS, useCopilotDockState } from '@/hooks/useCopilotDockState'
 import { useI18n } from '@/lib/i18n/useI18n'
@@ -86,22 +85,9 @@ import { QuestWorkspaceSurface } from '@/components/workspace/QuestWorkspaceSurf
 import { NotificationBell } from '@/components/ui/notification-bell'
 import { MobileQuestWorkspaceShell } from '@/components/workspace/MobileQuestWorkspaceShell'
 import { ExplorerPathBar } from '@/components/workspace/ExplorerPathBar'
-import { ArxivPanel } from '@/components/arxiv'
 import {
-  EXPLORER_REFRESH_EVENT,
-  type ExplorerRefreshDetail,
-} from '@/lib/plugins/lab/lib/explorer-events'
-import {
-  isHiddenProjectRelativePath,
-  normalizeProjectRelativePath,
-} from '@/lib/utils/project-relative-path'
-import {
-  WORKSPACE_REVEAL_FILE_EVENT,
-  WORKSPACE_LEFT_VISIBILITY_EVENT,
   type QuestStageSelection,
   type QuestWorkspaceView,
-  type WorkspaceRevealFileDetail,
-  type WorkspaceLeftVisibilityDetail,
 } from './workspace-events'
 
 // ============================================================================
@@ -928,7 +914,6 @@ function WorkspaceCommandPalette({
 function Navbar({
   projectId,
   projectName,
-  onToggleLeft,
   onToggleRight,
   onOpenCommandPalette,
   onOpenSettings,
@@ -937,7 +922,6 @@ function Navbar({
   onNewLatexProject,
   onNewFolder,
   onUploadFiles,
-  leftVisible,
   rightVisible,
   rightLocked,
   readOnly,
@@ -949,7 +933,6 @@ function Navbar({
 }: {
   projectId: string
   projectName?: string
-  onToggleLeft: () => void
   onToggleRight: () => void
   onOpenCommandPalette: () => void
   onOpenSettings: () => void
@@ -958,7 +941,6 @@ function Navbar({
   onNewLatexProject: () => void
   onNewFolder: () => void
   onUploadFiles: () => void
-  leftVisible: boolean
   rightVisible: boolean
   rightLocked?: boolean
   readOnly?: boolean
@@ -1097,15 +1079,6 @@ function Navbar({
             >
               <ChevronRight className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              onClick={onToggleLeft}
-              className={cn('ghost-btn navbar-roll-btn', leftVisible && 'is-active')}
-              aria-label={leftVisible ? t('navbar_hide_explorer') : t('navbar_show_explorer')}
-              data-tooltip={leftVisible ? t('navbar_hide_explorer') : t('navbar_show_explorer')}
-            >
-              <LayoutIcon className="h-4 w-4" />
-            </button>
             {!readOnlyMode && (
               <button
                 type="button"
@@ -1151,14 +1124,6 @@ function Navbar({
             {/* Left: Branding + Project */}
             <div className="app-branding">
               <div className="navbar-left-controls">
-                <button
-                  onClick={onToggleLeft}
-                  className={cn('ghost-btn', leftVisible && 'is-active')}
-              aria-label={leftVisible ? t('navbar_hide_explorer') : t('navbar_show_explorer')}
-              data-tooltip={leftVisible ? t('navbar_hide_explorer') : t('navbar_show_explorer')}
-                >
-                  <LayoutIcon />
-                </button>
                 <button
                   type="button"
                   className="ghost-btn"
@@ -1601,1243 +1566,8 @@ function WorkspaceTabStrip({
 }
 
 // ============================================================================
-// Left Panel (Dark Explorer)
+// Sidebar Button
 // ============================================================================
-
-function LeftPanel({
-  width,
-  projectId,
-  onClose,
-  readOnly,
-  onEnterHome,
-  onEnterLab,
-  onExitHome,
-  localQuestMode = false,
-  workspaceTreeSyncKey = null,
-  workspaceScopeContextKey = null,
-  revealedFileScope = null,
-}: {
-  width: number
-  projectId: string
-  onClose: () => void
-  readOnly?: boolean
-  onEnterHome?: () => void
-  onEnterLab?: () => void
-  onExitHome?: () => void
-  localQuestMode?: boolean
-  workspaceTreeSyncKey?: string | null
-  workspaceScopeContextKey?: string | null
-  revealedFileScope?: { label: string | null; nodes: FileNode[]; token: number } | null
-}) {
-  const { t } = useI18n('workspace')
-  const { t: tCommon } = useI18n('common')
-  const readOnlyMode = Boolean(readOnly)
-  const { addToast } = useToast()
-  const openTab = useTabsStore((state) => state.openTab)
-  const tabs = useTabsStore((state) => state.tabs)
-  const graphSelection = useLabGraphSelectionStore((state) => state.selection)
-  const fileTreeNodes = useFileTreeStore((state) => state.nodes)
-  const { createFolder, upload, refresh, loadFiles, isLoading } = useFileTreeStore()
-  const findTreeNode = useFileTreeStore((state) => state.findNode)
-  const findNodeByPath = useFileTreeStore((state) => state.findNodeByPath)
-  const expandToFile = useFileTreeStore((state) => state.expandToFile)
-  const selectNode = useFileTreeStore((state) => state.select)
-  const setFocusedNode = useFileTreeStore((state) => state.setFocused)
-  const highlightFile = useFileTreeStore((state) => state.highlightFile)
-  const refreshArxivLibrary = useArxivStore((state) => state.refresh)
-  const { openFileInTab, downloadFile, openNotebook } = useOpenFile()
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-  const explorerBodyRef = React.useRef<HTMLDivElement | null>(null)
-  const [activeExplorer, setActiveExplorer] = React.useState<'arxiv' | 'files' | 'scope'>('files')
-  const [explorerModePreference, setExplorerModePreference] = React.useState<'auto' | 'files' | 'arxiv'>('auto')
-  const [hideDotfiles, setHideDotfiles] = React.useState(true)
-  const [createFileOpen, setCreateFileOpen] = React.useState(false)
-  const [isMenuOpen, setIsMenuOpen] = React.useState(true)
-  const [scopedExplorerLabel, setScopedExplorerLabel] = React.useState<string | null>(null)
-  const [scopedExplorerNodes, setScopedExplorerNodes] = React.useState<FileNode[]>([])
-  const [scopedExplorerLoading, setScopedExplorerLoading] = React.useState(false)
-  const [manualScopedExplorer, setManualScopedExplorer] = React.useState<{
-    label: string | null
-    nodes: FileNode[]
-  } | null>(null)
-  const [stickyScopedSelection, setStickyScopedSelection] = React.useState<QuestStageSelection | null>(null)
-  const [explorerLocation, setExplorerLocation] =
-    React.useState<ExplorerLocationState>(DEFAULT_EXPLORER_LOCATION)
-  const [diffFiles, setDiffFiles] = React.useState<
-    Array<{
-      path: string
-      status: string | null
-      oldPath?: string | null
-      added?: number | null
-      removed?: number | null
-    }>
-  >([])
-  const [diffCompareBase, setDiffCompareBase] = React.useState<string | null>(null)
-  const [diffCompareHead, setDiffCompareHead] = React.useState<string | null>(null)
-  const [scopedExplorerReloadKey, setScopedExplorerReloadKey] = React.useState(0)
-  const [filesRevealState, setFilesRevealState] = React.useState<{
-    fileId: string | null
-    token: number
-  }>({
-    fileId: null,
-    token: 0,
-  })
-  const lastWorkspaceTreeSyncKeyRef = React.useRef<string | null>(null)
-  const menuSectionId = React.useId()
-  const activeTab = useActiveTab()
-  const activeQuestWorkspaceView = React.useMemo(() => {
-    if (!isQuestWorkspaceTab(activeTab, projectId)) {
-      return null
-    }
-    return getQuestWorkspaceTabView(activeTab)
-  }, [activeTab, projectId])
-  const activeQuestStageSelection = React.useMemo(() => {
-    if (!isQuestWorkspaceTab(activeTab, projectId)) {
-      return null
-    }
-    return getQuestWorkspaceStageSelection(activeTab)
-  }, [activeTab, projectId])
-  const activeTabStageSelection = React.useMemo(() => {
-    if (!tabMatchesProject(activeTab, projectId)) {
-      return null
-    }
-    return getQuestWorkspaceStageSelection(activeTab)
-  }, [activeTab, projectId])
-  const latestProjectScopedTabSelection = React.useMemo(() => {
-    const sortedTabs = [...tabs].sort((left, right) => {
-      const leftAccessed = typeof left.lastAccessedAt === 'number' ? left.lastAccessedAt : left.createdAt
-      const rightAccessed = typeof right.lastAccessedAt === 'number' ? right.lastAccessedAt : right.createdAt
-      return rightAccessed - leftAccessed
-    })
-    for (const tab of sortedTabs) {
-      if (!tabMatchesProject(tab, projectId)) continue
-      const selection = normalizeScopedExplorerSelection(getQuestWorkspaceStageSelection(tab))
-      if (selection) {
-        return selection
-      }
-    }
-    return null
-  }, [projectId, tabs])
-  const explorerStageSelection = React.useMemo(() => {
-    if (activeQuestWorkspaceView === 'stage' && activeQuestStageSelection) {
-      return activeQuestStageSelection
-    }
-    return activeTabStageSelection || graphSelection || latestProjectScopedTabSelection || null
-  }, [
-    activeQuestStageSelection,
-    activeQuestWorkspaceView,
-    activeTabStageSelection,
-    graphSelection,
-    latestProjectScopedTabSelection,
-  ])
-  const liveScopedExplorerSelection = React.useMemo(
-    () => normalizeScopedExplorerSelection(explorerStageSelection),
-    [explorerStageSelection]
-  )
-
-  React.useEffect(() => {
-    setExplorerModePreference('auto')
-    setManualScopedExplorer(null)
-    setStickyScopedSelection(null)
-    lastWorkspaceTreeSyncKeyRef.current = null
-  }, [projectId])
-
-  React.useEffect(() => {
-    setManualScopedExplorer(null)
-  }, [workspaceScopeContextKey])
-
-  React.useEffect(() => {
-    if (!revealedFileScope) return
-    setManualScopedExplorer({
-      label: revealedFileScope.label,
-      nodes: revealedFileScope.nodes,
-    })
-    setExplorerModePreference('auto')
-    setActiveExplorer('scope')
-  }, [revealedFileScope])
-
-  React.useEffect(() => {
-    setStickyScopedSelection(null)
-  }, [workspaceScopeContextKey])
-
-  React.useEffect(() => {
-    if (!liveScopedExplorerSelection) return
-    setStickyScopedSelection((current) =>
-      sameScopedExplorerSelection(current, liveScopedExplorerSelection)
-        ? current
-        : liveScopedExplorerSelection
-    )
-  }, [liveScopedExplorerSelection])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const handleRefresh = (event: Event) => {
-      const detail = (event as CustomEvent).detail as ExplorerRefreshDetail | undefined
-      if (!detail?.target) return
-      if (detail.projectId && detail.projectId !== projectId) return
-      void (async () => {
-        try {
-          invalidateQuestFileTree(projectId)
-          await loadFiles(projectId, { force: true })
-          if (localQuestMode) {
-            setScopedExplorerReloadKey((value) => value + 1)
-          }
-        } finally {
-          detail.onComplete?.()
-        }
-      })()
-    }
-    window.addEventListener(EXPLORER_REFRESH_EVENT, handleRefresh)
-    return () => {
-      window.removeEventListener(EXPLORER_REFRESH_EVENT, handleRefresh)
-    }
-  }, [loadFiles, localQuestMode, projectId])
-
-  React.useEffect(() => {
-    if (!workspaceTreeSyncKey) return
-    const previousKey = lastWorkspaceTreeSyncKeyRef.current
-    lastWorkspaceTreeSyncKeyRef.current = workspaceTreeSyncKey
-    if (!previousKey) {
-      const state = useFileTreeStore.getState()
-      if (state.projectId !== projectId && !state.isLoading) {
-        void loadFiles(projectId)
-      }
-      return
-    }
-    if (previousKey === workspaceTreeSyncKey) return
-
-    invalidateQuestFileTree(projectId)
-    void loadFiles(projectId, { force: true })
-    if (localQuestMode) {
-      setScopedExplorerReloadKey((value) => value + 1)
-    }
-  }, [loadFiles, localQuestMode, projectId, workspaceTreeSyncKey])
-
-  React.useEffect(() => {
-    if (explorerModePreference !== 'auto') return
-    if (!localQuestMode) return
-    setActiveExplorer(manualScopedExplorer || liveScopedExplorerSelection || stickyScopedSelection ? 'scope' : 'files')
-  }, [explorerModePreference, liveScopedExplorerSelection, localQuestMode, manualScopedExplorer, stickyScopedSelection])
-
-  const effectiveScopedExplorerSelection = React.useMemo(
-    () => liveScopedExplorerSelection || stickyScopedSelection || null,
-    [liveScopedExplorerSelection, stickyScopedSelection]
-  )
-  const effectiveScopedExplorerLabel = manualScopedExplorer?.label ?? scopedExplorerLabel
-  const effectiveScopedExplorerNodes = manualScopedExplorer?.nodes ?? scopedExplorerNodes
-  const effectiveScopedExplorerLoading = manualScopedExplorer ? false : scopedExplorerLoading
-
-  React.useEffect(() => {
-    const effectiveSelection = effectiveScopedExplorerSelection
-
-    if (!localQuestMode || (!effectiveSelection && !manualScopedExplorer)) {
-      setScopedExplorerLabel(null)
-      setScopedExplorerNodes([])
-      setExplorerLocation(DEFAULT_EXPLORER_LOCATION)
-      setDiffFiles([])
-      setDiffCompareBase(null)
-      setDiffCompareHead(null)
-      setScopedExplorerLoading(false)
-      setActiveExplorer((current) => (current === 'scope' ? 'files' : current))
-      return
-    }
-
-    if (!effectiveSelection) {
-      setDiffFiles([])
-      setDiffCompareBase(null)
-      setDiffCompareHead(null)
-      setScopedExplorerLoading(false)
-      setExplorerLocation(DEFAULT_EXPLORER_LOCATION)
-      return
-    }
-
-    const snapshotRevision = resolveExplorerSnapshotRevision(effectiveSelection)
-    const scopePaths = [
-      ...(effectiveSelection.scope_paths || []),
-      ...(!snapshotRevision && effectiveSelection.worktree_rel_path
-        ? [effectiveSelection.worktree_rel_path]
-        : []),
-    ]
-      .filter((item) => isLikelyRelativeExplorerPath(item))
-      .map((item) => normalizeExplorerScopePath(item))
-      .filter(Boolean)
-    const compareBase = String(effectiveSelection.compare_base || '').trim() || null
-    const compareHead = String(effectiveSelection.compare_head || '').trim() || null
-    let cancelled = false
-
-    setScopedExplorerLoading(true)
-
-    void (async () => {
-      try {
-        const diffStatusByPath = new Map<string, string>()
-        const scopePathSet = new Set(scopePaths)
-        let nextDiffFiles: Array<{
-          path: string
-          status: string | null
-          oldPath?: string | null
-          added?: number | null
-          removed?: number | null
-        }> = []
-
-        if (effectiveSelection.selection_type === 'git_commit_node') {
-          const commitSha = String(
-            effectiveSelection.selection_ref || effectiveSelection.compare_head || snapshotRevision || ''
-          ).trim()
-          if (commitSha) {
-            const commit = await questClient.gitCommit(projectId, commitSha)
-            if (cancelled) return
-            const diffPaths = (commit.files || [])
-              .map((item) => normalizeExplorerScopePath(item.path))
-              .filter(Boolean)
-            diffPaths.forEach((item) => scopePathSet.add(item))
-            ;(commit.files || []).forEach((item) => {
-              const normalizedPath = normalizeExplorerScopePath(item.path)
-              if (!normalizedPath) return
-              diffStatusByPath.set(normalizedPath, String(item.status || 'modified'))
-            })
-            nextDiffFiles = (commit.files || []).map((item) => ({
-              path: normalizeExplorerScopePath(item.path),
-              status: item.status || null,
-              oldPath: item.old_path || null,
-              added: typeof item.added === 'number' ? item.added : null,
-              removed: typeof item.removed === 'number' ? item.removed : null,
-            }))
-          }
-        } else if (compareBase && compareHead && effectiveSelection.selection_type !== 'baseline_node') {
-          const compare = await questClient.gitCompare(projectId, compareBase, compareHead)
-          if (cancelled) return
-          const diffPaths = (compare.files || [])
-            .map((item) => normalizeExplorerScopePath(item.path))
-            .filter(Boolean)
-          diffPaths.forEach((item) => scopePathSet.add(item))
-          ;(compare.files || []).forEach((item) => {
-            const normalizedPath = normalizeExplorerScopePath(item.path)
-            if (!normalizedPath) return
-            diffStatusByPath.set(normalizedPath, String(item.status || 'modified'))
-          })
-          nextDiffFiles = (compare.files || []).map((item) => ({
-            path: normalizeExplorerScopePath(item.path),
-            status: item.status || null,
-            oldPath: item.old_path || null,
-            added: typeof item.added === 'number' ? item.added : null,
-            removed: typeof item.removed === 'number' ? item.removed : null,
-          }))
-        }
-
-        let explorerPayload
-        let sourceMode: ExplorerLocationState['sourceMode'] = 'live'
-        if (snapshotRevision) {
-          try {
-            explorerPayload = await questClient.explorer(projectId, {
-              revision: snapshotRevision,
-              mode: effectiveSelection.selection_type === 'git_commit_node' ? 'commit' : 'ref',
-            })
-            if (cancelled) return
-            sourceMode = 'snapshot'
-          } catch (error) {
-            console.warn('[WorkspaceLayout] Failed to load explorer snapshot, falling back to live view:', error)
-            explorerPayload = await questClient.explorer(projectId, { profile: 'workspace' })
-            if (cancelled) return
-          }
-        } else {
-          explorerPayload = await questClient.explorer(projectId, { profile: 'workspace' })
-          if (cancelled) return
-        }
-
-        const effectiveScopePaths = Array.from(scopePathSet)
-        const scopeResult = buildScopedQuestTree(projectId, explorerPayload, effectiveScopePaths, diffStatusByPath)
-        const nextScopeNodes = scopeResult.nodes
-
-        setScopedExplorerLabel(effectiveSelection.label || effectiveSelection.stage_key || effectiveSelection.selection_ref || null)
-        setScopedExplorerNodes(nextScopeNodes)
-        setExplorerLocation({
-          sourceMode,
-          selectionLabel:
-            effectiveSelection.label || effectiveSelection.stage_key || effectiveSelection.selection_ref || null,
-          selectionType: effectiveSelection.selection_type || null,
-          branchName: effectiveSelection.branch_name || null,
-          branchNo: effectiveSelection.branch_no || null,
-          parentBranch: effectiveSelection.parent_branch || null,
-          foundationLabel: effectiveSelection.foundation_label || null,
-          ideaTitle: effectiveSelection.idea_title || null,
-          revision: sourceMode === 'snapshot' ? snapshotRevision : null,
-          compareBase,
-          compareHead,
-          requestedScopes: scopeResult.requestedScopes,
-          appliedScopes: scopeResult.appliedScopes,
-          fallbackToFullTree: scopeResult.fallbackToFullTree,
-        })
-        setDiffFiles(nextDiffFiles)
-        setDiffCompareBase(compareBase)
-        setDiffCompareHead(compareHead)
-      } catch (error) {
-        console.error('[WorkspaceLayout] Failed to build scoped explorer:', error)
-      } finally {
-        if (!cancelled) {
-          setScopedExplorerLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    effectiveScopedExplorerSelection,
-    liveScopedExplorerSelection,
-    localQuestMode,
-    manualScopedExplorer,
-    projectId,
-    scopedExplorerReloadKey,
-    stickyScopedSelection,
-  ])
-
-  const diffFileByPath = React.useMemo(() => {
-    const mapping = new Map<string, (typeof diffFiles)[number]>()
-    diffFiles.forEach((item) => {
-      mapping.set(normalizeExplorerScopePath(item.path), item)
-    })
-    return mapping
-  }, [diffFiles])
-
-  const handleOpenDiffFile = React.useCallback(
-    async (item: {
-      path: string
-      status: string | null
-      oldPath?: string | null
-      added?: number | null
-      removed?: number | null
-    }) => {
-      const commitSelection =
-        explorerStageSelection && explorerStageSelection.selection_type === 'git_commit_node'
-          ? explorerStageSelection
-          : null
-      const commitSha = String(
-        commitSelection?.selection_ref || commitSelection?.compare_head || explorerLocation.revision || ''
-      ).trim()
-      onExitHome?.()
-      openTab({
-        pluginId: BUILTIN_PLUGINS.GIT_DIFF_VIEWER,
-        context: {
-          type: 'custom',
-          customData: {
-            projectId,
-            resolver: commitSha ? 'git_commit' : 'git',
-            sha: commitSha || null,
-            base: commitSha ? null : diffCompareBase,
-            head: commitSha ? null : diffCompareHead,
-            path: item.path,
-            status: item.status,
-            oldPath: item.oldPath || null,
-            added: item.added ?? null,
-            removed: item.removed ?? null,
-            snapshotRevision: explorerLocation.revision,
-            quest_stage_selection: explorerStageSelection || null,
-            scoped_selection_source: 'diff-viewer',
-          },
-        },
-        title: item.path,
-      })
-    },
-    [
-      diffCompareBase,
-      diffCompareHead,
-      explorerLocation.revision,
-      explorerStageSelection,
-      onExitHome,
-      openTab,
-      projectId,
-    ]
-  )
-
-  const openPluginTab = React.useCallback(
-    (pluginId: string, title: string, customData?: Record<string, unknown>) => {
-      if (readOnlyMode) return
-      onExitHome?.()
-      openTab({
-        pluginId,
-        context: { type: 'custom', customData: { projectId, ...customData } },
-        title,
-      })
-    },
-    [onExitHome, openTab, projectId, readOnlyMode]
-  )
-
-  const openQuestWorkspaceTab = React.useCallback(
-    (view: QuestWorkspaceView, stageSelection?: QuestStageSelection | null) => {
-      onExitHome?.()
-      openTab({
-        pluginId: QUEST_WORKSPACE_PLUGIN_ID,
-        context: buildQuestWorkspaceTabContext(projectId, view, stageSelection),
-        title: getQuestWorkspaceTitle(view, stageSelection),
-      })
-    },
-    [onExitHome, openTab, projectId]
-  )
-
-  const handleFileOpen = React.useCallback(
-    async (file: FileNode) => {
-      onExitHome?.()
-      const normalizedPath = normalizeExplorerScopePath(file.path)
-      const diffEntry = normalizedPath ? diffFileByPath.get(normalizedPath) ?? null : null
-      if (
-        file.type !== 'folder' &&
-        activeExplorer === 'scope' &&
-        explorerLocation.sourceMode === 'snapshot' &&
-        explorerLocation.revision &&
-        normalizedPath
-      ) {
-        const commitSelection =
-          explorerStageSelection && explorerStageSelection.selection_type === 'git_commit_node'
-            ? explorerStageSelection
-            : null
-        const commitSha = String(
-          commitSelection?.selection_ref || commitSelection?.compare_head || explorerLocation.revision || ''
-        ).trim()
-        openTab({
-          pluginId: BUILTIN_PLUGINS.GIT_DIFF_VIEWER,
-          context: {
-            type: 'custom',
-            customData: {
-              projectId,
-              resolver: commitSha ? 'git_commit' : 'git',
-              sha: commitSha || null,
-              initialMode: 'snapshot',
-              snapshotRevision: explorerLocation.revision,
-              snapshotDocumentId: `git::${explorerLocation.revision}::${normalizedPath}`,
-              displayPath: normalizedPath,
-              path: normalizedPath,
-              base: commitSha ? null : diffCompareBase,
-              head: commitSha ? null : diffCompareHead,
-              status: diffEntry?.status ?? null,
-              oldPath: diffEntry?.oldPath || null,
-              added: diffEntry?.added ?? null,
-              removed: diffEntry?.removed ?? null,
-              allowSnapshot: true,
-              allowDiff: Boolean(diffEntry && (commitSha || (diffCompareBase && diffCompareHead))),
-              quest_stage_selection: explorerStageSelection || null,
-              scoped_selection_source: 'snapshot-viewer',
-            },
-          },
-          title: file.name,
-        })
-        return
-      }
-      if (
-        file.type !== 'folder' &&
-        diffEntry &&
-        (String(explorerStageSelection?.selection_type || '') === 'git_commit_node' || (diffCompareBase && diffCompareHead))
-      ) {
-        await handleOpenDiffFile(diffEntry)
-        return
-      }
-      if (file.type === 'folder' && file.folderKind === 'latex') {
-        openTab({
-          pluginId: '@ds/plugin-latex',
-          context: {
-            type: 'custom',
-            resourceId: file.id,
-            resourceName: file.name,
-            customData: {
-              projectId,
-              latexFolderId: file.id,
-              mainFileId: file.latex?.mainFileId ?? null,
-              readOnly: readOnlyMode,
-              quest_stage_selection: explorerStageSelection || null,
-            },
-          },
-          title: file.name,
-        })
-        return
-      }
-      if (file.type === 'notebook') {
-        openNotebook(file.id, file.name, projectId, {
-          readonly: readOnlyMode,
-          customData: {
-            quest_stage_selection: explorerStageSelection || null,
-          },
-        })
-        return
-      }
-      await openFileInTab(file, {
-        customData: {
-          projectId,
-          quest_stage_selection: explorerStageSelection || null,
-          fileMeta: {
-            updatedAt: file.updatedAt,
-            sizeBytes: file.size,
-            mimeType: file.mimeType,
-          },
-        },
-      })
-    },
-    [
-      activeExplorer,
-      diffCompareBase,
-      diffCompareHead,
-      diffFileByPath,
-      explorerStageSelection,
-      explorerLocation.revision,
-      explorerLocation.sourceMode,
-      handleOpenDiffFile,
-      onExitHome,
-      openFileInTab,
-      openNotebook,
-      openTab,
-      projectId,
-      readOnlyMode,
-    ]
-  )
-
-  const handleFileDownload = React.useCallback(
-    async (file: FileNode) => {
-      try {
-        await downloadFile(file)
-        addToast({
-          type: 'success',
-          title: t('toast_download_started'),
-          description: file.name,
-          duration: 1800,
-        })
-      } catch (error) {
-        console.error('Download failed:', error)
-        addToast({
-          type: 'error',
-          title: t('toast_download_failed'),
-          description: tCommon('generic_try_again', undefined, 'Please try again.'),
-        })
-      }
-    },
-    [addToast, downloadFile, t, tCommon]
-  )
-
-  const handleNewFolder = React.useCallback(async () => {
-    if (readOnlyMode) return
-    try {
-      await createFolder(null, t('command_new_folder_title'))
-      addToast({ type: 'success', title: t('toast_folder_created'), duration: 1800 })
-    } catch (error) {
-      console.error('Failed to create folder:', error)
-      addToast({
-        type: 'error',
-        title: t('toast_create_folder_failed'),
-        description: tCommon('generic_try_again', undefined, 'Please try again.'),
-      })
-    }
-  }, [addToast, createFolder, readOnlyMode, t, tCommon])
-
-  const handleUploadClick = React.useCallback(() => {
-    if (readOnlyMode) return
-    fileInputRef.current?.click()
-  }, [readOnlyMode])
-
-  const handleFileSelect = React.useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (readOnlyMode) return
-      const files = Array.from(e.target.files || [])
-      if (files.length > 0) {
-        try {
-          await upload(null, files)
-          addToast({
-            type: 'success',
-            title: t('toast_upload_started'),
-            description: t('toast_upload_started_desc', { count: files.length }),
-            duration: 2200,
-          })
-        } catch (error) {
-          console.error('Upload failed:', error)
-          addToast({
-            type: 'error',
-            title: t('toast_upload_failed'),
-            description: tCommon('generic_try_again', undefined, 'Please try again.'),
-          })
-        }
-      }
-      e.target.value = ''
-    },
-    [addToast, readOnlyMode, t, tCommon, upload]
-  )
-
-  const handleRefresh = React.useCallback(async () => {
-    try {
-      await refresh()
-      addToast({ type: 'success', title: t('toast_refreshed'), duration: 1200 })
-    } catch (error) {
-      console.error('Failed to refresh:', error)
-      addToast({
-        type: 'error',
-        title: t('toast_refresh_failed'),
-        description: tCommon('generic_try_again', undefined, 'Please try again.'),
-      })
-    }
-  }, [addToast, refresh, t, tCommon])
-
-  const revealNodeInFilesExplorer = React.useCallback(
-    (target: FileNode | null, options?: { fallbackPath?: string | null }) => {
-      if (!target) {
-        const fallbackPath = normalizeProjectRelativePath(String(options?.fallbackPath || ''))
-        addToast({
-          type: 'error',
-          title: t('explorer_reveal_failed', undefined, 'Path not found in Explorer'),
-          description: fallbackPath
-            ? `/${fallbackPath}`
-            : tCommon('generic_try_again', undefined, 'Please try again.'),
-          duration: 2600,
-        })
-        return
-      }
-
-      if (isHiddenProjectRelativePath(target.path || target.name)) {
-        setHideDotfiles(false)
-      }
-
-      setExplorerModePreference('files')
-      setActiveExplorer('files')
-      expandToFile(target.id)
-      selectNode(target.id)
-      setFocusedNode(target.id)
-      highlightFile(target.id)
-      setFilesRevealState((current) => ({
-        fileId: target.id,
-        token: current.token + 1,
-      }))
-    },
-    [addToast, expandToFile, highlightFile, selectNode, setFocusedNode, t, tCommon]
-  )
-
-  const handleRevealNodeInExplorer = React.useCallback(
-    (node: FileNode) => {
-      const normalizedPath = normalizeProjectRelativePath(node.path || node.name || '')
-      const liveNode = normalizedPath ? findNodeByPath(normalizedPath) : findTreeNode(node.id)
-      revealNodeInFilesExplorer(liveNode, { fallbackPath: normalizedPath })
-    },
-    [findNodeByPath, findTreeNode, revealNodeInFilesExplorer]
-  )
-
-  const isArxivView = activeExplorer === 'arxiv'
-  const isFilesView = activeExplorer === 'files'
-  const isScopeView = activeExplorer === 'scope'
-  const showArxivExplorerPanel = Boolean(projectId) && supportsArxiv()
-  const hasScopedExplorer = Boolean(
-    manualScopedExplorer || effectiveScopedExplorerSelection || effectiveScopedExplorerLoading || effectiveScopedExplorerNodes.length > 0
-  )
-  const hasDiffExplorer = diffFiles.length > 0
-  const disableExplorerActions = readOnlyMode
-  const disableExplorerMutations = readOnlyMode
-  const hideDotfilesEffective = isScopeView ? true : hideDotfiles
-  const explorerResetKey = [
-    explorerLocation.selectionLabel || '',
-    effectiveScopedExplorerLabel || '',
-    explorerLocation.appliedScopes.join(','),
-  ].join('::')
-
-  React.useEffect(() => {
-    if (showArxivExplorerPanel || activeExplorer !== 'arxiv') {
-      return
-    }
-    setExplorerModePreference('auto')
-    setActiveExplorer(hasScopedExplorer ? 'scope' : 'files')
-  }, [activeExplorer, hasScopedExplorer, showArxivExplorerPanel])
-
-  const handleExplorerTabClick = React.useCallback(
-    (next: 'arxiv' | 'files' | 'scope') => {
-      if (next === 'files') {
-        setExplorerModePreference('files')
-        setActiveExplorer('files')
-        return
-      }
-      if (next === 'arxiv') {
-        setExplorerModePreference('arxiv')
-        setActiveExplorer('arxiv')
-        return
-      }
-      setExplorerModePreference('auto')
-      setActiveExplorer('scope')
-    },
-    []
-  )
-
-  const handleExplorerNewFile = React.useCallback(() => {
-    if (disableExplorerMutations) return
-    setCreateFileOpen(true)
-  }, [disableExplorerMutations])
-
-  const handleExplorerNewFolder = React.useCallback(() => {
-    if (disableExplorerMutations) return
-    void handleNewFolder()
-  }, [disableExplorerMutations, handleNewFolder])
-
-  const handleExplorerUpload = React.useCallback(() => {
-    if (disableExplorerMutations) return
-    handleUploadClick()
-  }, [disableExplorerMutations, handleUploadClick])
-
-  const handleExplorerRefresh = React.useCallback(() => {
-    if (disableExplorerActions) return
-    if (isArxivView) {
-      void refreshArxivLibrary()
-      return
-    }
-    if (isFilesView) {
-      void handleRefresh()
-      return
-    }
-    setScopedExplorerReloadKey((value) => value + 1)
-  }, [disableExplorerActions, handleRefresh, isArxivView, isFilesView, refreshArxivLibrary])
-
-  React.useEffect(() => {
-    const root = explorerBodyRef.current
-    if (!root) return
-    root.scrollTop = 0
-    const tree = root.querySelector<HTMLElement>('.file-tree-scroll')
-    if (tree) {
-      tree.scrollTop = 0
-    }
-  }, [activeExplorer, explorerResetKey])
-
-  return (
-    <div className="panel left-panel" style={{ width, minWidth: width }} data-onboarding-id="workspace-explorer">
-      {/* Header */}
-      <div className="panel-header flex flex-nowrap items-center">
-        <div className="flex items-center gap-2">
-          <div className="traffic-lights">
-          <button
-            type="button"
-            className="traffic-light-close-button"
-            onClick={onClose}
-            title={t('leftpanel_close_explorer')}
-            aria-label={t('leftpanel_close_explorer')}
-          >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          <span style={{ opacity: 0.8 }}>{t('leftpanel_explorer')}</span>
-        </div>
-        <div className="ml-auto flex items-center">
-          <div
-            className={cn(
-              'flex items-center gap-1 whitespace-nowrap border-b border-[var(--border-dark)]'
-            )}
-            role="tablist"
-            aria-label={t('explorer_views')}
-          >
-            {showArxivExplorerPanel ? (
-              <button
-                type="button"
-                className={cn(
-                  'inline-flex h-8 items-center justify-center border-b-2 border-transparent px-2.5 text-[11px] font-semibold tracking-[0.08em] transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9b8352]/40',
-                  isArxivView
-                    ? 'border-[#d0b08a] text-[var(--text-on-dark)]'
-                    : 'text-[var(--text-muted-on-dark)] hover:text-[var(--text-on-dark)]'
-                )}
-                onClick={() => handleExplorerTabClick('arxiv')}
-                role="tab"
-                aria-selected={isArxivView}
-                aria-label={t('explorer_arxiv')}
-                title={t('explorer_arxiv')}
-                data-onboarding-id="quest-explorer-arxiv-tab"
-              >
-                {t('explorer_arxiv').toUpperCase()}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className={cn(
-                'inline-flex h-8 items-center justify-center border-b-2 border-transparent px-2.5 text-[11px] font-semibold tracking-[0.08em] transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9b8352]/40',
-                isFilesView
-                  ? 'border-[#d0b08a] text-[var(--text-on-dark)]'
-                  : 'text-[var(--text-muted-on-dark)] hover:text-[var(--text-on-dark)]'
-              )}
-              onClick={() => handleExplorerTabClick('files')}
-              role="tab"
-              aria-selected={isFilesView}
-              aria-label={t('explorer_files')}
-              title={t('explorer_files')}
-              data-onboarding-id="quest-explorer-files-tab"
-            >
-              {t('explorer_files').toUpperCase()}
-            </button>
-            {hasScopedExplorer ? (
-              <button
-                type="button"
-                className={cn(
-                  'inline-flex h-8 items-center justify-center border-b-2 border-transparent px-2.5 text-[11px] font-semibold tracking-[0.08em] transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9b8352]/40',
-                  isScopeView
-                    ? 'border-[#d0b08a] text-[var(--text-on-dark)]'
-                    : 'text-[var(--text-muted-on-dark)] hover:text-[var(--text-on-dark)]'
-                )}
-                onClick={() => handleExplorerTabClick('scope')}
-                role="tab"
-                aria-selected={isScopeView}
-                aria-label={t('explorer_snapshot')}
-                  title={effectiveScopedExplorerLabel || t('explorer_snapshot')}
-              >
-                {t('explorer_snapshot').toUpperCase()}
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-      </div>
-
-      {/* File Tree Section */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {!isArxivView ? (
-          <div className="border-b border-[var(--border-dark)]">
-            <div className="flex items-center justify-end gap-0.5 px-4 pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleExplorerNewFile}
-                disabled={disableExplorerMutations}
-                className="h-7 w-7 rounded-md p-0 text-[var(--text-muted-on-dark)] hover:bg-white/[0.04] hover:text-[var(--text-on-dark)]"
-                title={
-                  disableExplorerMutations
-                    ? readOnlyMode
-                      ? t('leftpanel_view_only')
-                      : localQuestMode
-                        ? 'Create files from the document editor in local project mode.'
-                        : t('leftpanel_view_only')
-                    : t('explorer_new_file')
-                }
-                aria-label={t('explorer_new_file')}
-              >
-                <FilePlus className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleExplorerNewFolder}
-                disabled={disableExplorerMutations}
-                className="h-7 w-7 rounded-md p-0 text-[var(--text-muted-on-dark)] hover:bg-white/[0.04] hover:text-[var(--text-on-dark)]"
-                title={
-                  disableExplorerMutations
-                    ? readOnlyMode
-                      ? t('leftpanel_view_only')
-                      : localQuestMode
-                        ? 'Folder creation is not exposed in local project mode.'
-                        : t('leftpanel_view_only')
-                    : t('explorer_new_folder')
-                }
-                aria-label={t('explorer_new_folder')}
-              >
-                <FolderPlus className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleExplorerUpload}
-                disabled={disableExplorerMutations}
-                className="h-7 w-7 rounded-md p-0 text-[var(--text-muted-on-dark)] hover:bg-white/[0.04] hover:text-[var(--text-on-dark)]"
-                title={
-                  disableExplorerMutations
-                    ? readOnlyMode
-                      ? t('leftpanel_view_only')
-                      : localQuestMode
-                        ? 'Upload is disabled in local project mode.'
-                        : t('leftpanel_view_only')
-                    : t('explorer_upload_files')
-                }
-                aria-label={t('explorer_upload_files')}
-              >
-                <Upload className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  if (isScopeView) return
-                  setHideDotfiles((prev) => !prev)
-                }}
-                disabled={isScopeView}
-                className="h-7 w-7 rounded-md p-0 text-[var(--text-muted-on-dark)] hover:bg-white/[0.04] hover:text-[var(--text-on-dark)] disabled:cursor-not-allowed disabled:opacity-40"
-                title={
-                  isScopeView
-                    ? 'Snapshot explorer always hides dotfiles.'
-                    : hideDotfiles
-                      ? t('explorer_show_dotfiles')
-                      : t('explorer_hide_dotfiles')
-                }
-                aria-label={
-                  isScopeView
-                    ? 'Snapshot explorer always hides dotfiles.'
-                    : hideDotfiles
-                      ? t('explorer_show_dotfiles')
-                      : t('explorer_hide_dotfiles')
-                }
-              >
-                <DotfilesToggleIcon hidden={hideDotfilesEffective} className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleExplorerRefresh}
-                disabled={
-                  disableExplorerActions ||
-                  (isFilesView ? isLoading : false) ||
-                  (!isFilesView && effectiveScopedExplorerLoading)
-                }
-                className="h-7 w-7 rounded-md p-0 text-[var(--text-muted-on-dark)] hover:bg-white/[0.04] hover:text-[var(--text-on-dark)] disabled:opacity-50"
-                title={
-                  disableExplorerActions
-                    ? readOnlyMode
-                      ? t('leftpanel_view_only')
-                      : t('leftpanel_view_only')
-                    : t('explorer_refresh')
-                }
-                aria-label={t('explorer_refresh')}
-              >
-                <RefreshCw
-                  className={cn('h-3.5 w-3.5 text-white', isFilesView && isLoading && 'animate-spin')}
-                />
-              </Button>
-            </div>
-
-            <div className="px-4 pb-3 pt-2">
-              <ExplorerPathBar
-                className="min-w-0 w-full"
-                nodes={fileTreeNodes}
-                loading={isLoading}
-                onReveal={handleRevealNodeInExplorer}
-              />
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </div>
-        ) : null}
-
-        <div ref={explorerBodyRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          {isArxivView ? (
-            <ArxivPanel
-              projectId={projectId}
-              readOnly={readOnlyMode}
-              className="h-full min-h-0 border-t-0 px-4 py-3"
-              variant="full"
-            />
-          ) : null}
-          <div
-            className={cn(
-              'flex-1 min-h-0 overflow-hidden',
-              isFilesView ? 'flex flex-col' : 'hidden'
-            )}
-            role="tabpanel"
-            aria-hidden={!isFilesView}
-          >
-            <div className="flex-1 min-h-0 file-tree-dark flex flex-col">
-              <FileTree
-                projectId={projectId}
-                onFileOpen={handleFileOpen}
-                onFileDownload={handleFileDownload}
-                className="flex-1 min-h-0"
-                readOnly={readOnlyMode}
-                hideDotfiles={hideDotfilesEffective}
-                revealFileId={filesRevealState.fileId}
-                revealToken={filesRevealState.token}
-              />
-            </div>
-          </div>
-
-          <div
-            className={cn(
-              'flex-1 min-h-0 overflow-hidden',
-              isScopeView ? 'flex flex-col' : 'hidden'
-            )}
-            role="tabpanel"
-            aria-hidden={!isScopeView}
-          >
-            <div className="flex-1 min-h-0 file-tree-dark flex flex-col">
-              <FileTree
-                projectId={projectId}
-                onFileOpen={handleFileOpen}
-                onFileDownload={handleFileDownload}
-                className="flex-1 min-h-0"
-                readOnly
-                hideDotfiles
-                nodesOverride={effectiveScopedExplorerNodes}
-                loadingOverride={effectiveScopedExplorerLoading}
-                emptyLabel={effectiveScopedExplorerLabel ? `No files in ${effectiveScopedExplorerLabel}.` : 'No scoped files.'}
-              />
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {!readOnlyMode && (
-        <CreateFileDialog
-          open={createFileOpen}
-          onOpenChange={setCreateFileOpen}
-          parentId={null}
-          onCreated={(file) => {
-            void handleFileOpen(file)
-          }}
-        />
-      )}
-
-      {!readOnlyMode && (
-        <div className="shrink-0">
-          <Separator className="mx-2 w-auto bg-[var(--border-dark)]" />
-          {localQuestMode ? (
-            <div className="p-2">
-              <div className="px-1 pb-2 text-[10px] uppercase tracking-[0.18em] text-[var(--text-muted-on-dark)]">
-                Workspace
-              </div>
-              <SidebarButton
-                icon={<FolderOpen className="h-4 w-4" />}
-                label={t('quest_workspace_canvas')}
-                active={activeQuestWorkspaceView === 'canvas'}
-                dataOnboardingId="quest-workspace-tab-canvas"
-                onClick={() => {
-                  openQuestWorkspaceTab('canvas')
-                }}
-              />
-              <SidebarButton
-                icon={<FileText className="h-4 w-4" />}
-                label={t('quest_workspace_details')}
-                active={activeQuestWorkspaceView === 'details'}
-                dataOnboardingId="quest-workspace-tab-details"
-                onClick={() => {
-                  openQuestWorkspaceTab('details')
-                }}
-              />
-              <SidebarButton
-                icon={<BookOpen className="h-4 w-4" />}
-                label={t('quest_workspace_memory')}
-                active={activeQuestWorkspaceView === 'memory'}
-                dataOnboardingId="quest-workspace-tab-memory"
-                onClick={() => {
-                  openQuestWorkspaceTab('memory')
-                }}
-              />
-              <SidebarButton
-                icon={<Terminal className="h-4 w-4" />}
-                label={t('quest_workspace_terminal')}
-                active={activeQuestWorkspaceView === 'terminal'}
-                dataOnboardingId="quest-workspace-tab-terminal"
-                onClick={() => {
-                  openQuestWorkspaceTab('terminal')
-                }}
-              />
-              <SidebarButton
-                icon={<Settings className="h-4 w-4" />}
-                label={t('quest_workspace_settings')}
-                active={activeQuestWorkspaceView === 'settings'}
-                dataOnboardingId="quest-workspace-tab-settings"
-                onClick={() => {
-                  openQuestWorkspaceTab('settings')
-                }}
-              />
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen((prev) => !prev)}
-                aria-expanded={isMenuOpen}
-                aria-controls={menuSectionId}
-                className={cn(
-                  'flex w-full items-center justify-between px-2 py-1.5 text-[10px] uppercase tracking-wide',
-                  'text-[var(--text-muted-on-dark)] transition-colors',
-                  'hover:text-[var(--text-on-dark)]'
-                )}
-              >
-                <span>{t('menu_label')}</span>
-                <ChevronDown
-                  className={cn('h-3 w-3 transition-transform', isMenuOpen ? 'rotate-0' : '-rotate-90')}
-                />
-              </button>
-              <div id={menuSectionId} hidden={!isMenuOpen} aria-hidden={!isMenuOpen}>
-                <div className="p-1.5 space-y-0.5">
-                  <SidebarButton
-                    icon={
-                      <PngIcon
-                        name="inverted/Search"
-                        size={16}
-                        className="h-4 w-4"
-                        fallback={<Search className="h-4 w-4" />}
-                      />
-                    }
-                    label={t('leftpanel_search')}
-                    onClick={() => openPluginTab(BUILTIN_PLUGINS.SEARCH, t('plugin_search_title'))}
-                  />
-                  <SidebarButton
-                    icon={
-                      <PngIcon
-                        name="inverted/BarChart3"
-                        size={16}
-                        className="h-4 w-4"
-                        fallback={<BarChart3 className="h-4 w-4" />}
-                      />
-                    }
-                    label={t('leftpanel_analysis')}
-                    onClick={() => openPluginTab('@ds/plugin-analysis', t('leftpanel_analysis'))}
-                  />
-                  <SidebarButton
-                    icon={
-                      <PngIcon
-                        name="inverted/Puzzle"
-                        size={16}
-                        className="h-4 w-4"
-                        fallback={<Puzzle className="h-4 w-4" />}
-                      />
-                    }
-                    label={t('leftpanel_plugins')}
-                    onClick={() => openPluginTab('@ds/plugin-marketplace', t('plugin_marketplace_title'))}
-                  />
-                </div>
-
-                <Separator className="mx-2 w-auto bg-[var(--border-dark)]" />
-
-                <div className="p-1.5">
-                  <SidebarButton
-                    icon={<Settings className="h-4 w-4" />}
-                    label={t('leftpanel_settings')}
-                    onClick={openSettings}
-                  />
-                  <SidebarButton
-                    icon={
-                      <PngIcon
-                        name="inverted/SparklesIcon"
-                        alt={t('leftpanel_agent')}
-                        size={16}
-                        className="h-4 w-4"
-                        fallback={<SparklesIcon className="h-4 w-4" />}
-                      />
-                    }
-                    label={t('leftpanel_agent')}
-                    onClick={() => onEnterHome?.()}
-                  />
-                  <SidebarButton
-                    icon={<FlaskConical className="h-4 w-4" />}
-                    label={t('leftpanel_home')}
-                    onClick={() => {
-                      onEnterLab?.()
-                      openPluginTab(BUILTIN_PLUGINS.LAB, t('plugin_lab_home_title'), { readOnly: readOnlyMode })
-                    }}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 function SidebarButton({
   icon,
@@ -3438,7 +2168,6 @@ export function WorkspaceLayout({
   const { addToast } = useToast()
   const tabsHydrated = useTabsStore((state) => state.hasHydrated)
   const activeTab = useActiveTab()
-  const leftStorageKey = `ds:project:${projectId}:left-panel`
   const navbarStorageKey = `ds:project:${projectId}:navbar-collapsed`
   const tabs = useTabsStore((s) => s.tabs)
   const setActiveTab = useTabsStore((s) => s.setActiveTab)
@@ -3449,22 +2178,12 @@ export function WorkspaceLayout({
   const upload = useFileTreeStore((s) => s.upload)
   const { openFileInTab } = useOpenFile()
   const [leftWidth, setLeftWidth] = React.useState(280)
-  const [showLeft, setShowLeft] = React.useState(() => {
-    if (typeof window === 'undefined') return true
-    const stored = window.localStorage.getItem(leftStorageKey)
-    return stored ? stored === '1' : true
-  })
   const [navbarCollapsed, setNavbarCollapsed] = React.useState(() => {
     if (typeof window === 'undefined') return false
     const stored = window.localStorage.getItem(navbarStorageKey)
       return stored === '1'
   })
   const [copilotPrefill, setCopilotPrefill] = React.useState<CopilotPrefill | null>(null)
-  const [revealedFileScope, setRevealedFileScope] = React.useState<{
-    label: string | null
-    nodes: FileNode[]
-    token: number
-  } | null>(null)
   const [commandOpen, setCommandOpen] = React.useState(false)
   const [createFileOpen, setCreateFileOpen] = React.useState(false)
   const [createLatexOpen, setCreateLatexOpen] = React.useState(false)
@@ -3498,59 +2217,6 @@ export function WorkspaceLayout({
     [setActiveTab]
   )
 
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const stored = window.localStorage.getItem(leftStorageKey)
-    setShowLeft(stored ? stored === '1' : true)
-  }, [leftStorageKey])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const handleWorkspaceLeftVisibility = (event: Event) => {
-      const detail = (event as CustomEvent<WorkspaceLeftVisibilityDetail>).detail
-      if (!detail || detail.projectId !== projectId || typeof detail.visible !== 'boolean') return
-      setShowLeft(detail.visible)
-    }
-    window.addEventListener(WORKSPACE_LEFT_VISIBILITY_EVENT, handleWorkspaceLeftVisibility as EventListener)
-    return () =>
-      window.removeEventListener(
-        WORKSPACE_LEFT_VISIBILITY_EVENT,
-        handleWorkspaceLeftVisibility as EventListener
-      )
-  }, [projectId])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    const handleRevealFile = (event: Event) => {
-      const detail = (event as CustomEvent<WorkspaceRevealFileDetail>).detail
-      if (!detail || detail.projectId !== projectId) return
-      setShowLeft(true)
-      const normalizedPath = normalizeExplorerScopePath(detail.filePath)
-      if (!normalizedPath) return
-      void (async () => {
-        try {
-          const explorerPayload = await questClient.explorer(projectId, { profile: 'workspace' })
-          const scopeResult = buildScopedQuestTree(projectId, explorerPayload, [normalizedPath])
-          if (scopeResult.nodes.length === 0) return
-          setRevealedFileScope({
-            label: detail.label || normalizedPath,
-            nodes: scopeResult.nodes,
-            token: Date.now(),
-          })
-        } catch (error) {
-          console.error('[WorkspaceLayout] Failed to prepare revealed explorer scope:', error)
-        }
-      })()
-    }
-    window.addEventListener(WORKSPACE_REVEAL_FILE_EVENT, handleRevealFile as EventListener)
-    return () =>
-      window.removeEventListener(WORKSPACE_REVEAL_FILE_EVENT, handleRevealFile as EventListener)
-  }, [projectId])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem(leftStorageKey, showLeft ? '1' : '0')
-  }, [leftStorageKey, showLeft])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
@@ -3577,7 +2243,7 @@ export function WorkspaceLayout({
   } | null>(null)
 
   if (!initialPanelsRef.current || initialPanelsRef.current.projectId !== projectId) {
-    initialPanelsRef.current = { projectId, left: showLeft, right: shouldShowCopilot }
+    initialPanelsRef.current = { projectId, left: false, right: shouldShowCopilot }
   }
 
   const containerRef = React.useRef<HTMLDivElement>(null)
@@ -3747,15 +2413,6 @@ export function WorkspaceLayout({
         run: openSettings,
       },
       {
-        id: 'toggle-explorer',
-        title: showLeft ? t('command_toggle_explorer_hide') : t('command_toggle_explorer_show'),
-        description: t('command_toggle_explorer_desc'),
-        group: 'Panels',
-        keywords: ['left', 'explorer', 'files'],
-        icon: <LayoutIcon className="h-4 w-4 text-muted-foreground" />,
-        run: () => setShowLeft((v) => !v),
-      },
-      {
         id: 'toggle-copilot',
         title: copilotDock.state.open ? t('command_toggle_copilot_hide') : t('command_toggle_copilot_show'),
         description: t('command_toggle_copilot_desc'),
@@ -3793,7 +2450,6 @@ export function WorkspaceLayout({
     handleUploadFiles,
     openSearch,
     openSettings,
-    showLeft,
     t,
   ])
 
@@ -3968,7 +2624,7 @@ export function WorkspaceLayout({
 
   const entranceData =
     entranceStage === 'from' || entranceStage === 'to' ? entranceStage : undefined
-  const showLeftPanel = showLeft && entranceStage !== 'hold'
+  const showLeftPanel = false
   const showCopilotPanel = shouldShowCopilot && entranceStage !== 'hold'
   const applyCopilotPadding =
     shouldShowCopilot && (entranceStage === 'to' || entranceStage === 'done')
@@ -4084,7 +2740,6 @@ export function WorkspaceLayout({
         <Navbar
           projectId={projectId}
           projectName={projectName}
-          onToggleLeft={() => setShowLeft(!showLeft)}
           onToggleRight={() => {
             copilotDock.toggleOpen()
           }}
@@ -4095,7 +2750,6 @@ export function WorkspaceLayout({
           onNewLatexProject={handleNewLatexProject}
           onNewFolder={handleNewFolder}
           onUploadFiles={handleUploadFiles}
-          leftVisible={showLeft}
           rightVisible={copilotDock.state.open}
           rightLocked={false}
           readOnly={readOnlyMode}
@@ -4202,23 +2856,6 @@ export function WorkspaceLayout({
         data-entrance={entranceData}
         ref={containerRef}
       >
-        {/* Left Panel */}
-        {showLeftPanel && (
-          <>
-            <LeftPanel
-              width={leftWidth}
-              projectId={projectId}
-              onClose={() => setShowLeft(false)}
-              readOnly={readOnlyMode}
-              localQuestMode={isQuestLikeProject}
-              workspaceTreeSyncKey={workspaceTreeSyncKey}
-              workspaceScopeContextKey={workspaceScopeContextKey}
-              revealedFileScope={revealedFileScope}
-            />
-            <div className="resizer" onMouseDown={startResize('left')} />
-          </>
-        )}
-
         {/* Stage (Center + Agent) */}
         <div className="workspace-stage-shell" ref={stageRef}>
           <div className="workspace-stage-layer workspace-center-layer">
@@ -4273,15 +2910,6 @@ export function WorkspaceLayout({
         </div>
 
         {/* Floating Recovery Toggles */}
-        {entranceStage === 'done' && !showLeft && (
-          <div
-            className="panel-toggle toggle-left"
-            onClick={() => setShowLeft(true)}
-            title={t('workspace_open_explorer')}
-          >
-            <LayoutIcon />
-          </div>
-        )}
         {entranceStage === 'done' && !readOnlyMode && !copilotDock.state.open && (
           <div
             className="panel-toggle toggle-right"

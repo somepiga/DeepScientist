@@ -14,9 +14,9 @@ import { normalizeBuiltinRunnerName, runnerLabel } from '@/lib/runnerBranding'
 import type { StartResearchTemplate } from '@/lib/startResearch'
 import type { QuestMessageAttachmentDraft } from '@/lib/hooks/useQuestMessageAttachments'
 import { getHeroBundle } from './hero-content'
-import type { ConnectorAvailabilitySnapshot, QuestSummary } from '@/types'
+import { buildAppPath } from '@/lib/navigation'
+import type { QuestSummary } from '@/types'
 import type { BenchEntry, BenchSetupPacket } from '@/lib/types/benchstore'
-import { EntryCoachDialog } from './EntryCoachDialog'
 import HeroNav from './HeroNav'
 import { UpdateReminderDialog } from './UpdateReminderDialog'
 
@@ -171,9 +171,6 @@ export default function Hero(props: {
       active = false
     }
   }, [])
-  const [connectorAvailability, setConnectorAvailability] = useState<ConnectorAvailabilitySnapshot | null>(null)
-  const [connectorAvailabilityResolved, setConnectorAvailabilityResolved] = useState(false)
-  const [entryCoachDismissed, setEntryCoachDismissed] = useState(false)
   const [quests, setQuests] = useState<QuestSummary[]>([])
   const [questsLoading, setQuestsLoading] = useState(false)
   const [questsError, setQuestsError] = useState<string | null>(null)
@@ -198,44 +195,6 @@ export default function Hero(props: {
     setActiveDialog(props.dialogRequest)
     props.onDialogRequestConsumed?.()
   }, [props.dialogRequest, props.onDialogRequestConsumed])
-
-  useEffect(() => {
-    let active = true
-    void client
-      .connectorsAvailability()
-      .then((payload) => {
-        if (!active) return
-        setConnectorAvailability(payload)
-      })
-      .catch(() => {
-        if (!active) return
-        setConnectorAvailability(null)
-      })
-      .finally(() => {
-        if (active) {
-          setConnectorAvailabilityResolved(true)
-        }
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
-  const connectorCoachMode = useMemo(() => {
-    if (!connectorAvailability?.should_recommend_binding) {
-      return null
-    }
-    if (!connectorAvailability.has_enabled_external_connector) {
-      return 'no_enabled' as const
-    }
-    const hasDeliveryTarget = connectorAvailability.available_connectors.some(
-      (item) => item.enabled && item.has_delivery_target
-    )
-    if (!hasDeliveryTarget) {
-      return 'no_target' as const
-    }
-    return 'recommended' as const
-  }, [connectorAvailability])
 
   useEffect(() => {
     if (activeDialog !== 'quests') {
@@ -302,7 +261,7 @@ export default function Hero(props: {
           entry_mode: 'manual_agent_setup',
         },
       })
-      window.location.assign(`/projects/${result.snapshot.quest_id}`)
+      window.location.assign(buildAppPath(`/projects/${result.snapshot.quest_id}`))
     } catch (caught) {
       setAutonomousError(caught instanceof Error ? caught.message : 'Failed to create workspace.')
       setAutonomousCreating(false)
@@ -433,13 +392,6 @@ export default function Hero(props: {
     setActiveDialog('quests')
   }, [])
 
-  const shouldShowConnectorCoach = connectorAvailabilityResolved && connectorCoachMode !== null
-  const entryCoachOpen =
-    !entryCoachDismissed &&
-    !landingModalOpen &&
-    shouldShowConnectorCoach &&
-    !isPortraitMode
-
   useEffect(() => {
     const htmlStyle = document.documentElement.style
     const bodyStyle = document.body.style
@@ -449,7 +401,7 @@ export default function Hero(props: {
     const previousBodyOverflowX = bodyStyle.overflowX
     const previousBodyOverflowY = bodyStyle.overflowY
 
-    const shouldLockBackground = landingModalOpen || entryCoachOpen || !isPortraitMode
+    const shouldLockBackground = landingModalOpen || !isPortraitMode
     htmlStyle.overflowX = 'hidden'
     htmlStyle.overflowY = shouldLockBackground ? 'hidden' : 'auto'
     bodyStyle.overflow = shouldLockBackground ? 'hidden' : 'auto'
@@ -463,7 +415,7 @@ export default function Hero(props: {
       bodyStyle.overflowX = previousBodyOverflowX
       bodyStyle.overflowY = previousBodyOverflowY
     }
-  }, [entryCoachOpen, landingModalOpen, isPortraitMode])
+  }, [landingModalOpen, isPortraitMode])
 
   return (
     <>
@@ -484,7 +436,6 @@ export default function Hero(props: {
             <Button
               className="h-12 rounded-full bg-[#C7AD96] px-7 text-[#2D2A26] shadow-[0_12px_28px_-14px_rgba(45,42,38,0.55)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#D7C6AE]"
               onClick={() => {
-                setEntryCoachDismissed(true)
                 void createManualWorkspace()
               }}
               disabled={autonomousCreating}
@@ -578,7 +529,7 @@ export default function Hero(props: {
             setActiveDialog(null)
             setBenchSetupPacket(null)
             await cleanupSetupQuest()
-            window.location.assign(`/projects/${result.snapshot.quest_id}`)
+            window.location.assign(buildAppPath(`/projects/${result.snapshot.quest_id}`))
           } catch (caught) {
             setAutonomousError(caught instanceof Error ? caught.message : 'Failed to create quest.')
           } finally {
@@ -587,16 +538,6 @@ export default function Hero(props: {
         }}
       />
       <UpdateReminderDialog />
-      <EntryCoachDialog
-        open={entryCoachOpen}
-        connectorMode={connectorCoachMode || 'recommended'}
-        showConnectorStep={shouldShowConnectorCoach}
-        onClose={() => setEntryCoachDismissed(true)}
-        onOpenConnectorSettings={() => {
-          setEntryCoachDismissed(true)
-          navigate('/settings/connector', { state: { configName: 'connectors' } })
-        }}
-      />
     </>
   )
 }

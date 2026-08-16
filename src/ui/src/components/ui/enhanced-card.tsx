@@ -64,9 +64,9 @@ export const EnhancedCard = forwardRef<HTMLDivElement, EnhancedCardProps>(
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Spotlight overlay */}
+        {/* Spotlight overlay (pixel: hard-edged, no blur) */}
         <motion.div
-          className="absolute inset-0 pointer-events-none rounded-soft-xl overflow-hidden z-10"
+          className="absolute inset-0 pointer-events-none rounded-none overflow-hidden z-10"
           initial={{ opacity: 0 }}
           animate={{ opacity: isHovered ? 1 : 0 }}
           transition={{ duration: 0.3 }}

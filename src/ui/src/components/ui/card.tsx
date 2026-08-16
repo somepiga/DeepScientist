@@ -13,18 +13,17 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          // Base styles - shadcn clean design
-          'rounded-lg bg-card text-card-foreground',
-          'transition-all duration-200',
+          // Base styles - pixel design
+          'rounded-none bg-card text-card-foreground',
+          'border-2 border-[hsl(var(--pixel-border-color))]',
+          'transition-all duration-150',
 
           // Variants
-          variant === 'default' && 'border shadow-sm',
-          variant === 'outline' && 'border',
+          variant === 'default' &&
+            'shadow-pixel hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-pixel-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-pixel-sm',
+          variant === 'outline' && 'shadow-pixel',
           variant === 'ghost' && '',
-          variant === 'elevated' && 'border shadow-soft-card',
-
-          // Dark mode enhancements
-          'dark:border-white/10 dark:bg-white/[0.03] dark:backdrop-blur-sm',
+          variant === 'elevated' && 'shadow-pixel-lg',
 
           className
         )}

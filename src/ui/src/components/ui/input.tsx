@@ -28,21 +28,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            // Base Soft UI styles
-            'w-full h-12 px-4 rounded-soft-md',
+            // Base pixel styles
+            'w-full h-12 px-4 rounded-none',
             'bg-[var(--soft-bg-base)] text-[var(--soft-text-primary)]',
             'placeholder:text-[var(--soft-text-tertiary)]',
-            'border-none',
-            // Soft UI inset shadow
-            'shadow-soft-inset',
+            'border-2 border-[hsl(var(--pixel-border-color))]',
             // Focus state
-            'focus:outline-none focus:shadow-soft-inset-focus',
+            'focus:outline-none focus:ring-2 focus:ring-ring',
             // Transition
-            'transition-soft',
+            'transition-colors',
             // Disabled state
             'disabled:opacity-50 disabled:cursor-not-allowed',
             // Error state
-            error && 'shadow-soft-inset-error',
+            error && 'border-[hsl(var(--soft-danger))]',
             className
           )}
           style={{
