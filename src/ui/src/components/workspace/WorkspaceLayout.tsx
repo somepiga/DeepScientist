@@ -2896,7 +2896,6 @@ export function WorkspaceLayout({
               hideNewChat
               hideHistory
               hideFixWithAi
-              hideHeaderOrbit
               onClose={() => {
                 copilotDock.setOpen(false)
               }}

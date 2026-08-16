@@ -10,7 +10,6 @@ import type {
   CopilotSuggestionItem,
   CopilotSuggestionPayload,
 } from '@/lib/plugins/ai-manus/view-types'
-import OrbitLogoStatus from '@/lib/plugins/ai-manus/components/OrbitLogoStatus'
 import type { ChatSurface } from '@/lib/types/chat-events'
 import { Noise } from '@/components/react-bits'
 import RotatingText from '@/components/RotatingText'
@@ -60,7 +59,6 @@ type CopilotDockOverlayProps = {
   visible?: boolean
   keepAlive?: boolean
   onClose: () => void
-  hideHeaderOrbit?: boolean
   setSide: (side: CopilotDockSide) => void
   toggleSide: () => void
   setWidth: (width: number) => void
@@ -369,7 +367,6 @@ export function CopilotDockOverlay({
   visible,
   keepAlive = true,
   onClose,
-  hideHeaderOrbit = false,
   setSide,
   setWidth,
   setMaxRatio,
@@ -963,21 +960,8 @@ export function CopilotDockOverlay({
                   </div>
                 ) : (
                   <div className="ds-copilot-header-left ds-copilot-drag-area">
-                    {!hideHeaderOrbit ? (
-                      <div className="ds-copilot-header-orbit-wrap" aria-hidden="true">
-                        <OrbitLogoStatus
-                          compact
-                          sizePx={20}
-                          className="ds-copilot-header-orbit"
-                          toolCount={copilotMeta?.toolCount}
-                          resetKey={headerOrbitResetKey}
-                          animated={Boolean(copilotMeta?.isResponding)}
-                        />
-                      </div>
-                    ) : null}
                     <div className="ds-copilot-title-stack">
                       <div className="ds-copilot-title-row">
-                        <span className="ds-copilot-title">{t('copilot_title')}</span>
                         {showStatus ? (
                           <>
                             <span className="ds-copilot-title-sep">·</span>
