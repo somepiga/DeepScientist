@@ -227,10 +227,10 @@ def initial_status(startup_contract: dict | None = None) -> str:
     if workspace_mode == "copilot":
         return "# Status\n\nReady for your first instruction.\n"
     if research_mode == "validation":
-        return "# Status\n\nQuest created in validation mode. Confirm the comparison target, then start disciplined validation.\n"
+        return "# Status\n\nConfirm the comparison target, then start disciplined validation.\n"
     if research_mode == "paper_track":
-        return "# Status\n\nQuest created in paper-track mode. Focus on claim hardening, analysis closure, and manuscript-facing evidence.\n"
-    return "# Status\n\nQuest created in exploration mode. Start broad, test aggressively, and converge only after strong signals emerge.\n"
+        return "# Status\n\nFocus on claim hardening, analysis closure, and manuscript-facing evidence.\n"
+    return "# Status\n\nStart broad, test aggressively, and converge only after strong signals emerge.\n"
 
 
 def initial_summary() -> str:
