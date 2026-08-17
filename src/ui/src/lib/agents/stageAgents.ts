@@ -64,27 +64,18 @@ export const STAGE_AGENTS: StageAgent[] = [
     modes: ['exploration'],
   },
   {
-    id: 'optimize',
-    role: 'stage',
-    name: { en: 'Optimize', zh: '优化' },
-    summary: {
-      en: 'Runs targeted optimization on top of the baseline toward stronger results.',
-      zh: '在基线之上做针对性优化，逼近更强结果。',
-    },
-    promptFile: 'src/skills/optimize/SKILL.md',
-    contextScope: { quest: ['episodes', 'decisions', 'ideas', 'knowledge'], global: ['knowledge', 'templates'] },
-    modes: ['exploration', 'validation'],
-  },
-  {
     id: 'experiment',
     role: 'stage',
-    name: { en: 'Experiment', zh: '实验' },
+    name: { en: 'Experiment', zh: '实验与优化' },
     summary: {
-      en: 'Designs and runs experiments, collecting trustworthy metrics and artifacts.',
-      zh: '设计并执行实验，收集可信指标与产物。',
+      en: 'Designs and runs experiments, and pushes targeted optimization on top of the baseline toward stronger, validated results.',
+      zh: '设计并执行实验，在基线之上做针对性优化，逼近更强且可验证的结果。',
     },
     promptFile: 'src/skills/experiment/SKILL.md',
-    contextScope: { quest: ['ideas', 'decisions', 'episodes', 'knowledge'], global: ['knowledge', 'templates'] },
+    contextScope: {
+      quest: ['ideas', 'decisions', 'episodes', 'knowledge'],
+      global: ['knowledge', 'templates'],
+    },
     modes: ['exploration', 'validation', 'paper_track'],
   },
   {
@@ -105,25 +96,16 @@ export const STAGE_AGENTS: StageAgent[] = [
   {
     id: 'write',
     role: 'stage',
-    name: { en: 'Write', zh: '写作' },
+    name: { en: 'Write', zh: '写作与定稿' },
     summary: {
-      en: 'Drafts the research report/paper, integrating evidence and conclusions.',
-      zh: '撰写研究报告/论文初稿，整合证据与结论。',
+      en: 'Drafts the research paper and polishes it to publication readiness, integrating evidence and conclusions.',
+      zh: '撰写论文初稿并润色定稿，整合证据与结论，达到可发布状态。',
     },
     promptFile: 'src/skills/write/SKILL.md',
-    contextScope: { quest: ['papers', 'decisions', 'knowledge', 'ideas'], global: ['templates', 'knowledge', 'papers'] },
-    modes: ['paper_track'],
-  },
-  {
-    id: 'finalize',
-    role: 'stage',
-    name: { en: 'Finalize', zh: '定稿' },
-    summary: {
-      en: 'Finalizes and polishes the deliverable for publication readiness.',
-      zh: '定稿与润色，确保交付物完整可发布。',
+    contextScope: {
+      quest: ['papers', 'decisions', 'knowledge', 'ideas', 'episodes'],
+      global: ['templates', 'knowledge', 'papers'],
     },
-    promptFile: 'src/skills/finalize/SKILL.md',
-    contextScope: { quest: ['decisions', 'knowledge', 'episodes'], global: ['knowledge', 'templates'] },
     modes: ['paper_track'],
   },
   {

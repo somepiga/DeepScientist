@@ -5,10 +5,10 @@ import { STAGE_AGENTS, agentRoleLabel } from '@/lib/agents/stageAgents'
 const stageAgents = STAGE_AGENTS.filter((a) => a.role === 'stage')
 
 // 主阶段在图里的位置：探索骨架一行，写作/定稿作为论文轨道分支落到第二行。
-const BACKBONE = ['scout', 'baseline', 'idea', 'optimize', 'experiment', 'analysis-campaign', 'decision']
+// optimize 已并入 experiment、finalize 已并入 write，故图上只保留 7 个节点。
+const BACKBONE = ['scout', 'baseline', 'idea', 'experiment', 'analysis-campaign', 'decision']
 const PAPER_BRANCH: Record<string, { col: number; row: 1 }> = {
   write: { col: 4.6, row: 1 },
-  finalize: { col: 5.5, row: 1 },
 }
 
 const MODE_META: Record<string, { short: { en: string; zh: string }; color: string }> = {
@@ -21,13 +21,11 @@ const MODE_META: Record<string, { short: { en: string; zh: string }; color: stri
 const EDGES: { from: string; to: string; mode: 'exploration' | 'paper_track' }[] = [
   { from: 'scout', to: 'baseline', mode: 'exploration' },
   { from: 'baseline', to: 'idea', mode: 'exploration' },
-  { from: 'idea', to: 'optimize', mode: 'exploration' },
-  { from: 'optimize', to: 'experiment', mode: 'exploration' },
+  { from: 'idea', to: 'experiment', mode: 'exploration' },
   { from: 'experiment', to: 'analysis-campaign', mode: 'exploration' },
   { from: 'analysis-campaign', to: 'decision', mode: 'exploration' },
   { from: 'analysis-campaign', to: 'write', mode: 'paper_track' },
-  { from: 'write', to: 'finalize', mode: 'paper_track' },
-  { from: 'finalize', to: 'decision', mode: 'paper_track' },
+  { from: 'write', to: 'decision', mode: 'paper_track' },
 ]
 
 const NODE_W = 152
