@@ -4,7 +4,7 @@ import * as React from 'react'
 import { listAgents, type AgentSummary } from '@/lib/agentsApi'
 import { STAGE_AGENTS, type StageAgent } from '@/lib/agents/stageAgents'
 import AgentOrchestration from '@/components/agents/AgentOrchestration'
-import AgentPromptEditor from '@/components/agents/AgentPromptEditor'
+import AgentEditor from '@/components/agents/AgentEditor'
 import { cn } from '@/lib/utils'
 
 const copy = {
@@ -334,13 +334,13 @@ export function AgentsPage() {
             />
           )}
 
-          <AgentPromptEditor
+          <AgentEditor
             open={selected !== null}
             onOpenChange={(open) => {
               if (!open) setSelected(null)
             }}
             agentId={selected?.id ?? ''}
-            agentName={selected ? { en: selected.name, zh: selected.name } : { en: '', zh: '' }}
+            agentName={selected?.name}
             promptFile={selected?.promptFile ?? ''}
             locale={locale}
           />

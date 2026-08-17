@@ -15,9 +15,9 @@ import {
 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
 import { client } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { AgentEditor } from '@/components/agents/AgentEditor'
 import type { QuestAgentOrchestrationPayload } from '@/types'
 
 type QuestAgentTeamViewProps = {
@@ -150,35 +150,11 @@ export function QuestAgentTeamView({
 }: QuestAgentTeamViewProps) {
   const [pendingStageId, setPendingStageId] = React.useState<string | null>(null)
   const [editingAgentId, setEditingAgentId] = React.useState<string | null>(null)
-  const [agentSkillMarkdown, setAgentSkillMarkdown] = React.useState('')
-  const [agentConfigLoading, setAgentConfigLoading] = React.useState(false)
-  const [agentConfigSaving, setAgentConfigSaving] = React.useState(false)
-  const [agentConfigError, setAgentConfigError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     setPendingStageId(null)
     setEditingAgentId(null)
   }, [questId])
-
-  React.useEffect(() => {
-    if (!editingAgentId) return
-    let cancelled = false
-    setAgentConfigLoading(true)
-    setAgentConfigError(null)
-    void client.questAgentConfig(questId, editingAgentId)
-      .then((payload) => {
-        if (!cancelled) setAgentSkillMarkdown(payload.skill_markdown || '')
-      })
-      .catch((caught) => {
-        if (!cancelled) setAgentConfigError(caught instanceof Error ? caught.message : '无法读取 Agent 配置。')
-      })
-      .finally(() => {
-        if (!cancelled) setAgentConfigLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [editingAgentId, questId])
 
   if (!orchestration && loading) {
     return (
@@ -212,22 +188,6 @@ export function QuestAgentTeamView({
   const isPaused = ['paused', 'stopped'].includes(normalizedStatus)
   const activeAgentId = orchestration.active_agent_id || orchestration.selected_agent_id || orchestration.last_agent_id
   const hasStarted = Boolean(orchestration.active_agent_id || orchestration.last_agent_id || runs.length > 0)
-  const editingAgent = orchestration.agents.find((agent) => agent.id === editingAgentId) || null
-
-  const saveAgentConfig = async () => {
-    if (!editingAgent) return
-    setAgentConfigSaving(true)
-    setAgentConfigError(null)
-    try {
-      await client.updateQuestAgentConfig(questId, editingAgent.id, agentSkillMarkdown)
-      await onRefresh?.()
-    } catch (caught) {
-      setAgentConfigError(caught instanceof Error ? caught.message : '无法保存 Agent 配置。')
-    } finally {
-      setAgentConfigSaving(false)
-    }
-  }
-
   return (
     <div className="feed-scrollbar h-full overflow-y-auto px-4 py-4">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -324,8 +284,7 @@ export function QuestAgentTeamView({
                     <button
                       type="button"
                       onClick={() => setEditingAgentId(agent.id)}
-                      disabled={agentConfigSaving}
-                      className="inline-flex h-7 items-center gap-1 border border-black/[0.10] bg-white px-2 text-[10px] font-medium text-foreground hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.12] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
+                      className="inline-flex h-7 items-center gap-1 border border-black/[0.10] bg-white px-2 text-[10px] font-medium text-foreground hover:bg-black/[0.03] dark:border-white/[0.12] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
                     >
                       <Settings2 className="h-3 w-3" /> {agent.quest_configured ? '已配置' : '配置'}
                     </button>
@@ -340,52 +299,6 @@ export function QuestAgentTeamView({
                       </button>
                     ) : null}
                   </div>
-                  {editingAgent?.id === agent.id ? (
-                    <div className="ml-[22px] border border-black/[0.08] bg-black/[0.015] p-3 dark:border-white/[0.10] dark:bg-white/[0.04]">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-xs font-semibold text-foreground">编辑 @{agent.id}/SKILL.md</div>
-                          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                            这是该 Quest 专属的完整 Skill 文件。保存后会替换该 Agent 在此任务中实际加载的 SKILL.md，不会注入附加指令，也不影响其他 Quest。
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setEditingAgentId(null)}
-                          disabled={agentConfigSaving}
-                          className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-60"
-                        >
-                          关闭
-                        </button>
-                      </div>
-                      <Textarea
-                        value={agentSkillMarkdown}
-                        onChange={(event) => setAgentSkillMarkdown(event.target.value)}
-                        disabled={agentConfigLoading || agentConfigSaving}
-                        placeholder="完整 SKILL.md 内容"
-                        className="mt-3 min-h-[28rem] resize-y bg-white font-mono text-xs leading-5 dark:bg-white/[0.06]"
-                      />
-                      {agentConfigError ? <p className="mt-2 text-[11px] text-rose-600 dark:text-rose-300">{agentConfigError}</p> : null}
-                      <div className="mt-3 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setEditingAgentId(null)}
-                          disabled={agentConfigSaving}
-                          className="h-8 border border-black/[0.10] bg-white px-3 text-[11px] font-medium text-foreground hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[0.12] dark:bg-white/[0.08] dark:hover:bg-white/[0.12]"
-                        >
-                          取消
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void saveAgentConfig()}
-                          disabled={agentConfigLoading || agentConfigSaving}
-                          className="h-8 border border-emerald-700 bg-emerald-600 px-3 text-[11px] font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {agentConfigSaving ? '正在保存...' : '保存 SKILL.md'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               )
             })}
@@ -484,6 +397,16 @@ export function QuestAgentTeamView({
             </div>
           )}
         </section>
+
+        <AgentEditor
+          open={editingAgentId !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditingAgentId(null)
+          }}
+          agentId={editingAgentId ?? ''}
+          questId={questId}
+          onSaved={() => onRefresh?.()}
+        />
       </div>
     </div>
   )
