@@ -5702,7 +5702,7 @@ function LabQuestGraphCanvasInner({
         variant={viewMode === 'branch' ? 'secondary' : 'ghost'}
         onClick={() => setViewMode('branch')}
       >
-        Branch map
+        {t('quest_semantic_view_branch_label', undefined, 'Branch map')}
       </Button>
       <Button
         type="button"
@@ -5710,7 +5710,7 @@ function LabQuestGraphCanvasInner({
         variant={viewMode === 'event' ? 'secondary' : 'ghost'}
         onClick={() => setViewMode('event')}
       >
-        Event trace
+        {t('quest_semantic_view_event_label', undefined, 'Event trace')}
       </Button>
       <Button
         type="button"
@@ -5718,7 +5718,7 @@ function LabQuestGraphCanvasInner({
         variant={viewMode === 'stage' ? 'secondary' : 'ghost'}
         onClick={() => setViewMode('stage')}
       >
-        Stage flow
+        {t('quest_semantic_view_stage_label', undefined, 'Stage flow')}
       </Button>
     </div>
   ) : null
@@ -5779,7 +5779,7 @@ function LabQuestGraphCanvasInner({
               variant={eventTraceMode === 'compact' ? 'secondary' : 'ghost'}
               onClick={() => setEventTraceMode('compact')}
             >
-              Compact
+              {t('quest_event_trace_compact', undefined, 'Compact')}
             </Button>
             <Button
               type="button"
@@ -5787,7 +5787,7 @@ function LabQuestGraphCanvasInner({
               variant={eventTraceMode === 'detailed' ? 'secondary' : 'ghost'}
               onClick={() => setEventTraceMode('detailed')}
             >
-              Detailed
+              {t('quest_event_trace_detailed', undefined, 'Detailed')}
             </Button>
           </div>
         ) : null}
@@ -6239,21 +6239,21 @@ function LabQuestGraphCanvasInner({
               size="sm"
               onClick={() => setViewMode('branch')}
             >
-              Branch map
+              {t('quest_semantic_view_branch_label', undefined, 'Branch map')}
             </Button>
             <Button
               variant={viewMode === 'event' ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('event')}
             >
-              Event trace
+              {t('quest_semantic_view_event_label', undefined, 'Event trace')}
             </Button>
             <Button
               variant={viewMode === 'stage' ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('stage')}
             >
-              Stage flow
+              {t('quest_semantic_view_stage_label', undefined, 'Stage flow')}
             </Button>
             {viewMode === 'event' ? (
               <>
@@ -6262,15 +6262,15 @@ function LabQuestGraphCanvasInner({
                   size="sm"
                   onClick={() => setEventTraceMode('compact')}
                 >
-                  Compact
-                </Button>
-                <Button
-                  variant={eventTraceMode === 'detailed' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setEventTraceMode('detailed')}
-                >
-                  Detailed
-                </Button>
+              {t('quest_event_trace_compact', undefined, 'Compact')}
+            </Button>
+            <Button
+              variant={eventTraceMode === 'detailed' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setEventTraceMode('detailed')}
+            >
+              {t('quest_event_trace_detailed', undefined, 'Detailed')}
+            </Button>
               </>
             ) : null}
             {viewMode !== 'stage' ? (

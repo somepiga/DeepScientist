@@ -3884,7 +3884,7 @@ function QuestDetails({
 
         <DetailSection
           title="Baseline Compare"
-          actions={<WorkspaceRefreshButton onRefresh={onRefresh} label="Refresh baselines" />}
+          actions={<WorkspaceRefreshButton onRefresh={onRefresh} label="刷新基线" />}
         >
           {hasBaselineCompare ? (
             <div className="space-y-4">
