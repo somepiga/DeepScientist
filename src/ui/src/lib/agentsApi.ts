@@ -2,11 +2,14 @@ import { api } from '@/lib/api'
 
 export interface AgentSummary {
   id: string
+  skill_id: string
   name: string
   role: string
   description: string
   prompt_file: string
   has_override: boolean
+  context_scope?: { quest: string[]; global: string[] }
+  modes?: string[]
 }
 
 export interface AgentPromptPayload {

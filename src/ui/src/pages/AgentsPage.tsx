@@ -1,7 +1,8 @@
-import { Boxes, FileCode2, Layers, Workflow } from 'lucide-react'
+import { Boxes, FileCode2, Layers, Pencil, Workflow } from 'lucide-react'
 import * as React from 'react'
 
-import { STAGE_AGENTS, agentRoleLabel, type AgentRole, type StageAgent } from '@/lib/agents/stageAgents'
+import { listAgents, type AgentSummary } from '@/lib/agentsApi'
+import { STAGE_AGENTS, type StageAgent } from '@/lib/agents/stageAgents'
 import AgentOrchestration from '@/components/agents/AgentOrchestration'
 import AgentPromptEditor from '@/components/agents/AgentPromptEditor'
 import { cn } from '@/lib/utils'
@@ -10,9 +11,8 @@ const copy = {
   en: {
     eyebrow: 'Agents',
     title: 'Research agents',
-    body: 'Each research stage is owned by a dedicated agent with its own prompt (SKILL.md) and context (memory namespaces), replacing the single all-in-one agent to ease context pressure and strengthen stage collaboration.',
+    body: 'Every registered skill is projected to a dedicated agent with its own prompt (SKILL.md) and context. Open any agent to fine-tune its dedicated prompt.',
     filterAll: 'All',
-    filterStage: 'Stages',
     promptLabel: 'Prompt',
     contextLabel: 'Context',
     questLabel: 'quest',
@@ -21,13 +21,15 @@ const copy = {
     onDemand: 'Triggered on demand',
     viewList: 'Cards',
     viewFlow: 'Flow',
+    loading: 'Loading agents…',
+    tuned: 'Customized',
+    fineTune: 'Fine-tune',
   },
   zh: {
     eyebrow: '智能体',
     title: '研究智能体',
-    body: '每个研究阶段由一个专用 agent 负责，拥有独立的提示词（SKILL.md）与上下文（记忆命名空间），以替代原先的单一大 agent，缓解上下文压力、加强阶段间协作。',
+    body: '每个已注册的 skill 都会投影为一个专用 agent，拥有独立提示词（SKILL.md）与上下文。点开任意 agent 即可微调其专有 prompt。',
     filterAll: '全部',
-    filterStage: '主阶段',
     promptLabel: '提示词',
     contextLabel: '上下文',
     questLabel: 'quest',
@@ -36,25 +38,79 @@ const copy = {
     onDemand: '按需触发',
     viewList: '卡片列表',
     viewFlow: '编排流程图',
+    loading: '加载智能体…',
+    tuned: '已自定义',
+    fineTune: '微调 Prompt',
   },
 } as const
 
-type FilterValue = 'all' | AgentRole
+// 后端 /api/agents 返回的 agent → 卡片展示结构
+export interface DisplayAgent {
+  id: string
+  name: string
+  role: string
+  description: string
+  promptFile: string
+  contextScope?: { quest: string[]; global: string[] }
+  modes: string[]
+  hasOverride: boolean
+}
+
+function toDisplay(a: AgentSummary): DisplayAgent {
+  return {
+    id: a.id,
+    name: a.name || a.id,
+    role: a.role,
+    description: a.description || '',
+    promptFile: a.prompt_file,
+    contextScope: a.context_scope,
+    modes: a.modes ?? [],
+    hasOverride: a.has_override,
+  }
+}
+
+// API 不可用时的降级数据源（写死的 7 个主阶段 agent）
+function stageToDisplay(a: StageAgent, locale: 'en' | 'zh'): DisplayAgent {
+  return {
+    id: a.id,
+    name: a.name[locale],
+    role: a.role,
+    description: a.summary[locale],
+    promptFile: a.promptFile,
+    contextScope: a.contextScope,
+    modes: a.modes,
+    hasOverride: false,
+  }
+}
+
+function roleLabel(role: string, locale: 'en' | 'zh'): string {
+  if (role === 'stage') return locale === 'zh' ? '主阶段' : 'Stage'
+  if (role === 'companion') return locale === 'zh' ? '伴随' : 'Companion'
+  return role
+}
+
+type FilterValue = string
 type ViewValue = 'list' | 'flow'
 
-function AgentCard({ agent, locale, onSelect }: { agent: StageAgent; locale: 'en' | 'zh'; onSelect?: (agent: StageAgent) => void }) {
+function AgentCard({
+  agent,
+  locale,
+  onSelect,
+}: {
+  agent: DisplayAgent
+  locale: 'en' | 'zh'
+  onSelect: (agent: DisplayAgent) => void
+}) {
   const t = copy[locale]
-  const name = agent.name[locale]
-  const summary = agent.summary[locale]
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onSelect?.(agent)}
+      onClick={() => onSelect(agent)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onSelect?.(agent)
+          onSelect(agent)
         }
       }}
       className="flex h-full cursor-pointer flex-col rounded-[20px] border border-black/[0.06] bg-white/70 p-5 shadow-[0_1px_2px_rgba(45,42,38,0.04)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(45,42,38,0.10)]"
@@ -62,13 +118,13 @@ function AgentCard({ agent, locale, onSelect }: { agent: StageAgent; locale: 'en
       <div className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C7AD96]/25 px-2.5 py-1 text-[11px] font-medium text-[#7A6450]">
           <Layers className="h-3.5 w-3.5" />
-          {agentRoleLabel(agent.role, locale)}
+          {roleLabel(agent.role, locale)}
         </span>
         <code className="truncate text-[11px] text-[#8A8278]">{agent.id}</code>
       </div>
 
-      <h3 className="mt-3 text-lg font-semibold tracking-[-0.02em] text-[#2D2A26]">{name}</h3>
-      <p className="mt-1.5 text-[13px] leading-6 text-[#5D5A55]">{summary}</p>
+      <h3 className="mt-3 text-lg font-semibold tracking-[-0.02em] text-[#2D2A26]">{agent.name}</h3>
+      <p className="mt-1.5 text-[13px] leading-6 text-[#5D5A55]">{agent.description}</p>
 
       <div className="mt-4 space-y-3 border-t border-black/[0.06] pt-4">
         <div>
@@ -125,6 +181,27 @@ function AgentCard({ agent, locale, onSelect }: { agent: StageAgent; locale: 'en
           </div>
         </div>
       </div>
+
+      <div className="mt-4 flex items-center justify-between border-t border-black/[0.06] pt-4">
+        {agent.hasOverride ? (
+          <span className="rounded-full bg-[#C7AD96]/25 px-2 py-0.5 text-[11px] font-medium text-[#7A6450]">
+            {t.tuned}
+          </span>
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect(agent)
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#2D2A26] px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-[#3F3A34]"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          {t.fineTune}
+        </button>
+      </div>
     </div>
   )
 }
@@ -135,17 +212,42 @@ export function AgentsPage() {
   const t = copy[locale]
   const [filter, setFilter] = React.useState<FilterValue>('all')
   const [view, setView] = React.useState<ViewValue>('list')
-  const [selected, setSelected] = React.useState<StageAgent | null>(null)
+  const [selected, setSelected] = React.useState<DisplayAgent | null>(null)
+  const [agents, setAgents] = React.useState<DisplayAgent[] | null>(null)
+  const [loadError, setLoadError] = React.useState(false)
 
-  const visible = React.useMemo(
-    () => (filter === 'all' ? STAGE_AGENTS : STAGE_AGENTS.filter((agent) => agent.role === filter)),
-    [filter]
-  )
+  React.useEffect(() => {
+    let cancelled = false
+    setAgents(null)
+    setLoadError(false)
+    listAgents()
+      .then((data) => {
+        if (cancelled) return
+        setAgents(data.map(toDisplay))
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLoadError(true)
+        setAgents(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
+  const displayList: DisplayAgent[] =
+    agents ?? (loadError ? STAGE_AGENTS.map((a) => stageToDisplay(a, locale)) : [])
+
+  const roles = React.useMemo(() => Array.from(new Set(displayList.map((a) => a.role))), [displayList])
   const filters: { value: FilterValue; label: string }[] = [
     { value: 'all', label: t.filterAll },
-    { value: 'stage', label: t.filterStage },
+    ...roles.map((r) => ({ value: r, label: roleLabel(r, locale) })),
   ]
+
+  const visible = React.useMemo(
+    () => (filter === 'all' ? displayList : displayList.filter((a) => a.role === filter)),
+    [displayList, filter]
+  )
 
   const views: { value: ViewValue; label: string; icon: typeof Boxes }[] = [
     { value: 'list', label: t.viewList, icon: Boxes },
@@ -194,7 +296,9 @@ export function AgentsPage() {
             </div>
           </div>
 
-          {view === 'list' ? (
+          {agents === null && !loadError ? (
+            <div className="py-24 text-center text-sm text-[#8A8278]">{t.loading}</div>
+          ) : view === 'list' ? (
             <>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 {filters.map((item) => (
@@ -221,10 +325,13 @@ export function AgentsPage() {
               </div>
             </>
           ) : (
-            <AgentOrchestration locale={locale} onSelectAgent={(id) => {
-              const found = STAGE_AGENTS.find((a) => a.id === id)
-              if (found) setSelected(found)
-            }} />
+            <AgentOrchestration
+              locale={locale}
+              onSelectAgent={(id) => {
+                const found = displayList.find((a) => a.id === id)
+                if (found) setSelected(found)
+              }}
+            />
           )}
 
           <AgentPromptEditor
@@ -233,7 +340,7 @@ export function AgentsPage() {
               if (!open) setSelected(null)
             }}
             agentId={selected?.id ?? ''}
-            agentName={selected?.name ?? { en: '', zh: '' }}
+            agentName={selected ? { en: selected.name, zh: selected.name } : { en: '', zh: '' }}
             promptFile={selected?.promptFile ?? ''}
             locale={locale}
           />

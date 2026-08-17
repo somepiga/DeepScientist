@@ -1,6 +1,6 @@
 ---
 name: figure-polish
-description: 当某个探索任务需要一张经打磨的里程碑图表、面向论文的图、附录图，或在将一张图视为最终版之前进行一次强制的渲染-检查-修订轮次时使用。
+description: 当某个探索任务需要出版质量的图——无论是从结构化数据生成首轮图（柱状/折线/散点/雷达）、打磨已有的里程碑图/论文图/附录图，还是面向 Nature 等高影响期刊的多面板期刊就绪插图（Python 或 R）——并在将图视为最终版之前进行一次强制的渲染-检查-修订轮次时使用。本技能已并入原 paper-plot 与 nature-figure 的出图能力。
 skill_role: companion
 ---
 
@@ -170,6 +170,35 @@ DeepScientist 的图应给人学术、克制而清晰的感觉。
 - 双栏论文图：约 `7.2 x 3.2 in`
 
 仅在内容确有需要时调整。
+
+## 从结构化数据出图（并入 paper-plot）
+
+当测量数据、数组或类 CSV 结果应转化为出版质量图，且可套用某个已打包风格时，优先从结构化数据生成首轮图，而非在 `write`/`analysis-campaign`/`experiment` 内部临时拼装绘图栈。
+
+可用风格（模板脚本归档于 `src/skills/_obsolete/paper-plot/scripts/`，复制后仅替换顶部数据块）：
+
+| Style | Type | Best for |
+|-------|------|----------|
+| `bar_paired_delta` | Bar | 基线与方法的配对对比，带显式增益箭头 |
+| `bar_grouped_hatch` | Bar | 多方法对比或带高亮主方法的消融 |
+| `line_confidence_band` | Line | 带不确定性带的训练或缩放曲线 |
+| `line_training_curve` | Line | 带参考线或断点标记的有序曲线 |
+| `line_loss_with_inset` | Line | 需要局部放大插图的曲线 |
+| `scatter_tsne_cluster` | Scatter | 带标注的聚类嵌入图 |
+| `scatter_broken_axis` | Scatter | 针对离群点或大间隙的断轴布局散点图 |
+| `radar_dual_series` | Radar | 两方法多维度对比 |
+
+所有模板先输出 `dpi=300` 的 PNG。若最终需要矢量输出或进一步视觉精修，在首轮渲染后将结果交给本技能的"强制的渲染-检查-修订工作流"。
+
+## Nature / 高影响期刊作图（并入 nature-figure）
+
+面向 Nature / Science / Cell / NeurIPS / ICLR 等场合的插图（Python 或 R），在发表场合、导出契约或审查风险是主要约束时使用本技能；对来自实测数据的简单结构化图，仍优先上面的"从结构化数据出图"。
+
+**后端选择是一道阻塞式闸门。** 若用户未明确选择 Python 或 R，先问"Python 还是 R？"并停止，待回答后再用所选后端独占完成全部绘图、预览、导出与视觉 QA（不得交叉用另一种语言渲染预览）。所选运行时或绘图包缺失时，在渲染前停止并报告阻塞原因。
+
+图表契约（绘图前确立）：核心结论主张、证据链到每个面板的映射、原型分类（quantitative grid / schematic-led composite / image plate+quant / asymmetric mixed-modality）、期刊与导出契约（最终尺寸、可编辑文本、源数据、统计说明、图像完整性备注、SVG/PDF/TIFF 格式）。
+
+风格：跨所有面板采用统一方法族配色；Nature Machine Intelligence 风格插图用低饱和度 `NMI pastel` 色族，绿/红仅保留给增益、下降等方向性提示。白色或近白背景；仅在显微镜/体渲染图像板时切换黑色。
 
 ## 内部策略参考
 

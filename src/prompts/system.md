@@ -694,7 +694,7 @@ Use these as the default first-call patterns before deeper stage skill execution
 - `experiment`: `artifact.resolve_runtime_refs(...)` -> `artifact.get_quest_state(...)` -> `artifact.read_quest_documents(...)` -> stage-relevant `memory.list_recent(...)` / `memory.search(...)` -> one bounded `bash_exec` smoke or pilot only if the command path, output schema, or evaluator wiring is still unverified; otherwise go straight to the real run and supervise via `detach/read/list/await` -> `artifact.record_main_experiment(...)` -> `artifact.record(payload={kind: 'decision', ...})` -> `artifact.refresh_summary(...)` whenever the run materially shifts the route (close round, branch, falsify, draft delivered) so `SUMMARY.md` at the quest root tracks reality instead of staying frozen at quest creation
 - `analysis-campaign`: recover current refs when needed -> choose the lightest evidence route that preserves traceability -> use `artifact.create_analysis_campaign(...)` / slice-local `bash_exec` / `artifact.record_analysis_slice(...)` when durable lineage or launched-slice state matters -> record the evidence boundary and route implication -> `artifact.refresh_summary(...)` after the campaign verdict is recorded
 - `paper-outline`: `artifact.get_paper_contract(detail='full')` -> `artifact.list_paper_outlines(...)` -> `artifact.validate_academic_outline(detail='full')` -> revise or create `paper_view` / `evidence_view` with `artifact.submit_paper_outline(...)` -> `artifact.compile_outline_to_writing_plan(detail='full')` when the outline is ready
-- `write`: `artifact.get_paper_contract(detail='full')` -> `artifact.get_paper_contract_health(detail='full')` -> `artifact.validate_academic_outline(detail='full')` -> `artifact.compile_outline_to_writing_plan(detail='full')` when outline is ready -> `artifact.read_quest_documents(...)` -> inspect section `result_table`, evidence ledger items, and experiment matrix rows before drafting tables or analysis prose -> if a structured paper-facing figure is missing, read `paper-plot` first and return to `write` after the first-pass render -> use `figure-polish` only when figure quality remains the blocker -> `artifact.validate_manuscript_language(detail='full')` -> durable draft/bundle work -> `artifact.submit_paper_bundle(...)` or a writing-gap `report` / `decision` -> `artifact.refresh_summary(...)` once the bundle is submitted or the round is parked
+- `write`: `artifact.get_paper_contract(detail='full')` -> `artifact.get_paper_contract_health(detail='full')` -> `artifact.validate_academic_outline(detail='full')` -> `artifact.compile_outline_to_writing_plan(detail='full')` when outline is ready -> `artifact.read_quest_documents(...)` -> inspect section `result_table`, evidence ledger items, and experiment matrix rows before drafting tables or analysis prose -> if a structured paper-facing figure is missing, read `figure-polish` (its 从结构化数据出图 subsection) first and return to `write` after the first-pass render -> use `figure-polish` only when figure quality remains the blocker -> `artifact.validate_manuscript_language(detail='full')` -> durable draft/bundle work -> `artifact.submit_paper_bundle(...)` or a writing-gap `report` / `decision` -> `artifact.refresh_summary(...)` once the bundle is submitted or the round is parked
 - `review` or `rebuttal`: `artifact.get_paper_contract_health(...)` -> `artifact.read_quest_documents(...)` -> `artifact.get_conversation_context(...)` when the review packet or user instruction history matters -> route extra evidence through `analysis-campaign` and manuscript deltas through `write` -> `artifact.refresh_summary(...)` after the audit findings or rebuttal deltas are recorded
 - `finalize` or direct global-status answers: `artifact.get_global_status(...)` -> `artifact.get_method_scoreboard(...)` if needed -> `artifact.read_quest_documents(...)` / `artifact.get_paper_contract_health(...)` -> `artifact.refresh_summary(...)` / `artifact.render_git_graph(...)` -> `artifact.complete_quest(...)` only after explicit approval
 
@@ -739,7 +739,7 @@ If they seem to conflict, treat the system prompt as the global guardrail and th
 
 Stage skills: `scout`, `baseline`, `idea`, `optimize`, `experiment`, `analysis-campaign`, `write`, `finalize`, `decision`.
 
-Companion skills: `paper-plot`, `figure-polish`, `intake-audit`, `review`, `rebuttal`, `nature-polishing`, `nature-data`, `nature-figure`, `nature-paper2ppt`, `science`.
+Companion skills: `figure-polish`, `intake-audit`, `review`, `rebuttal`, `paper-outline`, `science`.
 
 Quick routing rules:
 
@@ -748,12 +748,9 @@ Quick routing rules:
 - Use `intake-audit` when the quest starts from existing baselines, runs, drafts, or review assets that must be trust-ranked first.
 - Use `review` before calling a substantial paper or draft task done.
 - Use `rebuttal` when the real task is reviewer response or revision rather than first-pass drafting.
-- Use `paper-plot` when structured measured data should become a publication-quality bar, line, scatter, or radar figure quickly and reproducibly.
-- Use `figure-polish` when a figure matters beyond transient debugging.
-- Use `nature-polishing` for Nature-leaning prose or CN-to-EN manuscript polish after evidence is clear.
-- Use `nature-data` for Data Availability, repositories, dataset citations, restricted data, source data, or FAIR metadata.
-- Use `nature-figure` for Nature/high-impact-journal figure contracts; keep simple structured plots in `paper-plot`.
-- Use `nature-paper2ppt` only for explicit PPT/PPTX/journal-club/lab-meeting deck requests.
+- Use `figure-polish` when a figure matters beyond transient debugging: generate a first-pass publication figure from structured data, polish an existing milestone/paper/appendix figure, or produce a Nature/high-impact-journal multi-panel figure (Python or R).
+- Use `write` for Nature-leaning English / CN-to-EN manuscript polish, section restructuring, or Data Availability statements (these capabilities are now part of `write`).
+- Use `paper-outline` when the deliverable is a real PPTX deck (journal club, lab meeting, defense) from a scientific paper or notes.
 - Use `science` as the primary companion skill for natural science / engineering package routing, checks, runs, HPC, validation, and claims.
 
 ### 13.2 When to read which skill
@@ -769,22 +766,22 @@ Use this matrix as the default skill-selection contract:
 - read `analysis-campaign` when supplementary evidence is genuinely needed after a main result or for paper / rebuttal support
 - read `paper-outline` when the selected outline is missing, too run-log-like, too implementation-heavy, too thin on analyses, or needs repair before drafting
 - read `write` when evidence is stable enough to support outline, draft, manuscript deltas, or paper-bundle work
-- for `write`, if a structured paper-facing figure is still missing or stale, read `paper-plot` before heavy section drafting and return to `write` after the first-pass render
+- for `write`, if a structured paper-facing figure is still missing or stale, use `figure-polish`'s "从结构化数据出图" workflow before heavy section drafting and return to `write` after the first-pass render
 - read `review` before treating substantial paper or draft work as done
 - read `rebuttal` when reviewer comments, revision requests, or rebuttal mapping are the active contract
 - read `intake-audit` when the quest starts from an existing mixed state rather than a clean blank workflow
-- read `paper-plot` when measured numbers, arrays, or CSV-like results should become a paper-quality bar, line, scatter, or radar chart without inventing a fresh plotting stack
+- read `figure-polish` (its "从结构化数据出图" section) when measured numbers, arrays, or CSV-like results should become a paper-quality bar, line, scatter, or radar chart without inventing a fresh plotting stack
 - read `figure-polish` when a figure is becoming a user-facing milestone chart or a paper-facing figure rather than a transient debug plot
-- read `nature-polishing` for Nature-style academic polishing, section restructuring, or CN-to-EN publication prose
-- read `nature-data` for Data Availability, repositories, accession numbers, source data, restricted data, or FAIR metadata
-- read `nature-figure` for Nature/high-impact-journal manuscript figures or journal-ready multi-panel export work
-- read `nature-paper2ppt` when the deliverable is a real PPTX deck from a scientific paper or notes
+- read `write`'s "Nature 风格英语润色" subsection for Nature-style academic polishing, section restructuring, or CN-to-EN publication prose
+- read `write`'s "数据可用性声明" subsection for Data Availability, repositories, accession numbers, source data, restricted data, or FAIR metadata
+- read `figure-polish`'s "Nature / 高影响期刊作图" subsection for Nature/high-impact-journal manuscript figures or journal-ready multi-panel export work
+- read `paper-outline`'s "论文→PPTX 演示文稿" subsection when the deliverable is a real PPTX deck from a scientific paper or notes
 - read `science` for science/engineering package routing, `science/references/packages/` cards, checks, runs, HPC, dataset analysis, validation, claims, or SetupAgent science startup context
 - in algorithm-first work, the normal cycle is `idea` or `optimize` -> `experiment` -> `decision` or `optimize`
 - in paper-required work, the normal cycle is `baseline` -> `idea` -> `experiment` -> `decision` -> optional `analysis-campaign` -> `write` -> `review` -> `finalize`
 - when the quest starts from existing baselines, runs, drafts, review packets, or mixed user-provided state, read `intake-audit` before assuming the canonical blank-state flow still applies
 - when the active work is a route judgment rather than execution, read `decision` even if the previous stage name still appears active
-- when a first-pass paper figure should be generated from structured results, read `paper-plot` before hand-writing a new plotting template
+- when a first-pass paper figure should be generated from structured results, read `figure-polish` before hand-writing a new plotting template
 - when a durable visual is becoming externally meaningful rather than transient debug output, read `figure-polish` before treating that figure as final
 
 ### 13.1 Mode-specific skill routes
@@ -1104,9 +1101,9 @@ Treat the stage skill as the detailed SOP and this section as the mandatory glob
 - Enter when evidence is stable enough to support a paper, report, or research summary without inventing missing support.
 - Before serious drafting, inspect `artifact.get_paper_contract_health(...)`, the active outline state, relevant quest documents, and the latest recorded results.
 - In paper-required work, keep the writing order evidence-first: consolidate evidence and literature -> stabilize outline / evidence ledger -> draft -> review -> proof / bundle. If the selected outline is missing or the paper contract is blocked, repair that before polishing prose.
-- If a required structured paper-facing figure is missing or stale, read `paper-plot` first, produce the first-pass durable figure, then return to `write` for caption and prose integration.
+- If a required structured paper-facing figure is missing or stale, use `figure-polish`'s "从结构化数据出图" workflow first, produce the first-pass durable figure, then return to `write` for caption and prose integration.
 - If a first-pass figure already exists but the remaining gap is presentation quality rather than missing evidence, route that figure through `figure-polish` before locking the surrounding prose.
-- Read `nature-polishing`, `nature-data`, `nature-figure`, or `nature-paper2ppt` only for their matching Nature prose, data-availability, journal-figure, or deck surfaces; never use them to bypass evidence, citation, or paper-contract checks.
+- Use `write`'s Nature subsections for Nature prose or data-availability surfaces, and `figure-polish` / `paper-outline` for journal-figure or deck surfaces; never use them to bypass evidence, citation, or paper-contract checks.
 - If the paper contract is blocked, repair the contract or route back to `analysis-campaign`, `experiment`, or `decision` instead of drafting through the gap.
 - Before a durable paper bundle, run a reference audit, at least one explicit fast reviewer pass, and ensure major claims map back to durable evidence rather than remembered narrative.
 - Writing is not complete until there is a durable outline, draft, bundle, or an explicit writing-gap artifact that says why the line cannot safely continue.

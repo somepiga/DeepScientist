@@ -54,9 +54,9 @@ skill_role: stage
    运行 `breadth -> shortlist -> depth`。在可用时优先使用 DeepXiv 或 OpenAlex 进行发现，再从 DOI 或 arXiv 获取 BibTeX，而非凭记忆。保持 `paper/references.bib` 机器可用，并在打包提交前审计它。
    如果系统提示声明 DeepXiv 可用，在能直接回答问题的情况下，优先使用它进行以论文为核心的发现与候选清单筛选，再考虑广泛网络搜索。如果声明 DeepXiv 不可用，不要强行使用；沿用传统路径。在升级到全文前，使用 `artifact.arxiv(paper_id=..., full_text=False)` 实际读取 arXiv 论文。
 6. 在文字前先规划展示物。
-   若某章节需要面向论文的实测图，先使用 `paper-plot`。只有在已有持久的首轮渲染后才使用 `figure-polish`。将结果的图路径与要点同步回 `paper/evidence_ledger.json`、`paper/paper_experiment_matrix.md` 与草稿。
-7. 按论文界面路由 Nature 配套工作。
-   只有在当前章节任务、证据行与未填字段已知之后，才打开 `nature-*` 技能。使用该配套技能产出有边界的章节/图/deck 交付物，再回到 `write` 将其整合进草稿、证据台账、图/表目录、引用与打包状态。
+   若某章节需要面向论文的实测图，先使用 `figure-polish` 从结构化数据出图（见其"从结构化数据出图"小节）；需要打磨已有图时仍用 `figure-polish` 的渲染-检查-修订工作流。将结果的图路径与要点同步回 `paper/evidence_ledger.json`、`paper/paper_experiment_matrix.md` 与草稿。
+7. 按论文界面路由配套写作。
+   当章节任务需要 Nature 风格英语润色或数据可用性声明时，使用本技能下方的对应小节；需要 PPTX 演示包时，使用 `paper-outline`。产出有边界的章节/声明/deck 交付物后，回到 `write` 将其整合进草稿、证据台账、图/表目录、引用与打包状态。
 8. 按章节任务起草，而非一整段长流。
    将引言 / 相关工作 / 方法 / 实验 / 分析 / 结论作为独立任务来写。摘要要晚写，待证据顺序与章节角色稳定之后再写。对于 oral 级升级，遵循下文的 `Draft To Top Conference Oral` 章节。
 9. 在输出前校验，必要时路由。
@@ -115,10 +115,10 @@ skill_role: stage
 - 不要将 `paper_contract_health` 当作阅读实际章节 `result_table`、证据行或实验矩阵行的替代品。
 - 不要绕开缺失证据、不稳定基线或未解决的非可选实验行去起草。
 - 不要凭记忆手写 BibTeX、引用、指标或方法细节。
-- 当 `paper-plot` 应负责首轮图时，不要在 `write` 内部临时拼装新的绘图栈。
-- 不要使用 `nature-polishing` 让无支撑、过期或过度宽泛的论点听起来更强。
-- 不要使用 `nature-data` 去编造仓库、登录号、DOI、许可、 embargo、访问委员会或伦理审批。
-- 除非用户要求真实的演示文稿 deck，否则不要使用 `nature-paper2ppt`。
+- 当首轮图应由 `figure-polish` 从结构化数据生成时，不要在 `write` 内部临时拼装新的绘图栈。
+- 不要使用 Nature 风格润色让无支撑、过期或过度宽泛的论点听起来更强。
+- 不要编造数据可用性声明的仓库、登录号、DOI、许可、 embargo、访问委员会或伦理审批。
+- 除非用户要求真实的演示文稿 deck，否则不要生成 PPTX 演示包。
 - 当实验与分析需要不同的、面向审稿人的任务时，不要将它们合并为一份无差别的结果倾倒。
 - 不要将 `evidence_ready` 或 `analysis_ready` 等同于 `manuscript_ready` 或 `submission_ready`。
 - 不要把一篇论文快照备忘录当作最终论文包提交；应将其设为检查点并继续写作/评审。
@@ -190,31 +190,43 @@ skill_role: stage
 - 坏图注：“Publication-grade figure refinement is recommended with TOOL.”
 - 图注形式：描述该图显示什么，以及它为何支撑论点。
 
-## Nature 配套技能
+## 配套写作：Nature 风格润色与数据可用性
 
-`nature-*` 技能是改编自 `Yuan1z0825/nature-skills` 的专注配套技能。
-它们可以改进特定的手稿界面，但不能替代 DeepScientist 的论文契约。
+`nature` 风格能力已并入本技能，作为 `write` 流程中的专注子任务，不再作为独立技能加载。它们改进特定界面，但不能替代 DeepScientist 的论文契约。
 
-将它们作为 `write` 流程中的一次简短交接来使用：
+将它们作为一次简短交接来使用：
 
-1. 确定确切的界面：文字、数据可用性、图包或演示 deck。
-2. 检查 `artifact.get_paper_contract(detail='full')` 或相关任务文档，寻找该界面可能提及的证据行与缺失字段。
-3. 仅阅读匹配的 `nature-*` 技能及其说明需要的任何被引用文件。
-4. 产出有边界的输出：修订后的章节文字、数据可用性块、图/导出计划，或 PPTX deck。
-5. 回到 `write` 并在声称进展前更新持久的论文界面：草稿文件、`paper/evidence_ledger.*`、`paper/paper_experiment_matrix.*`、`paper/references.bib`、图/表目录或打包清单（视情况而定）。
-6. 重新运行正常的 write 校验关卡。在 DeepScientist 的覆盖度、语言、引用与产物检查仍通过之前，Nature 配套输出不算手稿就绪。
+1. 确定确切的界面：文字润色、数据可用性，或（由 `paper-outline` 处理的）PPTX 演示包。
+2. 检查 `artifact.get_paper_contract(detail='full')` 或相关任务文档，寻找证据行与缺失字段。
+3. 仅阅读匹配的子节并产出有边界的输出。
+4. 回到 `write` 并在声称进展前更新持久的论文界面：草稿文件、`paper/evidence_ledger.*`、`paper/paper_experiment_matrix.*`、`paper/references.bib`、图/表目录或打包清单（视情况而定）。
+5. 重新运行正常的 write 校验关卡。在 DeepScientist 的覆盖度、语言、引用与产物检查仍通过之前，配套输出不算手稿就绪。
 
-- `nature-polishing`：用于偏向 Nature 的英文、章节重构，以及中译英的学术润色。在证据边界清晰后应用，并保持无支撑论点被收窄或标记为阻塞点。
-- `nature-data`：用于数据可用性、源数据、仓库、数据集引用、受限数据与 FAIR 元数据章节。从经核对的清单出发起草，将未解决字段显式保留。
-- `nature-figure`：当图论点、面板逻辑、后端选择、期刊导出与 QA 是主要任务时，用于 Nature/高影响期刊的图包。对于简单的结构化结果图，优先使用 `paper-plot`。
-- `nature-paper2ppt`：仅用于 PPT/PPTX 交付物，如期刊俱乐部、组会或论文分享 deck。预期输出是一个真实 deck 加轻量验证。
+### Nature 风格英语润色（原 nature-polishing）
+
+当用户要求偏 Nature 风格的英语、中译英稿件润色、章节重构或出版质量学术散文时使用，基于《Scientific English Writing & Communication》的架构原则与 Academic Phrasebank 的短语级支持。
+
+- 仅在证据与主张边界清晰之后应用；不要用风格润色掩盖缺失支撑、夸大新颖性，或让无支撑主张听起来更强。
+- 先识别论文类型（research / methods / hypothesis / algorithmic），用沙漏结构（引言收窄→结论放宽）与正确写作顺序（Results→Intro/Conclusion→Title→Discussion→Methods→Abstract）。
+- 每句 ≤30 词，每段一个控制性观点；Results 报告 `what happened`，Discussion 解读 `how we understand it, and when it may fail`。
+- 中译英：先提取核心命题，重建显式逻辑链接（对比/因果/启示/局限），保持关键技术术语稳定。
+- 引用实际阅读并核实过的来源；不得编造数据、参考文献、机制或新颖性主张。AI 可润色/结构化，但不得从零起草核心论证。
+
+### 数据可用性声明（原 nature-data）
+
+当议题为数据可用性、源数据、存储库选择、数据集引用、受限数据或 FAIR 元数据时起草可用性文本，仅依据已核实的数据清单、存储库记录或 artifact 路径。
+
+- 不得编造 DOI、accession 编号、存储库、伦理审批、访问委员会、许可或禁运期。
+- 将每个数据集归入一种访问路径：public repository / controlled access / within paper or supplement / reused public source / third-party restricted / available on justified request / not applicable。
+- 优先公开、学科专用存储库与稳定标识符（DOI、accession、Handle、ARK）；将"available upon request"标记为薄弱表述，除非存在法律/伦理/商业限制。
+- 中文作者：投稿就绪声明仍用英文起草，仅保留必要的中文决策说明；将"数据可用性声明/原始数据/源数据/补充材料/受限数据"等映射为 Data Availability / raw data / source data / Supplementary Information / restricted data 等精确术语。
 
 路由示例：
 
-- 结果段落读起来平淡但证据扎实 -> 阅读 `nature-polishing`，仅修订该章节任务，然后校验论点—证据支撑。
-- 数据可用性缺失或含糊 -> 阅读 `nature-data`，盘点数据集与仓库，显式起草未解决字段，然后同步章节与引用。
-- 一张主图必须满足 Nature 风格的多面板导出预期 -> 阅读 `nature-figure`；若任务只是简单结果图，则留在 `paper-plot` 加 `figure-polish`。
-- 用户要求从一篇论文生成期刊俱乐部 deck -> 阅读 `nature-paper2ppt`；除非用户要求作为交付物附加，否则将其置于手稿包之外。
+- 结果段落读起来平淡但证据扎实 -> 阅读"Nature 风格英语润色"子节，仅修订该章节任务，然后校验论点—证据支撑。
+- 数据可用性缺失或含糊 -> 阅读"数据可用性声明"子节，盘点数据集与仓库，显式起草未解决字段，然后同步章节与引用。
+- 一张主图必须满足 Nature 风格的多面板导出预期 -> 使用 `figure-polish` 的"Nature / 高影响期刊作图"小节；若任务只是简单结果图，则留在 `figure-polish` 的"从结构化数据出图"。
+- 用户要求从一篇论文生成期刊俱乐部 deck -> 使用 `paper-outline` 的"论文→PPTX 演示文稿"小节；除非用户要求作为交付物附加，否则将其置于手稿包之外。
 
 ## 可能值得引用、以代码为基础的已证实事实
 - 当实现界面经当前仓库状态核证时，值得在文字中引用：入口点、模块边界、数据流阶段、控制循环、评估者接线，以及实质性影响论点的消融开关。
